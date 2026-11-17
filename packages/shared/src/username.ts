@@ -1,8 +1,9 @@
 export const USERNAME_RULES = {
-  minVisible: 3,
+  minVisible: 4, // including "#", so 3+ visible name characters
   maxVisible: 24,
   prefix: "#",
-  pattern: /^#[\p{L}\p{Extended_Pictographic}]+(-[\p{L}\p{Extended_Pictographic}]+)*$/u,
+  // letters (with combining marks) and emoji sequences (incl. skin tones, ZWJ, variation selectors), single hyphens between words
+  pattern: /^#[\p{L}\p{M}\p{Extended_Pictographic}\p{Emoji_Modifier}\u200D\uFE0F]+(-[\p{L}\p{M}\p{Extended_Pictographic}\p{Emoji_Modifier}\u200D\uFE0F]+)*$/u,
   // stored lowercase without "#"
 } as const;
 
