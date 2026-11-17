@@ -1,3 +1,4 @@
+import type { ApiError } from "@square/shared";
 import type { ApiClient, UploadSignRequest } from "./types";
 import { ClientApiError } from "./errors";
 import { appConfig } from "../config";
@@ -5,10 +6,11 @@ import { CSRF_HEADER, getCsrfToken } from "../csrf";
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const method = (init?.method || "GET").toUpperCase();
-  const headers: Record<string, string> = { "Content-Type": "application/json", ...(init?.headers as Record<string, string> || {}) };
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
     const csrf = getCsrfToken();
-    if (csrf) headers[CSRF_HEADER] = csrf;
+    if (csrf) headers.set(CSRF_HEADER, csrf);
   }
   const res = await fetch(`${appConfig.apiUrl}${path}`, {
     ...init,
@@ -17,8 +19,11 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     credentials: "include",
     cache: "no-store",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ClientApiError(data as any);
+  const data = (await res.json().catch(() => ({}))) as unknown;
+  if (!res.ok) {
+    const err = (data && typeof data === "object" ? data : { code: "ERROR", message: "Request failed" }) as ApiError;
+    throw new ClientApiError(err);
+  }
   return data as T;
 }
 

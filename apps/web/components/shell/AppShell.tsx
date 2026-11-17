@@ -88,17 +88,56 @@ function DefaultRightRail() {
 function MobileNav() {
   const pathname = usePathname();
   const items = [
-    { href: "/home", label: "Home" },
-    { href: "/explore", label: "Explore" },
-    { href: "/inbox", label: "Inbox" },
-    { href: "/u/amaka-eze", label: "Me" },
-  ];
+    { href: "/home", label: "Home", icon: HomeIcon },
+    { href: "/explore", label: "Explore", icon: ExploreIcon },
+    { href: "/inbox", label: "Inbox", icon: InboxIcon },
+    { href: "/u/amaka-eze", label: "Me", icon: ProfileIcon },
+  ] as const;
   if (pathname.startsWith("/login")) return null;
   return (
-    <nav className="lg:hidden fixed bottom-0 inset-x-0 border-t bg-bg/95 backdrop-blur flex justify-around py-2 z-50" aria-label="Primary">
-      {items.map(i => (
-        <Link key={i.href} href={i.href} prefetch={false} className={clsx("px-3 py-1 text-xs", pathname.startsWith(i.href) ? "text-lime" : "text-muted")}>{i.label}</Link>
-      ))}
+    <nav className="lg:hidden fixed bottom-0 inset-x-0 border-t bg-bg/95 backdrop-blur flex justify-around py-3 z-50" aria-label="Primary">
+      {items.map(i => {
+        const active = pathname === i.href || pathname.startsWith(i.href + "/") || (i.href === "/home" && pathname === "/");
+        const Icon = i.icon;
+        return (
+          <Link key={i.href} href={i.href} prefetch={false} aria-label={i.label} aria-current={active ? "page" : undefined} className={clsx("flex h-10 w-10 items-center justify-center rounded-xl", active ? "text-lime bg-lime-tint" : "text-muted hover:text-text")}>
+            <Icon active={active} />
+          </Link>
+        );
+      })}
     </nav>
+  );
+}
+
+function HomeIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 10.5 12 3l9 7.5" />
+      <path d="M5.5 9.8V20h13V9.8" />
+    </svg>
+  );
+}
+function ExploreIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="m15 9-2 6-6 2 2-6 6-2Z" />
+    </svg>
+  );
+}
+function InboxIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 5.5h16v13H4z" />
+      <path d="M4 14h4l2 2h4l2-2h4" />
+    </svg>
+  );
+}
+function ProfileIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 19.5a7 7 0 0 1 14 0" />
+    </svg>
   );
 }

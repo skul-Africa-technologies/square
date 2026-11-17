@@ -1,15 +1,15 @@
 import type { ApiClient, UploadSignRequest, UploadSignResponse } from "./types";
 import { ClientApiError } from "./errors";
 import { badges, campaigns, channels, communities, posts as seedPosts, projects as seedProjects, reservedTaken, schools, tabs as seedTabs, users } from "./seed";
-import type { Community, Post, Project, Tab, User } from "@square/shared";
+import type { Campaign, Channel, Community, Post, Project, Tab, User } from "@square/shared";
 
 const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms));
-let posts = [...seedPosts];
+const posts = [...seedPosts];
 let tabs = [...seedTabs];
-let projects = [...seedProjects];
-let campaignState = JSON.parse(JSON.stringify(campaigns));
-let communitiesState = [...communities];
-let channelsState = [...channels];
+const projects = [...seedProjects];
+let campaignState: Campaign[] = JSON.parse(JSON.stringify(campaigns)) as Campaign[];
+const communitiesState = [...communities];
+const channelsState: Channel[] = [...channels];
 let currentUser: User = { ...users[0] };
 let verifiedNew = false;
 
@@ -36,9 +36,18 @@ export const mockApi: ApiClient = {
   async listSchools(query) { await delay(120); const q = (query || "").toLowerCase(); return schools.filter(s => s.name.toLowerCase().includes(q)); },
   async me() { await delay(120); return currentUser; },
   async updateMe(data) { await delay(150); currentUser = { ...currentUser, ...data }; return currentUser; },
-  async createCommunity(data) { await delay(250); const c: Community = { id: `c_${Date.now()}`, slug: (data.name || "new").toLowerCase().replace(/\s+/g, "-"), name: data.name || "New community", blurb: data.blurb || "", memberCount: 1, category: data.category || "Web2", schoolName: data.schoolName || "FUT Minna", avatar: (data.name || "NC").slice(0, 2).toUpperCase() }; communitiesState = [c, ...communitiesState]; return c; },
+  async createCommunity(data) { await delay(250); const c: Community = { id: `c_${Date.now()}`, slug: (data.name || "new").toLowerCase().replace(/\s+/g, "-"), name: data.name || "New community", blurb: data.blurb || "", memberCount: 1, category: data.category || "Web2", schoolName: data.schoolName || "FUT Minna", avatar: (data.name || "NC").slice(0, 2).toUpperCase() }; communitiesState.push(c); return c; },
   async getCommunity(id) { await delay(120); const c = communitiesState.find(x => x.id === id || x.slug === id); if (!c) throw new ClientApiError({ code: "NOT_FOUND", message: "Community not found" }); return c; },
-  async createChannel(communityId, data) { await delay(200); const ch = { id: `ch_${Date.now()}`, communityId, name: data.name || "new-channel", slug: (data.name || "new-channel").toLowerCase().replace(/\s+/g, "-"), description: data.description }; channelsState.push(ch as any); const base = { channelId: ch.id, enabled: true }; tabs.push({ id: `t_${Date.now()}_g`, ...base, name: "General", slug: "general", kind: "chat", fixed: "general", permissions: { canPost: ["owner", "moderator", "member"], canPin: ["owner", "moderator"], canRemove: ["owner", "moderator"] }, order: 0 } as Tab); tabs.push({ id: `t_${Date.now()}_c`, ...base, name: "Community", slug: "community", kind: "feed", fixed: "community", permissions: { canPost: ["owner", "moderator", "member"], canPin: ["owner", "moderator"], canRemove: ["owner", "moderator"] }, order: 1 } as Tab); return ch as any; },
+  async createChannel(communityId, data) {
+    await delay(200);
+    const ch: Channel = { id: `ch_${Date.now()}`, communityId, name: data.name || "new-channel", slug: (data.name || "new-channel").toLowerCase().replace(/\s+/g, "-"), description: data.description };
+    channelsState.push(ch);
+    const base = { channelId: ch.id, enabled: true } as const;
+    const t1: Tab = { id: `t_${Date.now()}_g`, ...base, name: "General", slug: "general", kind: "chat", fixed: "general", permissions: { canPost: ["owner", "moderator", "member"], canPin: ["owner", "moderator"], canRemove: ["owner", "moderator"] }, order: 0 };
+    const t2: Tab = { id: `t_${Date.now()}_c`, ...base, name: "Community", slug: "community", kind: "feed", fixed: "community", permissions: { canPost: ["owner", "moderator", "member"], canPin: ["owner", "moderator"], canRemove: ["owner", "moderator"] }, order: 1 };
+    tabs.push(t1, t2);
+    return ch;
+  },
   async getChannelTabs(channelId) { await delay(100); return tabs.filter(t => t.channelId === channelId).sort((a, b) => a.order - b.order); },
   async createTab(channelId, data) { await delay(150); const t: Tab = { id: `tab_${Date.now()}`, channelId, name: data.name || "Tab", slug: (data.name || "tab").toLowerCase().replace(/\s+/g, "-"), kind: data.kind || "chat", enabled: true, permissions: data.permissions || { canPost: ["owner", "moderator", "member"], canPin: ["owner", "moderator"], canRemove: ["owner", "moderator"] }, order: tabs.filter(x => x.channelId === channelId).length, template: data.template }; tabs.push(t); return t; },
   async updateTabPermissions(tabId, permissions) { await delay(120); tabs = tabs.map(t => t.id === tabId ? { ...t, permissions } : t); const t = tabs.find(x => x.id === tabId); if (!t) throw new ClientApiError({ code: "NOT_FOUND", message: "Tab not found" }); return t; },
@@ -52,17 +61,17 @@ export const mockApi: ApiClient = {
     return paginate(items);
   },
   async createPost(tabId, data) { await delay(150); const p: Post = { id: `p_${Date.now()}`, tabId, authorId: currentUser.id, content: data.content, createdAt: new Date().toISOString(), media: data.media }; posts.push(p); return p; },
-  async signUpload(_data: UploadSignRequest): Promise<UploadSignResponse> { await delay(150); return { signature: "mock", timestamp: Date.now(), cloudName: "demo", apiKey: "mock", folder: "square" }; },
+  async signUpload(_data: UploadSignRequest): Promise<UploadSignResponse> { void _data; await delay(150); return { signature: "mock", timestamp: Date.now(), cloudName: "demo", apiKey: "mock", folder: "square" }; },
   // PROPOSED
   async listCommunities(params) { await delay(150); let items = [...communitiesState]; const f = params?.filter; if (f && f !== "My school") items = items.filter(c => c.category.toLowerCase() === f.toLowerCase()); if (f === "My school") items = items.filter(c => c.schoolName === currentUser.schoolName); return paginate(items); },
   async listChannels(communityId) { await delay(100); return channelsState.filter(c => c.communityId === communityId || (communityId === "web3-club" && c.communityId === "wc")); },
   async listProjects(tabId) { await delay(120); return projects.filter(p => p.tabId === tabId); },
   async getProject(id) { await delay(100); const p = projects.find(x => x.id === id); if (!p) throw new ClientApiError({ code: "NOT_FOUND", message: "Project not found" }); return p; },
   async createProject(tabId, data) { await delay(150); const p: Project = { id: `pr_${Date.now()}`, channelId: "ch-general", tabId, title: data.title || "Untitled", status: (data.status as Project["status"]) || "idea", description: data.description || "", needs: data.needs || [], teamCount: 1, team: [{ id: currentUser.id, username: currentUser.username }], milestones: [], rolesNeeded: [], updates: [] }; projects.push(p); return p; },
-  async listCampaigns(channelId) { await delay(120); return campaignState.filter((c: any) => c.channelId === channelId); },
-  async getCampaign(id) { await delay(100); const c = campaignState.find((x: any) => x.id === id); if (!c) throw new ClientApiError({ code: "NOT_FOUND", message: "Campaign not found" }); return c; },
-  async joinCampaign(id) { await delay(150); campaignState = campaignState.map((c: any) => c.id === id ? { ...c, joined: c.joined + 1 } : c); return campaignState.find((c: any) => c.id === id); },
-  async completeCampaignTask(campaignId, taskId) { await delay(150); campaignState = campaignState.map((c: any) => c.id === campaignId ? { ...c, tasks: c.tasks.map((t: any) => t.id === taskId ? { ...t, done: true } : t) } : c); return campaignState.find((c: any) => c.id === campaignId); },
+  async listCampaigns(channelId) { await delay(120); return campaignState.filter((c) => c.channelId === channelId); },
+  async getCampaign(id) { await delay(100); const c = campaignState.find((x) => x.id === id); if (!c) throw new ClientApiError({ code: "NOT_FOUND", message: "Campaign not found" }); return c; },
+  async joinCampaign(id) { await delay(150); campaignState = campaignState.map((c) => c.id === id ? { ...c, joined: c.joined + 1 } : c); const c = campaignState.find((x) => x.id === id); if (!c) throw new ClientApiError({ code: "NOT_FOUND", message: "Campaign not found" }); return c; },
+  async completeCampaignTask(campaignId, taskId) { await delay(150); campaignState = campaignState.map((c) => c.id === campaignId ? { ...c, tasks: c.tasks.map((t) => t.id === taskId ? { ...t, done: true } : t) } : c); const c = campaignState.find((x) => x.id === campaignId); if (!c) throw new ClientApiError({ code: "NOT_FOUND", message: "Campaign not found" }); return c; },
   async listBadges() { await delay(80); return badges; },
-  async getProfile(username) { await delay(120); const u = users.find(x => x.username === username) || (currentUser.username === username ? currentUser : null); if (!u) throw new ClientApiError({ code: "NOT_FOUND", message: "User not found" }); const b = badges.filter(x => u.badgeIds?.includes(x.id)); const userProjects = projects.filter(p => p.team.some(t => t.username === username)); return { ...u, projects: userProjects, campaigns: campaignState, badges: b } as any; },
+  async getProfile(username) { await delay(120); const u = users.find(x => x.username === username) || (currentUser.username === username ? currentUser : null); if (!u) throw new ClientApiError({ code: "NOT_FOUND", message: "User not found" }); const b = badges.filter(x => u.badgeIds?.includes(x.id)); const userProjects = projects.filter(p => p.team.some(t => t.username === username)); return { ...u, projects: userProjects, campaigns: campaignState, badges: b }; },
 };
