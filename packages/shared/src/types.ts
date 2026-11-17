@@ -13,7 +13,7 @@ export interface User {
   verifiedStudent: boolean;
   joinedAt: string;
   bio?: string;
-  skills?: string[];
+  skills?: string[]; // interest chips
   badgeIds?: string[];
 }
 
@@ -31,9 +31,15 @@ export interface Community {
 export interface Channel {
   id: string;
   communityId: string;
+  communityName?: string;
+  communitySlug?: string;
   name: string;
   slug: string;
   description?: string;
+  memberCount?: number;
+  interest?: string;
+  isPublic?: boolean;
+  joined?: boolean;
 }
 
 export interface TabPermissions {
@@ -63,6 +69,10 @@ export interface Post {
   createdAt: string;
   pinned?: boolean;
   media?: { id: string; url: string; type: "image" | "video" }[];
+  channelId?: string;
+  channelName?: string;
+  communitySlug?: string;
+  channelSlug?: string;
 }
 
 export interface Project {
@@ -105,6 +115,27 @@ export interface Campaign {
 }
 
 export interface Badge { id: string; name: string; icon?: string }
+
+export interface DirectMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  text: string;
+  createdAt: string;
+  status?: "sending" | "sent" | "failed" | "seen";
+  deleted?: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  participant: { id: string; username: string; avatarUrl?: string };
+  lastMessage?: string;
+  lastMessageAt?: string;
+  unreadCount: number;
+  blocked?: boolean;
+}
+
+export interface BlockedUser { id: string; username: string }
 
 export interface ApiError { code: string; message: string; field?: string }
 export interface Paginated<T> { items: T[]; nextCursor?: string | null }

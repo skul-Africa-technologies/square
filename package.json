@@ -13,5 +13,9 @@
     "test:e2e": "npm run test:e2e -w apps/web",
     "audit": "npm audit --audit-level=high",
     "analyze": "ANALYZE=true npm run build -w apps/web"
+  },
+  "devDependencies": {
+    "@next/bundle-analyzer": "^16.4.6",
+    "eslint-plugin-security": "^4.2.1"
   }
 }

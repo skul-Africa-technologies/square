@@ -44,16 +44,62 @@ export const realApi: ApiClient = {
   listPosts: (tabId, opts) => req(`/tabs/${tabId}/posts${opts?.after ? `?after=${encodeURIComponent(opts.after)}` : opts?.cursor ? `?cursor=${encodeURIComponent(opts.cursor)}` : ""}`),
   createPost: (tabId, data) => req(`/tabs/${tabId}/posts`, { method: "POST", body: JSON.stringify(data) }),
   signUpload: (data: UploadSignRequest) => req("/uploads/sign", { method: "POST", body: JSON.stringify(data) }),
+
   // PROPOSED: not in backend doc
   listCommunities: (params) => req(`/communities${params?.filter ? `?filter=${encodeURIComponent(params.filter)}` : ""}`),
-  listChannels: (communityId) => req(`/communities/${communityId}/channels`),
+  // PROPOSED: not in backend doc
+  listChannels: (communityId, params) => req(`/channels${communityId ? `?community=${encodeURIComponent(communityId)}` : ""}${params?.filter ? `${communityId ? "&" : "?"}filter=${encodeURIComponent(params.filter)}` : ""}`),
+  // PROPOSED: not in backend doc
+  joinChannel: (channelId) => req(`/channels/${channelId}/join`, { method: "POST" }),
+  // PROPOSED: not in backend doc
+  leaveChannel: (channelId) => req(`/channels/${channelId}/leave`, { method: "POST" }),
+  // PROPOSED: not in backend doc
+  myChannels: () => req(`/me/channels`),
+  // PROPOSED: not in backend doc
+  homeFeed: (opts) => req(`/me/feed${opts?.after ? `?after=${encodeURIComponent(opts.after)}` : ""}`),
+
+  // PROPOSED: not in backend doc
   listProjects: (tabId) => req(`/tabs/${tabId}/projects`),
+  // PROPOSED: not in backend doc
   getProject: (id) => req(`/projects/${id}`),
+  // PROPOSED: not in backend doc
   createProject: (tabId, data) => req(`/tabs/${tabId}/projects`, { method: "POST", body: JSON.stringify(data) }),
+  // PROPOSED: not in backend doc
   listCampaigns: (channelId) => req(`/channels/${channelId}/campaigns`),
+  // PROPOSED: not in backend doc
   getCampaign: (id) => req(`/campaigns/${id}`),
+  // PROPOSED: not in backend doc
   joinCampaign: (id) => req(`/campaigns/${id}/join`, { method: "POST" }),
+  // PROPOSED: not in backend doc
   completeCampaignTask: (campaignId, taskId) => req(`/campaigns/${campaignId}/tasks/${taskId}/complete`, { method: "POST" }),
+  // PROPOSED: not in backend doc
   listBadges: () => req(`/badges`),
+  // PROPOSED: not in backend doc
   getProfile: (username) => req(`/u/${encodeURIComponent(username)}`),
+
+  // PROPOSED: not in backend doc
+  listConversations: () => req(`/me/conversations`),
+  // PROPOSED: not in backend doc
+  getOrCreateConversation: (username) => req(`/me/conversations`, { method: "POST", body: JSON.stringify({ username }) }),
+  // PROPOSED: not in backend doc
+  getConversation: (id) => req(`/me/conversations/${id}`),
+  // PROPOSED: not in backend doc
+  listMessages: (conversationId, opts) => req(`/me/conversations/${conversationId}/messages${opts?.after ? `?after=${encodeURIComponent(opts.after)}` : ""}`),
+  // PROPOSED: not in backend doc
+  sendMessage: (conversationId, text) => req(`/me/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ text }) }),
+  // PROPOSED: not in backend doc
+  deleteMessage: (conversationId, messageId) => req(`/me/conversations/${conversationId}/messages/${messageId}`, { method: "DELETE" }),
+  // PROPOSED: not in backend doc
+  markRead: (conversationId) => req(`/me/conversations/${conversationId}/read`, { method: "POST" }),
+  // PROPOSED: not in backend doc
+  unreadCount: () => req(`/me/unread`),
+
+  // PROPOSED: not in backend doc
+  blockUser: (username) => req(`/me/blocks`, { method: "POST", body: JSON.stringify({ username }) }),
+  // PROPOSED: not in backend doc
+  unblockUser: (username) => req(`/me/blocks/${encodeURIComponent(username)}`, { method: "DELETE" }),
+  // PROPOSED: not in backend doc
+  listBlocked: () => req(`/me/blocks`),
+  // PROPOSED: not in backend doc
+  reportUser: (username, reason, note) => req(`/me/reports`, { method: "POST", body: JSON.stringify({ username, reason, note }) }),
 };

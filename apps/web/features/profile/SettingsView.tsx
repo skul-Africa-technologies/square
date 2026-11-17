@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
@@ -12,9 +13,12 @@ export function SettingsView() {
   const [msg, setMsg] = useState("");
   const [uploadState, setUploadState] = useState<"idle" | "uploading" | "done" | "error">("idle");
   const [progress, setProgress] = useState(0);
+  const qc = useQueryClient();
+  const { data: blocked } = useQuery({ queryKey: ["blocked"], queryFn: () => api.listBlocked() }); // PROPOSED
+  const unblock = useMutation({ mutationFn: (u: string) => api.unblockUser(u), onSuccess: () => qc.invalidateQueries({ queryKey: ["blocked"] }) }); // PROPOSED
   const save = async () => {
     setSaving(true); setMsg("");
-    try { await api.updateMe({ displayName, bio } as any); setMsg("Saved"); }
+    try { await api.updateMe({ displayName, bio }); setMsg("Saved"); }
     catch { setMsg("Could not save. Try again."); }
     finally { setSaving(false); }
   };
@@ -57,6 +61,18 @@ export function SettingsView() {
         {uploadState === "uploading" && <div className="text-sm text-muted">Uploading {progress}%</div>}
         {uploadState === "done" && <div className="text-sm text-lime">Upload complete</div>}
         {uploadState === "error" && <div className="text-sm text-red-400">Upload failed. Check type/size and retry.</div>}
+      </section>
+      <section className="rounded-xl border bg-surface p-4 space-y-3">
+        <h2 className="font-heading font-semibold">Blocked users</h2>
+        {(blocked || []).length === 0 && <p className="text-sm text-muted">No blocked users.</p>}
+        <div className="space-y-2">
+          {(blocked || []).map(u => (
+            <div key={u.id} className="flex items-center justify-between rounded-lg border bg-bg-2 p-2">
+              <span className="text-sm">#{u.username}</span>
+              <Button size="sm" variant="secondary" onClick={() => unblock.mutate(u.username)} disabled={unblock.isPending}>Unblock</Button>
+            </div>
+          ))}
+        </div>
       </section>
       <section className="rounded-xl border bg-surface p-4">
         <h2 className="font-heading font-semibold mb-1">Wallet</h2>

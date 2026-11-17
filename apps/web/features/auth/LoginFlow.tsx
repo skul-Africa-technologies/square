@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { validateUsername, toDisplayUsername } from "@square/shared";
 import type { School } from "@square/shared";
 import { appConfig } from "@/lib/config";
+import { copy } from "@/lib/copy";
 
 const emailSchema = z.object({ email: z.string().email("Enter a valid email") });
 const AUTH_ERROR = "We couldn't complete that request. Please try again.";
@@ -25,10 +26,8 @@ export function LoginFlow() {
     // Session tokens only in httpOnly Secure cookies (server-set). In mock mode we establish a server cookie;
     // real mode must rely on backend-set httpOnly cookie on auth responses.
     if (appConfig.useMock) await establishMockSession();
-    if (!appConfig.useMock && !token) {
-      // token not exposed to JS; backend should have set cookie
-    }
-    router.push("/explore");
+    void token;
+    router.push("/home");
   }
 
   return (
@@ -41,7 +40,8 @@ export function LoginFlow() {
             <Image src="/logo-mark.png" alt="Square" width={36} height={36} className="rounded-lg" />
             <span className="font-heading font-semibold text-xl">Square</span>
           </div>
-          <h1 className="font-heading text-4xl font-semibold leading-tight">Build it. Launch it. Get the credit.</h1>
+          <h1 className="font-heading text-4xl font-semibold leading-tight">{copy.login.heroTitle}</h1>
+          <p className="mt-3 text-muted">{copy.login.heroSubtitle}</p>
         </div>
       </div>
       <div className="flex items-center justify-center p-6 lg:p-12">
@@ -51,9 +51,10 @@ export function LoginFlow() {
               <Image src="/logo-mark.png" alt="Square" width={32} height={32} className="rounded-lg" />
               <span className="font-heading font-semibold text-lg">Square</span>
             </div>
-            <h1 className="font-heading text-3xl font-semibold">Build it. Launch it. Get the credit.</h1>
+            <h1 className="font-heading text-3xl font-semibold">{copy.login.heroTitle}</h1>
+            <p className="mt-2 text-muted text-sm">{copy.login.heroSubtitle}</p>
           </div>
-          {step === 1 && <EmailStep onSent={(e, retryAfter) => { setEmail(e); setStep(2); }} />}
+          {step === 1 && <EmailStep onSent={(e) => { setEmail(e); setStep(2); }} />}
           {step === 2 && <CodeStep email={email} onVerified={(res) => { if (res.hasAccount) { void completeAuth(res.token); } else { setStep(3); } }} onBack={() => setStep(1)} />}
           {step === 3 && <DetailsStep onDone={(tok) => { void completeAuth(tok); }} />}
         </div>
@@ -71,14 +72,14 @@ function EmailStep({ onSent }: { onSent: (email: string, retryAfter?: number) =>
     <form className="space-y-4" onSubmit={handleSubmit(async (v) => {
       setErr(null);
       try {
-        const res: any = await api.requestCode(v.email);
-        const retry = typeof res?.retryAfter === "number" ? res.retryAfter : 0;
+        const res = await api.requestCode(v.email);
+        const retry = typeof res.retryAfter === "number" ? res.retryAfter : 0;
         if (retry > 0) setCooldown(retry);
         onSent(v.email, retry);
       } catch { setErr(AUTH_ERROR); }
     })}>
       <div>
-        <h2 className="font-heading text-2xl font-semibold">Welcome</h2>
+        <h2 className="font-heading text-2xl font-semibold">{copy.login.welcome}</h2>
         <p className="text-muted text-sm mt-1">Sign in or create an account with your email.</p>
       </div>
       <div>
@@ -119,8 +120,8 @@ function CodeStep({ email, onVerified, onBack }: { email: string; onVerified: (r
     if (cooldown > 0 || loading) return;
     setErr(null); setLoading(true);
     try {
-      const res: any = await api.requestCode(email);
-      const retry = typeof res?.retryAfter === "number" ? res.retryAfter : 60;
+      const res = await api.requestCode(email);
+      const retry = typeof res.retryAfter === "number" ? res.retryAfter : 60;
       setCooldown(Math.max(1, retry));
     } catch { setErr(AUTH_ERROR); }
     finally { setLoading(false); }

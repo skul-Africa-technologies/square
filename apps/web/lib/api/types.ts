@@ -1,6 +1,6 @@
 import type {
   AuthRequestCodeResponse, AuthSignupRequest, AuthSignupResponse, AuthVerifyCodeResponse,
-  Badge, Campaign, Channel, Community, Paginated, Post, Project, School, Tab, User
+  Badge, BlockedUser, Campaign, Channel, Community, Conversation, DirectMessage, Paginated, Post, Project, School, Tab, User
 } from "@square/shared";
 
 export interface UploadSignRequest { kind: "avatar" | "banner" | "post-media" }
@@ -27,7 +27,16 @@ export interface ApiClient {
   // PROPOSED: not in backend doc
   listCommunities(params?: { filter?: string; q?: string }): Promise<Paginated<Community>>;
   // PROPOSED: not in backend doc
-  listChannels(communityId: string): Promise<Channel[]>;
+  listChannels(communityId?: string, params?: { filter?: string; q?: string; joined?: boolean }): Promise<Channel[]>;
+  // PROPOSED: not in backend doc
+  joinChannel(channelId: string): Promise<{ ok: true }>;
+  // PROPOSED: not in backend doc
+  leaveChannel(channelId: string): Promise<{ ok: true }>;
+  // PROPOSED: not in backend doc
+  myChannels(): Promise<Channel[]>;
+  // PROPOSED: not in backend doc
+  homeFeed(opts?: { after?: string }): Promise<Paginated<Post>>;
+
   // PROPOSED: not in backend doc
   listProjects(tabId: string): Promise<Project[]>;
   // PROPOSED: not in backend doc
@@ -45,5 +54,31 @@ export interface ApiClient {
   // PROPOSED: not in backend doc
   listBadges(): Promise<Badge[]>;
   // PROPOSED: not in backend doc
-  getProfile(username: string): Promise<User & { projects: Project[]; campaigns: Campaign[]; badges: Badge[] }>;
+  getProfile(username: string): Promise<User & { projects: Project[]; campaigns: Campaign[]; badges: Badge[]; channelsJoined: number; joinedChannels: Channel[] }>;
+
+  // PROPOSED: not in backend doc
+  listConversations(): Promise<Conversation[]>;
+  // PROPOSED: not in backend doc
+  getOrCreateConversation(username: string): Promise<Conversation>;
+  // PROPOSED: not in backend doc
+  getConversation(id: string): Promise<Conversation>;
+  // PROPOSED: not in backend doc
+  listMessages(conversationId: string, opts?: { after?: string }): Promise<Paginated<DirectMessage>>;
+  // PROPOSED: not in backend doc
+  sendMessage(conversationId: string, text: string): Promise<DirectMessage>;
+  // PROPOSED: not in backend doc
+  deleteMessage(conversationId: string, messageId: string): Promise<{ ok: true }>;
+  // PROPOSED: not in backend doc
+  markRead(conversationId: string): Promise<{ ok: true }>;
+  // PROPOSED: not in backend doc
+  unreadCount(): Promise<{ count: number }>;
+
+  // PROPOSED: not in backend doc
+  blockUser(username: string): Promise<{ ok: true }>;
+  // PROPOSED: not in backend doc
+  unblockUser(username: string): Promise<{ ok: true }>;
+  // PROPOSED: not in backend doc
+  listBlocked(): Promise<BlockedUser[]>;
+  // PROPOSED: not in backend doc
+  reportUser(username: string, reason: string, note?: string): Promise<{ ok: true }>;
 }
