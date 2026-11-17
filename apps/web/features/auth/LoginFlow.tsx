@@ -38,7 +38,7 @@ export function LoginFlow() {
         <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/40 to-transparent" />
         <div className="relative z-10 max-w-md">
           <div className="flex items-center gap-2 mb-6">
-            <Image src="/logo-mark.png" alt="Square" width={36} height={36} />
+            <Image src="/logo-mark.png" alt="Square" width={36} height={36} className="rounded-lg" />
             <span className="font-heading font-semibold text-xl">Square</span>
           </div>
           <h1 className="font-heading text-4xl font-semibold leading-tight">Build it. Launch it. Get the credit.</h1>
@@ -48,7 +48,7 @@ export function LoginFlow() {
         <div className="w-full max-w-md">
           <div className="lg:hidden mb-8">
             <div className="flex items-center gap-2 mb-4">
-              <Image src="/logo-mark.png" alt="Square" width={32} height={32} />
+              <Image src="/logo-mark.png" alt="Square" width={32} height={32} className="rounded-lg" />
               <span className="font-heading font-semibold text-lg">Square</span>
             </div>
             <h1 className="font-heading text-3xl font-semibold">Build it. Launch it. Get the credit.</h1>

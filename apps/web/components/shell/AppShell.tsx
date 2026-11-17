@@ -16,8 +16,8 @@ export function AppShell({ children, rightRail }: { children: ReactNode; rightRa
     <div className="min-h-screen bg-bg text-text">
       <div className="hidden lg:grid lg:grid-cols-[72px_260px_1fr_300px] min-h-screen">
         <aside className="border-r bg-bg flex flex-col items-center py-4 gap-3">
-          <Link href="/explore" prefetch={false} className="h-10 w-10 rounded-xl bg-lime text-bg font-heading font-bold flex items-center justify-center" aria-label="Square home">
-            <Image src="/logo-mark.png" alt="" width={24} height={24} />
+          <Link href="/explore" prefetch={false} className="h-10 w-10 rounded-xl overflow-hidden flex items-center justify-center border bg-surface hover:border-lime" aria-label="Square home">
+            <Image src="/logo-mark.png" alt="Square" width={40} height={40} className="h-10 w-10 object-contain" />
           </Link>
           <div className="w-8 h-px bg-border" />
           {communities.slice(0, 4).map(c => (
