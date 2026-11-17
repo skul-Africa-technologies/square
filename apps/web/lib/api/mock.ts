@@ -4,12 +4,12 @@ import { badges, blockedUsers as seedBlocked, campaigns, channels, communities, 
 import type { BlockedUser, Campaign, Channel, Community, Conversation, DirectMessage, Post, Project, Tab, User } from "@square/shared";
 
 const delay = (ms = 200) => new Promise((r) => setTimeout(r, ms));
-let posts: Post[] = [...seedPosts];
+const posts: Post[] = [...seedPosts];
 let tabs = [...seedTabs];
 const projects = [...seedProjects];
 let campaignState: Campaign[] = JSON.parse(JSON.stringify(campaigns)) as Campaign[];
 const communitiesState = [...communities];
-let channelsState: Channel[] = [...channels];
+const channelsState: Channel[] = [...channels];
 let currentUser: User = { ...users[0] };
 let verifiedNew = false;
 let conversationsState: Conversation[] = JSON.parse(JSON.stringify(seedConversations)) as Conversation[];
