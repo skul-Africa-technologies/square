@@ -1,0 +1,17 @@
+{
+  "name": "square",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w apps/web",
+    "build": "npm run build -w apps/web",
+    "lint": "npm run lint -w apps/web",
+    "test": "npm run test -w packages/shared",
+    "test:e2e": "npm run test:e2e -w apps/web",
+    "audit": "npm audit --audit-level=high",
+    "analyze": "ANALYZE=true npm run build -w apps/web"
+  }
+}

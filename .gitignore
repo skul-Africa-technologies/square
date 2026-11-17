@@ -1,0 +1,15 @@
+node_modules/
+.next/
+dist/
+out/
+.env*
+!.env.example
+.DS_Store
+*.log
+coverage/
+playwright-report/
+test-results/
+
+# design source (large)
+"Square – UI Design.html"
+Square – UI Design.html
