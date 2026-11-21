@@ -10,11 +10,23 @@ Brief description of the changes.
 - [ ] Documentation
 - [ ] CI / tooling
 
+## Scope
+
+- [ ] frontend
+- [ ] backend
+- [ ] shared
+- [ ] kernel
+- [ ] gateway
+- [ ] auth / users / badges / communities / assets / chat / dm / feeds
+- [ ] events / lists / boards / campaigns / discover / search
+- [ ] notifications / realtime / media / moderation
+- [ ] infra / docs / ci
+
 ## Checklist
 
-- [ ] `npm run lint` passes
-- [ ] `npm run test` passes
-- [ ] `npx tsc --noEmit` passes (apps/web)
-- [ ] `npm run build` passes
-
-## Screenshots (if applicable)
+- [ ] `pnpm run lint` passes
+- [ ] `pnpm run typecheck` passes
+- [ ] `pnpm run test` passes
+- [ ] `pnpm run build` passes (frontend)
+- [ ] Screenshots attached (for UI changes)
+- [ ] Security impact assessed

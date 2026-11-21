@@ -1,4 +1,5 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
     "lib": [
@@ -25,6 +26,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@square/shared": [
+        "../shared/src/index.ts"
       ]
     }
   },
@@ -33,9 +37,13 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     "next-env.d.ts",
-    ".next-e2e/types/**/*.ts"
+    ".next-build/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    ".next",
+    ".next-build",
+    ".next-e2e",
+    "dist"
   ]
 }
