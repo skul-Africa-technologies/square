@@ -1,0 +1,16 @@
+{
+  "name": "@square/communities",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "description": "Square backend service: communities",
+  "scripts": {
+    "build": "echo \"build communities\"",
+    "lint": "echo \"lint communities (placeholder)\"",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"test communities (placeholder)\""
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

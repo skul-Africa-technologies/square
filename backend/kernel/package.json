@@ -4,5 +4,13 @@
   "private": true,
   "main": "src/index.ts",
   "types": "src/index.ts",
-  "description": "Square shared kernel - core domain types and utilities"
+  "description": "Square shared kernel - core domain types and utilities",
+  "scripts": {
+    "build": "echo \"build kernel\"",
+    "lint": "echo \"lint kernel (placeholder)\"",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"test kernel (placeholder)\""
+  },
+  "dependencies": {},
+  "devDependencies": {}
 }

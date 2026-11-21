@@ -1,0 +1,16 @@
+{
+  "name": "@square/realtime",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "description": "Square backend service: realtime",
+  "scripts": {
+    "build": "echo \"build realtime\"",
+    "lint": "echo \"lint realtime (placeholder)\"",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"test realtime (placeholder)\""
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@square/users",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "description": "Square backend service: users",
+  "scripts": {
+    "build": "echo \"build users\"",
+    "lint": "echo \"lint users (placeholder)\"",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"test users (placeholder)\""
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

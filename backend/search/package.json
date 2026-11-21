@@ -1,0 +1,16 @@
+{
+  "name": "@square/search",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "description": "Square backend service: search",
+  "scripts": {
+    "build": "echo \"build search\"",
+    "lint": "echo \"lint search (placeholder)\"",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"test search (placeholder)\""
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

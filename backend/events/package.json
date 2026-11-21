@@ -1,0 +1,16 @@
+{
+  "name": "@square/events",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "description": "Square backend service: events",
+  "scripts": {
+    "build": "echo \"build events\"",
+    "lint": "echo \"lint events (placeholder)\"",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"test events (placeholder)\""
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

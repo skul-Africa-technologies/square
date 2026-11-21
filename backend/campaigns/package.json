@@ -1,0 +1,16 @@
+{
+  "name": "@square/campaigns",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "description": "Square backend service: campaigns",
+  "scripts": {
+    "build": "echo \"build campaigns\"",
+    "lint": "echo \"lint campaigns (placeholder)\"",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"test campaigns (placeholder)\""
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

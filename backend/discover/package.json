@@ -1,0 +1,16 @@
+{
+  "name": "@square/discover",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "description": "Square backend service: discover",
+  "scripts": {
+    "build": "echo \"build discover\"",
+    "lint": "echo \"lint discover (placeholder)\"",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"test discover (placeholder)\""
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
