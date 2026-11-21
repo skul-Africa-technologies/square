@@ -1,0 +1,20 @@
+$schema: "https://turbo.build/schema.json"
+
+globalDependencies: [".env.*"]
+
+globalEnv: ["NEXT_PUBLIC_*"]
+
+pipeline:
+  build:
+    dependsOn: ["^build"]
+    outputs: [".next/**", "dist/**"]
+    cache: true
+  dev:
+    cache: false
+  lint:
+    dependsOn: ["^lint"]
+  test:
+    dependsOn: ["^test"]
+  test:e2e:
+    dependsOn: ["build"]
+    cache: false
