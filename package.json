@@ -1,20 +1,30 @@
 {
   "name": "square",
   "private": true,
+  "packageManager": "pnpm@11.5.0",
   "workspaces": [
-    "apps/*",
-    "packages/*"
+    "frontend",
+    "shared",
+    "backend/*"
   ],
   "scripts": {
-    "dev": "npm run dev -w apps/web",
-    "build": "npm run build -w apps/web",
-    "lint": "npm run lint -w apps/web",
-    "test": "npm run test -w packages/shared",
-    "test:e2e": "npm run test:e2e -w apps/web",
-    "audit": "npm audit --audit-level=high",
-    "analyze": "ANALYZE=true npm run build -w apps/web"
+    "dev": "turbo run dev --filter=@square/frontend",
+    "dev:frontend": "pnpm --filter @square/frontend dev",
+    "dev:backend": "echo \"backend not started\"",
+    "dev:clean": "pnpm --filter @square/frontend dev:clean",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write .",
+    "audit": "pnpm audit --prod",
+    "analyze": "ANALYZE=true pnpm --filter @square/frontend build"
   },
   "devDependencies": {
-    "eslint-plugin-security": "^3.0.1"
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "eslint-plugin-security": "^3.0.1",
+    "gitleaks": "^1.0.0",
+    "turbo": "^2.11.13"
   }
 }

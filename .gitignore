@@ -2,6 +2,7 @@ node_modules/
 .next/
 .next-build/
 .next-e2e/
+.turbo/
 dist/
 out/
 .env*

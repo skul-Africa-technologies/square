@@ -1,0 +1,37 @@
+rules:
+  - id: hardcoded-aws-secret
+    level: error
+    secret: '"(?:AWS|aws)(?:_?)?(?:ACCESS_?KEY_?ID|SECRET_?ACCESS_?KEY)"'
+  - id: hardcoded-api-key
+    level: error
+    secret: '"(?:api_?key|apikey)"'
+  - id: hardcoded-secret-key
+    level: error
+    secret: '"(?:secret_?key|secretkey)"'
+  - id: hardcoded-private-key
+    level: error
+    secret: '-----BEGIN [A-Z ]*PRIVATE KEY-----'
+  - id: hardcoded-database-url
+    level: error
+    secret: '(?:postgres|postgresql|mongodb|redis)://[^:]+:[^@]+@'
+  - id: hardcoded-github-token
+    level: error
+    secret: 'gh[pousr]_[A-Za-z0-9_]{20,}'
+  - id: hardcoded-slack-token
+    level: error
+    secret: '"xox[bapr]-[0-9a-zA-Z-]{10,}"'
+  - id: hardcoded-stripe-key
+    level: error
+    secret: 'sk_(?:live|test)_[A-Za-z0-9]{24,}'
+
+allowlist:
+  - id: hardcoded-database-url
+    description: "localhost connection strings in development configs"
+    regex: 'postgres://square:square@localhost:5432/square'
+
+paths:
+  - "frontend/**"
+  - "shared/**"
+  - "backend/**"
+  - "infra/**"
+  - "*.{json,yml,yaml,ts,tsx,js,env,env.example}"

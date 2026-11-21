@@ -1,3 +1,6 @@
 packages:
-  - "apps/*"
-  - "packages/*"
+  - "frontend"
+  - "shared"
+  - "backend/*"
+allowBuilds:
+  esbuild: set this to true or false
