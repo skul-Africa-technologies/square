@@ -4,7 +4,7 @@ const ALL = ["owner", "moderator", "member"] as const;
 const MODS = ["owner", "moderator"] as const;
 
 const perms = (canPost: readonly ("owner" | "moderator" | "member")[], canPin: readonly ("owner" | "moderator" | "member")[] = MODS) => ({
-  canRead: [...ALL] as ("owner" | "moderator" | "member")[],
+  canRead: [...canPost] as ("owner" | "moderator" | "member")[],
   canPost: [...canPost] as ("owner" | "moderator" | "member")[],
   canPin: [...canPin] as ("owner" | "moderator" | "member")[],
 });
