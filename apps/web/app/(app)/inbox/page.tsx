@@ -1,5 +1,5 @@
-import { ConversationsView } from "@/features/dm/ConversationsView";
+import { redirect } from "next/navigation";
 
 export default function InboxPage() {
-  return <ConversationsView />;
+  redirect("/home");
 }

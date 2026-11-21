@@ -15,6 +15,13 @@ const config: Config = {
         lime: "#B6FF3B",
         "lime-hover": "#A3EB2F",
         "lime-tint": "rgba(182,255,59,0.12)",
+        blue: "#7DD3FC",
+        "blue-strong": "#38BDF8",
+        "blue-deep": "#0EA5E9",
+        "blue-soft": "rgba(125,211,252,0.12)",
+        "blue-border": "rgba(125,211,252,0.35)",
+        "name-other": "var(--name-other)",
+        "name-self": "var(--name-self)",
       },
       fontFamily: {
         heading: ["var(--font-space-grotesk)", "sans-serif"],

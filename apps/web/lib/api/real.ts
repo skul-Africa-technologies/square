@@ -35,37 +35,64 @@ export const realApi: ApiClient = {
   listSchools: (query) => req(`/schools${query ? `?q=${encodeURIComponent(query)}` : ""}`),
   me: () => req("/me"),
   updateMe: (data) => req("/me", { method: "PATCH", body: JSON.stringify(data) }),
-  createCommunity: (data) => req("/communities", { method: "POST", body: JSON.stringify(data) }),
-  getCommunity: (id) => req(`/communities/${id}`),
-  createChannel: (communityId, data) => req(`/communities/${communityId}/channels`, { method: "POST", body: JSON.stringify(data) }),
-  getChannelTabs: (channelId) => req(`/channels/${channelId}/tabs`),
-  createTab: (channelId, data) => req(`/channels/${channelId}/tabs`, { method: "POST", body: JSON.stringify(data) }),
-  updateTabPermissions: (tabId, permissions) => req(`/tabs/${tabId}/permissions`, { method: "PATCH", body: JSON.stringify({ permissions }) }),
-  listPosts: (tabId, opts) => req(`/tabs/${tabId}/posts${opts?.after ? `?after=${encodeURIComponent(opts.after)}` : opts?.cursor ? `?cursor=${encodeURIComponent(opts.cursor)}` : ""}`),
-  createPost: (tabId, data) => req(`/tabs/${tabId}/posts`, { method: "POST", body: JSON.stringify(data) }),
-  signUpload: (data: UploadSignRequest) => req("/uploads/sign", { method: "POST", body: JSON.stringify(data) }),
 
   // PROPOSED: not in backend doc
-  listCommunities: (params) => req(`/communities${params?.filter ? `?filter=${encodeURIComponent(params.filter)}` : ""}`),
+  createCommunity: (data) => req("/communities", { method: "POST", body: JSON.stringify(data) }),
   // PROPOSED: not in backend doc
-  listChannels: (communityId, params) => req(`/channels${communityId ? `?community=${encodeURIComponent(communityId)}` : ""}${params?.filter ? `${communityId ? "&" : "?"}filter=${encodeURIComponent(params.filter)}` : ""}`),
+  getCommunity: (id) => req(`/communities/${id}`),
   // PROPOSED: not in backend doc
-  joinChannel: (channelId) => req(`/channels/${channelId}/join`, { method: "POST" }),
+  joinCommunity: (id) => req(`/communities/${id}/join`, { method: "POST" }),
   // PROPOSED: not in backend doc
-  leaveChannel: (channelId) => req(`/channels/${channelId}/leave`, { method: "POST" }),
+  leaveCommunity: (id) => req(`/communities/${id}/join`, { method: "DELETE" }),
   // PROPOSED: not in backend doc
-  myChannels: () => req(`/me/channels`),
+  listCommunityMembers: (id) => req(`/communities/${id}/members`),
+  // PROPOSED: not in backend doc
+  myCommunities: () => req(`/me/communities`),
+  // PROPOSED: not in backend doc
+  exploreCommunities: (params) => {
+    const qs = new URLSearchParams();
+    if (params?.q) qs.set("q", params.q);
+    if (params?.category) qs.set("category", params.category);
+    if (params?.sort) qs.set("sort", params.sort);
+    if (params?.school) qs.set("school", params.school);
+    const q = qs.toString();
+    return req(`/explore/communities${q ? `?${q}` : ""}`);
+  },
+
+  // PROPOSED: not in backend doc
+  getAssetCatalog: () => req(`/asset-catalog`),
+  // PROPOSED: not in backend doc
+  addAsset: (communityId, catalogKey) => req(`/communities/${communityId}/assets`, { method: "POST", body: JSON.stringify({ catalogKey }) }),
+  // PROPOSED: not in backend doc
+  deleteAsset: (assetId) => req(`/assets/${assetId}`, { method: "DELETE" }),
+  // PROPOSED: not in backend doc
+  updateAssetPermissions: (assetId, permissions) => req(`/assets/${assetId}/permissions`, { method: "PATCH", body: JSON.stringify({ permissions }) }),
+  // PROPOSED: not in backend doc
+  markAssetRead: (assetId) => req(`/assets/${assetId}/read`, { method: "POST" }),
+
+  // PROPOSED: not in backend doc
+  listPosts: (assetId, opts) => req(`/assets/${assetId}/posts${opts?.after ? `?after=${encodeURIComponent(opts.after)}` : opts?.cursor ? `?cursor=${encodeURIComponent(opts.cursor)}` : ""}`),
+  // PROPOSED: not in backend doc (reply fields)
+  createPost: (assetId, data) => req(`/assets/${assetId}/posts`, { method: "POST", body: JSON.stringify(data) }),
+  // PROPOSED: not in backend doc
+  listItems: (assetId) => req(`/assets/${assetId}/items`),
+  // PROPOSED: not in backend doc
+  createItem: (assetId, data) => req(`/assets/${assetId}/items`, { method: "POST", body: JSON.stringify(data) }),
+  // PROPOSED: not in backend doc
+  deleteItem: (assetId, itemId) => req(`/assets/${assetId}/items/${itemId}`, { method: "DELETE" }),
+  signUpload: (data: UploadSignRequest) => req("/uploads/sign", { method: "POST", body: JSON.stringify(data) }),
+
   // PROPOSED: not in backend doc
   homeFeed: (opts) => req(`/me/feed${opts?.after ? `?after=${encodeURIComponent(opts.after)}` : ""}`),
 
   // PROPOSED: not in backend doc
-  listProjects: (tabId) => req(`/tabs/${tabId}/projects`),
+  listProjects: (assetId) => req(`/assets/${assetId}/projects`),
   // PROPOSED: not in backend doc
   getProject: (id) => req(`/projects/${id}`),
   // PROPOSED: not in backend doc
-  createProject: (tabId, data) => req(`/tabs/${tabId}/projects`, { method: "POST", body: JSON.stringify(data) }),
+  createProject: (assetId, data) => req(`/assets/${assetId}/projects`, { method: "POST", body: JSON.stringify(data) }),
   // PROPOSED: not in backend doc
-  listCampaigns: (channelId) => req(`/channels/${channelId}/campaigns`),
+  listCampaigns: (assetId) => req(`/assets/${assetId}/campaigns`),
   // PROPOSED: not in backend doc
   getCampaign: (id) => req(`/campaigns/${id}`),
   // PROPOSED: not in backend doc
@@ -76,6 +103,14 @@ export const realApi: ApiClient = {
   listBadges: () => req(`/badges`),
   // PROPOSED: not in backend doc
   getProfile: (username) => req(`/u/${encodeURIComponent(username)}`),
+  // PROPOSED: not in backend doc
+  getProfileProjects: (username) => req(`/u/${encodeURIComponent(username)}/projects`),
+  // PROPOSED: not in backend doc
+  getProfileActivity: (username) => req(`/u/${encodeURIComponent(username)}/activity`),
+  // PROPOSED: not in backend doc
+  getProfileBadges: (username) => req(`/u/${encodeURIComponent(username)}/badges`),
+  // PROPOSED: not in backend doc
+  sharedCommunities: (username) => req(`/u/${encodeURIComponent(username)}/shared-communities`),
 
   // PROPOSED: not in backend doc
   listConversations: () => req(`/me/conversations`),
@@ -85,8 +120,8 @@ export const realApi: ApiClient = {
   getConversation: (id) => req(`/me/conversations/${id}`),
   // PROPOSED: not in backend doc
   listMessages: (conversationId, opts) => req(`/me/conversations/${conversationId}/messages${opts?.after ? `?after=${encodeURIComponent(opts.after)}` : ""}`),
-  // PROPOSED: not in backend doc
-  sendMessage: (conversationId, text) => req(`/me/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ text }) }),
+  // PROPOSED: not in backend doc (reply fields)
+  sendMessage: (conversationId, text, opts) => req(`/me/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ text, ...opts }) }),
   // PROPOSED: not in backend doc
   deleteMessage: (conversationId, messageId) => req(`/me/conversations/${conversationId}/messages/${messageId}`, { method: "DELETE" }),
   // PROPOSED: not in backend doc
@@ -102,4 +137,25 @@ export const realApi: ApiClient = {
   listBlocked: () => req(`/me/blocks`),
   // PROPOSED: not in backend doc
   reportUser: (username, reason, note) => req(`/me/reports`, { method: "POST", body: JSON.stringify({ username, reason, note }) }),
+
+  // PROPOSED: not in backend doc
+  search: (q) => req(`/search?q=${encodeURIComponent(q)}`),
+  searchSuggested: () => req(`/search/suggested`),
+  // PROPOSED: not in backend doc
+  getPresence: (ids) => req(`/presence?ids=${encodeURIComponent(ids.join(","))}`),
+  // PROPOSED: not in backend doc
+  setPresence: (mode) => req(`/me/presence`, { method: "PATCH", body: JSON.stringify({ mode }) }),
+  // PROPOSED: not in backend doc
+  recentDms: (limit = 6) => req(`/dms/recent?limit=${limit}`),
+  // PROPOSED: not in backend doc
+  setConversationMuted: (conversationId, muted) => req(`/me/conversations/${conversationId}`, { method: "PATCH", body: JSON.stringify({ muted }) }),
+  // PROPOSED: not in backend doc
+  hideConversation: (conversationId) => req(`/me/conversations/${conversationId}`, { method: "DELETE" }),
+
+  // PROPOSED: not in backend doc
+  discover: () => req("/discover"),
+  // PROPOSED: not in backend doc
+  dismissPerson: (id) => req(`/discover/people/${id}/dismiss`, { method: "POST" }),
+  // PROPOSED: not in backend doc
+  updatePrivacy: (data) => req("/me/privacy", { method: "PATCH", body: JSON.stringify(data) }),
 };

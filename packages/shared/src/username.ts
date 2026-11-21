@@ -28,6 +28,25 @@ export function toDisplayUsername(stored: string): string {
   return `#${clean}`;
 }
 
+export function formatUsername(storedOrInput: string): string {
+  const clean = storedOrInput.startsWith("#") ? storedOrInput.slice(1) : storedOrInput;
+  return `#${clean}`;
+}
+
+export function getInitials(username: string): string {
+  const clean = username.startsWith("#") ? username.slice(1) : username;
+  const parts = clean.split("-").filter(Boolean);
+  // Use grapheme segmenter so multi-codepoint emoji are treated as one character.
+  if (parts.length === 1) {
+    const graphemes = [...segmenter.segment(parts[0])].map(s => s.segment);
+    return graphemes.slice(0, 2).map(g => g.toUpperCase()).join("");
+  }
+  return parts.slice(0, 2).map(p => {
+    const first = [...segmenter.segment(p)][0]?.segment || "";
+    return first.toUpperCase();
+  }).join("");
+}
+
 export type UsernameValidation = { ok: true; stored: string } | { ok: false; reason: string };
 
 export function validateUsername(input: string): UsernameValidation {

@@ -6,18 +6,20 @@ import { api } from "@/lib/api";
 import { appConfig } from "@/lib/config";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { DirectMessage } from "@square/shared";
+import { DaySeparator, MessageRow, canGroup, dayLabel, type MessageItem } from "@/components/messages/MessageRow";
+import { config, type DirectMessage, type ReplyPreview } from "@square/shared";
 
 export function ThreadView({ conversationId }: { conversationId: string }) {
   const qc = useQueryClient();
   const { data: conv } = useQuery({ queryKey: ["conversation", conversationId], queryFn: () => api.getConversation(conversationId) }); // PROPOSED
   const { data, isLoading } = useQuery({ queryKey: ["messages", conversationId], queryFn: () => api.listMessages(conversationId), staleTime: 5_000 }); // PROPOSED
   const [text, setText] = useState("");
+  const [replyTo, setReplyTo] = useState<MessageItem | null>(null);
+  const [flashId, setFlashId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => { void api.markRead(conversationId).then(() => qc.invalidateQueries({ queryKey: ["conversations"] })).catch(() => {}); }, [conversationId, qc, data?.items?.length]); // PROPOSED
+  useEffect(() => { void api.markRead(conversationId).then(() => { qc.invalidateQueries({ queryKey: ["conversations"] }); qc.invalidateQueries({ queryKey: ["unread"] }); }).catch(() => {}); }, [conversationId, qc, data?.items?.length]); // PROPOSED
 
-  // SSE -> fallback polling with after cursor, backoff on hidden
   useEffect(() => {
     let es: EventSource | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -38,20 +40,19 @@ export function ThreadView({ conversationId }: { conversationId: string }) {
             return { items: [...prev, ...res.items.filter(m => !seen.has(m.id))] };
           });
           qc.invalidateQueries({ queryKey: ["conversations"] });
+          qc.invalidateQueries({ queryKey: ["unread"] });
         }
       } catch { interval = Math.min(interval * 2, 30000); }
       timer = setTimeout(poll, interval);
     };
-
     const startPolling = () => { if (!timer) timer = setTimeout(poll, interval); };
     if (typeof EventSource !== "undefined" && !appConfig.useMock) {
       try {
-        es = new EventSource("/me/stream", { withCredentials: true } as EventSourceInit); // PROPOSED
+        es = new EventSource("/api/me/stream", { withCredentials: true } as EventSourceInit); // PROPOSED
         es.onmessage = () => { qc.invalidateQueries({ queryKey: ["messages", conversationId] }); qc.invalidateQueries({ queryKey: ["conversations"] }); qc.invalidateQueries({ queryKey: ["unread"] }); };
         es.onerror = () => { es?.close(); es = null; startPolling(); };
       } catch { startPolling(); }
     } else {
-      // mock: simulate incoming via polling (mock stream endpoint not wired to client state)
       startPolling();
     }
     const onVis = () => { if (document.visibilityState === "visible") interval = 5000; };
@@ -62,13 +63,13 @@ export function ThreadView({ conversationId }: { conversationId: string }) {
   useEffect(() => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; }, [data?.items?.length]);
 
   const send = useMutation({
-    mutationFn: async (value: string) => api.sendMessage(conversationId, value), // PROPOSED
-    onMutate: async (value: string) => {
+    mutationFn: async (payload: { value: string; reply?: MessageItem | null }) => api.sendMessage(conversationId, payload.value, { replyToId: payload.reply?.id, replyPreview: payload.reply ? { id: payload.reply.id, authorUsername: payload.reply.authorUsername || payload.reply.authorId, snippet: payload.reply.deleted ? "" : payload.reply.content.slice(0, 80), deleted: payload.reply.deleted } as ReplyPreview : undefined }), // PROPOSED
+    onMutate: async (payload) => {
       await qc.cancelQueries({ queryKey: ["messages", conversationId] });
       const prev = qc.getQueryData<{ items: DirectMessage[] }>(["messages", conversationId]);
-      const optimistic: DirectMessage = { id: `tmp_${Date.now()}`, conversationId, senderId: "u1", text: value, createdAt: new Date().toISOString(), status: "sending" };
+      const optimistic: DirectMessage = { id: `tmp_${Date.now()}`, conversationId, senderId: "u1", text: payload.value, createdAt: new Date().toISOString(), status: "sending", replyToId: payload.reply?.id, replyPreview: payload.reply ? { id: payload.reply.id, authorUsername: payload.reply.authorUsername || payload.reply.authorId, snippet: payload.reply.deleted ? "" : payload.reply.content.slice(0, 80), deleted: payload.reply.deleted } : undefined };
       qc.setQueryData(["messages", conversationId], { items: [...(prev?.items || []), optimistic] });
-      setText("");
+      setText(""); setReplyTo(null);
       return { prev, tmpId: optimistic.id };
     },
     onError: (_e, _v, ctx) => {
@@ -87,45 +88,73 @@ export function ThreadView({ conversationId }: { conversationId: string }) {
   });
 
   const blocked = conv?.blocked;
-  const items = data?.items || [];
+  const peer = conv?.participant.username || "user";
+  const items = (data?.items || []).map((m): MessageItem => ({
+    id: m.id,
+    authorId: m.senderId,
+    authorUsername: m.senderId === "u1" ? "amaka-eze" : peer,
+    content: m.text,
+    createdAt: m.createdAt,
+    status: m.status,
+    deleted: m.deleted,
+    replyToId: m.replyToId,
+    replyPreview: m.replyPreview,
+    mine: m.senderId === "u1",
+  }));
+  const lastMine = [...items].reverse().find(m => m.mine && !m.deleted);
+  const grouped = config.GROUP_CONSECUTIVE_MESSAGES;
+
+  function jumpTo(id: string) {
+    const el = document.getElementById(`msg-${id}`);
+    if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); setFlashId(id); setTimeout(() => setFlashId(x => x === id ? null : x), 1500); }
+  }
+
   return (
     <div className="flex flex-col h-full min-h-[70vh]">
       <header className="border-b px-4 py-3 flex items-center justify-between gap-3">
         <div>
-          <div className="font-heading font-semibold">#{conv?.participant.username || "conversation"}</div>
-          <Link href={`/u/${conv?.participant.username || ""}`} prefetch={false} className="text-xs text-muted hover:text-text">View profile</Link>
+          <div className="font-heading font-semibold">#{peer}</div>
+          <Link href={`/u/${peer}`} prefetch={false} className="text-xs text-muted hover:text-text">View profile</Link>
         </div>
       </header>
-      <div ref={listRef} className="flex-1 overflow-auto p-4 space-y-2">
+      <div ref={listRef} className="flex-1 overflow-auto p-3">
         {isLoading && <Skeleton className="h-24" />}
-        {!isLoading && items.length === 0 && <p className="text-sm text-muted">No messages yet.</p>}
-        {items.map(m => {
-          const mine = m.senderId === "u1";
+        {!isLoading && items.length === 0 && <p className="text-sm text-muted px-2">No messages yet.</p>}
+        {items.map((m, i) => {
+          const prev = i > 0 ? items[i - 1] : null;
+          const showDay = !prev || dayLabel(prev.createdAt) !== dayLabel(m.createdAt);
+          const isGrouped = grouped && prev && !showDay && canGroup(prev, m);
           return (
-            <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[80%] rounded-xl border px-3 py-2 text-sm ${mine ? "bg-lime-tint border-lime/40" : "bg-surface"}`}>
-                {!m.deleted && <p className="whitespace-pre-wrap">{m.text}</p>}
-                {m.deleted && <p className="text-muted italic">Message deleted</p>}
-                <div className="mt-1 flex items-center gap-2 text-[11px] text-muted">
-                  <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                  {mine && m.status && <span>{m.status === "failed" ? "Failed" : m.status === "sending" ? "Sending" : m.status === "seen" ? "Seen" : "Sent"}</span>}
-                  {mine && m.status === "failed" && <button className="text-lime hover:underline" onClick={() => send.mutate(m.text)}>Retry</button>}
-                  {mine && !m.deleted && m.status !== "failed" && <button className="hover:text-text" onClick={() => del.mutate(m.id)}>Delete</button>}
-                </div>
-              </div>
+            <div key={m.id}>
+              {showDay && <DaySeparator label={dayLabel(m.createdAt)} />}
+              <MessageRow item={m} currentUserId="u1" grouped={!!isGrouped} flash={flashId === m.id} showSeen={lastMine?.id === m.id} onReply={!blocked ? setReplyTo : undefined} onDelete={m.mine ? (it) => del.mutate(it.id) : undefined} onRetry={m.status === "failed" ? (it) => send.mutate({ value: it.content, reply: replyTo }) : undefined} onJumpToReply={jumpTo} />
             </div>
           );
         })}
       </div>
-      <div className="border-t p-3 bg-bg-2">
-        {blocked ? (
-          <div className="rounded-lg border bg-surface p-3 text-sm text-muted">You can't message this user</div>
-        ) : (
-          <div className="flex gap-2">
-            <input value={text} onChange={e => setText(e.target.value)} placeholder="Message" className="flex-1 rounded-lg border bg-bg px-3 py-2 text-sm outline-none focus:border-lime" aria-label="Message" />
-            <Button onClick={() => text.trim() && send.mutate(text.trim())} disabled={!text.trim() || send.isPending}>Send</Button>
+      <div className="border-t bg-bg-2">
+        {replyTo && !blocked && (
+          <div className="px-3 pt-2 flex items-center justify-between gap-2 text-xs">
+            <div className="min-w-0">
+              <span className="text-muted">Replying to </span>
+              <span className="font-medium">{replyTo.authorUsername ? `#${replyTo.authorUsername}` : "message"}</span>
+              <span className="text-muted"> — {replyTo.deleted ? "Original message deleted" : replyTo.content.slice(0, 60)}</span>
+            </div>
+            <button className="text-muted hover:text-text" onClick={() => setReplyTo(null)}>Cancel</button>
           </div>
         )}
+        <div className="p-3">
+          {blocked ? (
+            <div className="rounded-lg border bg-surface p-3 text-sm text-muted">You can't message this user</div>
+          ) : (
+            <div className="flex gap-2">
+              <input value={text} onChange={e => setText(e.target.value)} placeholder="Message" className="flex-1 rounded-lg border bg-bg px-3 py-2 text-sm outline-none focus:border-blue-strong" aria-label="Message" />
+              <Button onClick={() => text.trim() && send.mutate({ value: text.trim(), reply: replyTo })} disabled={!text.trim() || send.isPending} aria-label="Send message">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9l20-7z"/></svg>
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

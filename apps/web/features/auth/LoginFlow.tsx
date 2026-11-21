@@ -137,7 +137,7 @@ function CodeStep({ email, onVerified, onBack }: { email: string; onVerified: (r
           <input key={i} ref={el => { refs.current[i] = el; }} value={d} onChange={e => setAt(i, e.target.value)}
             onKeyDown={e => { if (e.key === "Backspace" && !digits[i] && i > 0) refs.current[i - 1]?.focus(); }}
             inputMode="numeric" aria-label={`Digit ${i + 1}`} maxLength={1} autoComplete="one-time-code"
-            className="h-12 w-12 rounded-lg border bg-bg-2 text-center text-lg focus:border-lime focus:outline-none" />
+            className="h-12 w-12 rounded-lg border bg-bg-2 text-center text-lg focus:border-blue-strong focus:outline-none" />
         ))}
       </div>
       {err && <p className="text-sm text-red-400" role="alert">{err}</p>}
@@ -193,7 +193,7 @@ function DetailsStep({ onDone }: { onDone: (token?: string) => void }) {
       </div>
       <div>
         <label className="text-sm mb-1 block">Username</label>
-        <div className="flex items-center rounded-lg border bg-bg-2 px-3 focus-within:border-lime">
+        <div className="flex items-center rounded-lg border bg-bg-2 px-3 focus-within:border-blue-strong">
           <span className="text-muted mr-1">#</span>
           <input value={username.replace(/^#/, "")} onChange={e => setUsername(e.target.value)} className="w-full bg-transparent py-2.5 text-sm outline-none" placeholder="your-name" aria-label="Username" autoComplete="username" />
         </div>

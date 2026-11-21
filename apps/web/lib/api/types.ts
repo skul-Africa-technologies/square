@@ -1,10 +1,31 @@
 import type {
-  AuthRequestCodeResponse, AuthSignupRequest, AuthSignupResponse, AuthVerifyCodeResponse,
-  Badge, BlockedUser, Campaign, Channel, Community, Conversation, DirectMessage, Paginated, Post, Project, School, Tab, User
+  Asset, AssetCatalogEntry, AssetItem, AssetPermissions, Activity, AuthRequestCodeResponse, AuthSignupRequest, AuthSignupResponse, AuthVerifyCodeResponse,
+  Badge, BlockedUser, Campaign, Community, CommunityDetail, CommunityMembers, Conversation, DirectMessage, DiscoverResponse, ExploreCommunity, Paginated, Post,
+  PresenceStatus, Project, ReplyPreview, School, SearchResults, SearchSuggested, User
 } from "@square/shared";
 
 export interface UploadSignRequest { kind: "avatar" | "banner" | "post-media" }
 export interface UploadSignResponse { signature: string; timestamp: number; cloudName: string; apiKey: string; folder: string; uploadPreset?: string }
+
+// PROPOSED: not in backend doc
+export interface Profile extends User {
+  projects: Project[];
+  campaigns: Campaign[];
+  badges: Badge[];
+  communitiesJoined: number;
+  joinedCommunities: Community[];
+  relations?: { blocked: boolean; blockedBy: boolean; inCommonCount: number };
+  // PROPOSED: not in backend doc
+  stats?: { communities: number; badges: number; projects: number };
+  // PROPOSED: not in backend doc
+  badgePins?: string[];
+  // PROPOSED: not in backend doc
+  featuredProjectId?: string;
+  // PROPOSED: not in backend doc
+  mutualAvatars?: { id: string; username: string; avatarUrl?: string }[];
+  // PROPOSED: not in backend doc
+  presence?: PresenceStatus;
+}
 
 export interface ApiClient {
   requestCode(email: string): Promise<AuthRequestCodeResponse & { retryAfter?: number }>;
@@ -14,37 +35,56 @@ export interface ApiClient {
   listSchools(query?: string): Promise<School[]>;
   me(): Promise<User>;
   updateMe(data: Partial<User>): Promise<User>;
-  createCommunity(data: Partial<Community>): Promise<Community>;
-  getCommunity(id: string): Promise<Community>;
-  createChannel(communityId: string, data: Partial<Channel>): Promise<Channel>;
-  getChannelTabs(channelId: string): Promise<Tab[]>;
-  createTab(channelId: string, data: Partial<Tab>): Promise<Tab>;
-  updateTabPermissions(tabId: string, permissions: Tab["permissions"]): Promise<Tab>;
-  listPosts(tabId: string, opts?: { cursor?: string; after?: string }): Promise<Paginated<Post>>;
-  createPost(tabId: string, data: { content: string; media?: Post["media"] }): Promise<Post>;
-  signUpload(data: UploadSignRequest): Promise<UploadSignResponse>;
 
   // PROPOSED: not in backend doc
-  listCommunities(params?: { filter?: string; q?: string }): Promise<Paginated<Community>>;
+  createCommunity(data: Partial<Community>): Promise<Community>;
   // PROPOSED: not in backend doc
-  listChannels(communityId?: string, params?: { filter?: string; q?: string; joined?: boolean }): Promise<Channel[]>;
+  getCommunity(id: string): Promise<CommunityDetail>;
   // PROPOSED: not in backend doc
-  joinChannel(channelId: string): Promise<{ ok: true }>;
+  joinCommunity(id: string): Promise<{ ok: true }>;
   // PROPOSED: not in backend doc
-  leaveChannel(channelId: string): Promise<{ ok: true }>;
+  leaveCommunity(id: string): Promise<{ ok: true }>;
   // PROPOSED: not in backend doc
-  myChannels(): Promise<Channel[]>;
+  listCommunityMembers(id: string): Promise<CommunityMembers>;
+  // PROPOSED: not in backend doc
+  myCommunities(): Promise<Community[]>;
+  // PROPOSED: not in backend doc
+  exploreCommunities(params?: { q?: string; category?: string; sort?: "top" | "new"; school?: string; cursor?: string }): Promise<Paginated<ExploreCommunity>>;
+
+  // PROPOSED: not in backend doc
+  getAssetCatalog(): Promise<AssetCatalogEntry[]>;
+  // PROPOSED: not in backend doc
+  addAsset(communityId: string, catalogKey: string): Promise<Asset>;
+  // PROPOSED: not in backend doc
+  deleteAsset(assetId: string): Promise<{ ok: true }>;
+  // PROPOSED: not in backend doc
+  updateAssetPermissions(assetId: string, permissions: AssetPermissions): Promise<Asset>;
+  // PROPOSED: not in backend doc
+  markAssetRead(assetId: string): Promise<{ ok: true }>;
+
+  // PROPOSED: not in backend doc
+  listPosts(assetId: string, opts?: { cursor?: string; after?: string }): Promise<Paginated<Post>>;
+  // PROPOSED: not in backend doc (reply fields)
+  createPost(assetId: string, data: { content: string; media?: Post["media"]; replyToId?: string; replyPreview?: ReplyPreview }): Promise<Post>;
+  // PROPOSED: not in backend doc
+  listItems(assetId: string): Promise<AssetItem[]>;
+  // PROPOSED: not in backend doc
+  createItem(assetId: string, data: Partial<AssetItem>): Promise<AssetItem>;
+  // PROPOSED: not in backend doc
+  deleteItem(assetId: string, itemId: string): Promise<{ ok: true }>;
+  signUpload(data: UploadSignRequest): Promise<UploadSignResponse>;
+
   // PROPOSED: not in backend doc
   homeFeed(opts?: { after?: string }): Promise<Paginated<Post>>;
 
   // PROPOSED: not in backend doc
-  listProjects(tabId: string): Promise<Project[]>;
+  listProjects(assetId: string): Promise<Project[]>;
   // PROPOSED: not in backend doc
   getProject(id: string): Promise<Project>;
   // PROPOSED: not in backend doc
-  createProject(tabId: string, data: Partial<Project>): Promise<Project>;
+  createProject(assetId: string, data: Partial<Project>): Promise<Project>;
   // PROPOSED: not in backend doc
-  listCampaigns(channelId: string): Promise<Campaign[]>;
+  listCampaigns(assetId: string): Promise<Campaign[]>;
   // PROPOSED: not in backend doc
   getCampaign(id: string): Promise<Campaign>;
   // PROPOSED: not in backend doc
@@ -54,7 +94,15 @@ export interface ApiClient {
   // PROPOSED: not in backend doc
   listBadges(): Promise<Badge[]>;
   // PROPOSED: not in backend doc
-  getProfile(username: string): Promise<User & { projects: Project[]; campaigns: Campaign[]; badges: Badge[]; channelsJoined: number; joinedChannels: Channel[] }>;
+  getProfile(username: string): Promise<Profile>;
+  // PROPOSED: not in backend doc
+  getProfileProjects(username: string): Promise<Project[]>;
+  // PROPOSED: not in backend doc
+  getProfileActivity(username: string): Promise<Activity[]>;
+  // PROPOSED: not in backend doc
+  getProfileBadges(username: string): Promise<Badge[]>;
+  // PROPOSED: not in backend doc
+  sharedCommunities(username: string): Promise<Community[]>;
 
   // PROPOSED: not in backend doc
   listConversations(): Promise<Conversation[]>;
@@ -64,8 +112,8 @@ export interface ApiClient {
   getConversation(id: string): Promise<Conversation>;
   // PROPOSED: not in backend doc
   listMessages(conversationId: string, opts?: { after?: string }): Promise<Paginated<DirectMessage>>;
-  // PROPOSED: not in backend doc
-  sendMessage(conversationId: string, text: string): Promise<DirectMessage>;
+  // PROPOSED: not in backend doc (reply fields)
+  sendMessage(conversationId: string, text: string, opts?: { replyToId?: string; replyPreview?: ReplyPreview }): Promise<DirectMessage>;
   // PROPOSED: not in backend doc
   deleteMessage(conversationId: string, messageId: string): Promise<{ ok: true }>;
   // PROPOSED: not in backend doc
@@ -81,4 +129,26 @@ export interface ApiClient {
   listBlocked(): Promise<BlockedUser[]>;
   // PROPOSED: not in backend doc
   reportUser(username: string, reason: string, note?: string): Promise<{ ok: true }>;
+
+  // PROPOSED: not in backend doc
+  search(q: string): Promise<SearchResults>;
+  // PROPOSED: not in backend doc
+  searchSuggested(): Promise<SearchSuggested>;
+  // PROPOSED: not in backend doc
+  getPresence(ids: string[]): Promise<Record<string, PresenceStatus>>;
+  // PROPOSED: not in backend doc
+  setPresence(mode: "online" | "offline"): Promise<{ presence: PresenceStatus }>;
+  // PROPOSED: not in backend doc
+  recentDms(limit?: number): Promise<Conversation[]>;
+  // PROPOSED: not in backend doc
+  setConversationMuted(conversationId: string, muted: boolean): Promise<Conversation>;
+  // PROPOSED: not in backend doc
+  hideConversation(conversationId: string): Promise<{ ok: true }>;
+
+  // PROPOSED: not in backend doc
+  discover(): Promise<DiscoverResponse>;
+  // PROPOSED: not in backend doc
+  dismissPerson(id: string): Promise<{ ok: true }>;
+  // PROPOSED: not in backend doc
+  updatePrivacy(data: { showBirthday: boolean }): Promise<{ ok: true }>;
 }

@@ -1,5 +1,7 @@
 export type Role = "owner" | "moderator" | "member";
-export type TabKind = "chat" | "feed" | "board" | "list" | "form";
+export type AssetKind = "chat" | "feed" | "board" | "list" | "form";
+export type AssetCategory = "Information" | "Community" | "Resources" | "Build";
+export type PresenceStatus = "online" | "offline" | "hidden";
 
 export interface School { id: string; name: string }
 export interface User {
@@ -10,11 +12,31 @@ export interface User {
   schoolName?: string;
   dob?: string; // private, never shown publicly
   avatarUrl?: string;
+  bannerUrl?: string;
   verifiedStudent: boolean;
   joinedAt: string;
   bio?: string;
   skills?: string[]; // interest chips
   badgeIds?: string[];
+  presence?: PresenceStatus;
+  // PROPOSED: not in backend doc
+  birthdayToday?: boolean;
+  // PROPOSED: not in backend doc
+  showBirthday?: boolean;
+  // PROPOSED: not in backend doc
+  joinedCommunitySlugs?: string[];
+  // PROPOSED: not in backend doc
+  status?: string;
+  // PROPOSED: not in backend doc
+  department?: string;
+  // PROPOSED: not in backend doc
+  level?: string;
+  // PROPOSED: not in backend doc
+  links?: { label: string; url: string }[];
+  // PROPOSED: not in backend doc
+  location?: string;
+  // PROPOSED: not in backend doc
+  languages?: string[];
 }
 
 export interface Community {
@@ -26,59 +48,127 @@ export interface Community {
   category: string;
   schoolName?: string;
   avatar?: string;
+  bannerUrl?: string;
+  categories?: string[];
+  onlineCount?: number;
+  joined?: boolean;
+  isPublic?: boolean;
+  // PROPOSED: not in backend doc
+  role?: Role | null;
 }
 
-export interface Channel {
+export interface AssetPermissions {
+  canRead: Role[];
+  canPost: Role[];
+  canPin: Role[];
+}
+
+export interface Asset {
   id: string;
   communityId: string;
-  communityName?: string;
-  communitySlug?: string;
   name: string;
   slug: string;
   description?: string;
-  memberCount?: number;
-  interest?: string;
-  isPublic?: boolean;
-  joined?: boolean;
-}
-
-export interface TabPermissions {
-  canPost: Role[];
-  canPin: Role[];
-  canRemove: Role[];
-}
-
-export interface Tab {
-  id: string;
-  channelId: string;
-  name: string;
-  slug: string;
-  kind: TabKind;
-  fixed?: "general" | "community";
-  template?: "announcements" | "campaigns" | "hackathons" | "support" | "projects";
-  enabled: boolean;
-  permissions: TabPermissions;
+  kind: AssetKind;
+  category: AssetCategory;
+  template?: string;
+  permissions: AssetPermissions;
+  isDefault?: boolean;
+  catalogKey?: string;
   order: number;
+  // PROPOSED: not in backend doc
+  hiddenFromMembers?: boolean;
+  // PROPOSED: not in backend doc
+  locked?: boolean;
+  // PROPOSED: not in backend doc
+  unreadCount?: number;
+  // PROPOSED: not in backend doc
+  lastReadPostId?: string | null;
+}
+
+// PROPOSED: not in backend doc
+export interface AssetCatalogEntry {
+  key: string;
+  name: string;
+  description: string;
+  kind: AssetKind;
+  category: AssetCategory;
+  permissions: AssetPermissions;
+  unique: boolean;
+  isDefault?: boolean;
+  hiddenFromMembers?: boolean;
+}
+
+// PROPOSED: not in backend doc
+export interface CommunityMember {
+  id: string;
+  username: string;
+  avatarUrl?: string;
+  role: Role;
+  presence?: PresenceStatus;
+}
+
+// PROPOSED: not in backend doc
+export interface CommunityMembers {
+  owners: CommunityMember[];
+  moderators: CommunityMember[];
+  online: CommunityMember[];
+  offline: CommunityMember[];
+}
+
+// PROPOSED: not in backend doc
+export interface CommunityDetail {
+  community: Community;
+  assets: Asset[];
+}
+
+// PROPOSED: not in backend doc
+export interface ReplyPreview {
+  id: string;
+  authorUsername: string;
+  authorAvatar?: string;
+  snippet: string;
+  deleted?: boolean;
 }
 
 export interface Post {
   id: string;
-  tabId: string;
+  assetId: string;
   authorId: string;
+  authorUsername?: string;
   content: string;
   createdAt: string;
   pinned?: boolean;
   media?: { id: string; url: string; type: "image" | "video" }[];
-  channelId?: string;
-  channelName?: string;
+  communityId?: string;
+  communityName?: string;
   communitySlug?: string;
-  channelSlug?: string;
+  assetName?: string;
+  assetSlug?: string;
+  // PROPOSED: not in backend doc
+  replyToId?: string;
+  // PROPOSED: not in backend doc
+  replyPreview?: ReplyPreview;
+}
+
+// PROPOSED: not in backend doc
+export interface AssetItem {
+  id: string;
+  assetId: string;
+  title: string;
+  description?: string;
+  date?: string;
+  place?: string;
+  link?: string;
+  pinned?: boolean;
+  createdAt: string;
+  createdBy?: string;
 }
 
 export interface Project {
   id: string;
-  channelId: string;
-  tabId: string;
+  assetId: string;
+  communityId?: string;
   title: string;
   status: "idea" | "building" | "launched";
   description: string;
@@ -99,9 +189,22 @@ export interface CampaignTask {
   done?: boolean;
 }
 
+// PROPOSED: not in backend doc
+export interface Activity {
+  id: string;
+  type: "badge" | "community" | "project" | "campaign";
+  actorUsername: string;
+  text: string;
+  createdAt: string;
+  badge?: string;
+  community?: string;
+  project?: string;
+  campaign?: string;
+}
+
 export interface Campaign {
   id: string;
-  channelId: string;
+  assetId: string;
   title: string;
   goal: string;
   endsAt: string;
@@ -114,7 +217,7 @@ export interface Campaign {
   resultsSummary?: string;
 }
 
-export interface Badge { id: string; name: string; icon?: string }
+export interface Badge { id: string; name: string; icon?: string; earnedAt?: string; rarity?: "common" | "uncommon" | "rare" | "legendary" }
 
 export interface DirectMessage {
   id: string;
@@ -124,6 +227,10 @@ export interface DirectMessage {
   createdAt: string;
   status?: "sending" | "sent" | "failed" | "seen";
   deleted?: boolean;
+  // PROPOSED: not in backend doc
+  replyToId?: string;
+  // PROPOSED: not in backend doc
+  replyPreview?: ReplyPreview;
 }
 
 export interface Conversation {
@@ -133,7 +240,31 @@ export interface Conversation {
   lastMessageAt?: string;
   unreadCount: number;
   blocked?: boolean;
+  // PROPOSED: not in backend doc
+  lastMessagePreview?: string;
+  // PROPOSED: not in backend doc
+  presence?: PresenceStatus;
+  // PROPOSED: not in backend doc
+  otherUserId?: string;
+  // PROPOSED: not in backend doc
+  muted?: boolean;
 }
+
+// PROPOSED: not in backend doc
+export type CommunityRelation = "none" | "member";
+// PROPOSED: not in backend doc
+export interface ExploreCommunity extends Community {
+  relation: CommunityRelation;
+}
+// PROPOSED: not in backend doc
+export type SearchResult =
+  | { kind: "person"; id: string; username: string; schoolName?: string; sharedCommunities?: number; canMessage?: boolean; presence?: PresenceStatus; avatarUrl?: string }
+  | { kind: "dm"; id: string; username: string; preview?: string; presence?: PresenceStatus; avatarUrl?: string }
+  | { kind: "community"; id: string; name: string; slug: string; blurb?: string; memberCount?: number; category?: string; joined?: boolean; avatar?: string };
+// PROPOSED: not in backend doc
+export interface SearchResults { people: SearchResult[]; dms: SearchResult[]; communities: SearchResult[] }
+// PROPOSED: not in backend doc
+export interface SearchSuggested { people: SearchResult[]; communities: SearchResult[] }
 
 export interface BlockedUser { id: string; username: string }
 
@@ -144,3 +275,69 @@ export interface AuthRequestCodeResponse { ok: true }
 export interface AuthVerifyCodeResponse { hasAccount: boolean; token?: string }
 export interface AuthSignupRequest { emailToken: string; username: string; schoolId: string; dob: string }
 export interface AuthSignupResponse { token: string }
+
+// PROPOSED: not in backend doc
+export interface DiscoverSection {
+  id: string;
+  items: any[];
+}
+
+// PROPOSED: not in backend doc
+export interface DiscoverResponse {
+  sections: DiscoverSection[];
+}
+
+// PROPOSED: not in backend doc
+export interface DiscoverCommunity {
+  id: string;
+  name: string;
+  slug: string;
+  blurb: string;
+  memberCount: number;
+  onlineCount?: number;
+  category: string;
+  bannerUrl?: string;
+  avatar?: string;
+  isPublic: boolean;
+}
+
+// PROPOSED: not in backend doc
+export interface DiscoverPerson {
+  id: string;
+  username: string;
+  displayName?: string;
+  avatarUrl?: string;
+  schoolName?: string;
+  sharedCommunities: number;
+  sharedInterests: string[];
+  interests: string[];
+  canMessage: boolean;
+}
+
+// PROPOSED: not in backend doc
+export interface DiscoverBirthday {
+  id: string;
+  username: string;
+  displayName?: string;
+  avatarUrl?: string;
+  isCurrentUser?: boolean;
+}
+
+// PROPOSED: not in backend doc
+export interface DiscoverEvent {
+  id: string;
+  title: string;
+  communityName: string;
+  communitySlug: string;
+  date: string;
+  time?: string;
+  place?: string;
+}
+
+// PROPOSED: not in backend doc
+export interface DiscoverStudent {
+  id: string;
+  username: string;
+  displayName?: string;
+  avatarUrl?: string;
+}

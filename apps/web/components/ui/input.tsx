@@ -9,7 +9,7 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
       <input
         ref={ref}
         className={clsx(
-          "w-full rounded-lg border bg-bg-2 px-3 py-2.5 text-sm text-text placeholder:text-muted focus:border-lime focus:outline-none",
+          "w-full rounded-lg border bg-bg-2 px-3 py-2.5 text-sm text-text placeholder:text-muted focus:border-blue-strong focus:outline-none",
           error && "border-red-500",
           className
         )}

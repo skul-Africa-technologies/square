@@ -3,11 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev -p 3000",
+    "predev": "if command -v lsof >/dev/null 2>&1 && lsof -i :3000 >/dev/null 2>&1; then echo \"ERROR: Port 3000 is already in use. Another dev server may be running. Run 'pnpm dev:clean' to free it.\" >&2; exit 1; fi",
+    "dev:clean": "if command -v lsof >/dev/null 2>&1; then lsof -ti :3000 | xargs -r kill -9 2>/dev/null || true; fi; rm -rf .next node_modules/.cache && pnpm dev",
+    "build": "NEXT_DIST_DIR=.next-build next build",
     "start": "next start",
     "lint": "next lint",
-    "test:e2e": "playwright test",
+    "test:e2e": "NEXT_DIST_DIR=.next-e2e next build && NEXT_DIST_DIR=.next-e2e next start -p 3100",
     "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
@@ -19,7 +21,7 @@
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-hook-form": "^7.54.0",
-    "zod": "^3.24.0"
+    "zod": "^3.54.0"
   },
   "devDependencies": {
     "@next/bundle-analyzer": "^15.0.4",

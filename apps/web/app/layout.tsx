@@ -1,10 +1,6 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
-
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
-const space = Space_Grotesk({ subsets: ["latin"], variable: "--font-space-grotesk", display: "swap" });
 
 export const metadata: Metadata = {
   title: "Square",
@@ -13,8 +9,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.variable} ${space.variable} min-h-screen bg-bg text-text`}>
+    <html lang="en" className="dark" style={{ height: "100dvh", overflow: "hidden" }}>
+      <body className="bg-bg text-text" style={{ height: "100dvh", overflow: "hidden" }}>
         <Providers>{children}</Providers>
       </body>
     </html>
