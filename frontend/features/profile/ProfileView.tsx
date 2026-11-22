@@ -213,7 +213,7 @@ export function ProfileView({ username }: { username: string }) {
   return (
     <div data-testid="profile-page" className="min-h-[100dvh] flex flex-col">
       {/* Mobile header bar (56px): back arrow, #username, menu */}
-      <header className="flex h-14 items-center gap-2 px-3 border-b border-border/60 bg-bg/80 backdrop-blur z-20 shrink-0 md:hidden">
+      <header className="flex h-14 items-center gap-2 px-4 border-b border-border/60 bg-bg-2 backdrop-blur z-20 shrink-0 md:hidden">
         <button type="button" onClick={() => router.back()} className="flex h-10 w-10 items-center justify-center rounded-lg text-muted hover:bg-surface hover:text-text">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg>
         </button>

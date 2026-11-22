@@ -116,7 +116,7 @@ test.describe("community asset view", () => {
   });
 
   test("a member without add rights sees no +", async ({ page }) => {
-    await page.goto("/c/web3-club/general");
+    await page.goto("/c/ai-circle/general");
     const sidebar = page.locator("aside").first();
     await expect(sidebar.getByRole("button", { name: "Add an asset" })).toHaveCount(0);
   });
@@ -133,7 +133,7 @@ test.describe("community asset view", () => {
   });
 
   test("#mods-only is invisible to a normal member", async ({ page }) => {
-    await page.goto("/c/web3-club/general");
+    await page.goto("/c/ai-circle/general");
     const sidebar = page.locator("aside").first();
     await expect(sidebar.getByText("# mods-only")).toHaveCount(0);
   });

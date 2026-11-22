@@ -58,7 +58,7 @@ export function CreateCommunityModal({ open, onClose }: { open: boolean; onClose
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       {/* Sheet dropdown — mobile full-width bottom sheet */}
       <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
-        <form onSubmit={submit} className="rounded-t-[28px] border-t border-b border-border bg-bg-2 shadow-2xl p-6 sm:p-8 animate-in slide-in-from-bottom duration-300">
+        <form onSubmit={submit} className="rounded-t-[var(--sheet-radius)] border-t border-b border-border bg-bg-2 shadow-2xl p-6 sm:p-8 animate-in slide-in-from-bottom duration-300">
           <div className="flex items-center justify-between gap-3 mb-5">
             <h2 id="create-community-title" className="font-heading text-lg font-semibold">Create a community</h2>
             <button type="button" onClick={onClose} aria-label="Close" className="h-9 w-9 rounded-full bg-surface flex items-center justify-center text-muted hover:bg-surface-hi hover:text-text">

@@ -3,6 +3,7 @@ packages:
   - "shared"
   - "backend/*"
 allowBuilds:
+  '@scarf/scarf': false
   esbuild: true
 overrides:
   postcss: 8.5.33

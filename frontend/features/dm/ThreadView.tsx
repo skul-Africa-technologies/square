@@ -7,18 +7,39 @@ import { appConfig } from "@/lib/config";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DaySeparator, MessageRow, canGroup, dayLabel, type MessageItem } from "@/components/messages/MessageRow";
-import { config, type DirectMessage, type ReplyPreview } from "@square/shared";
+import { addReactionSummary, applyReactionCount, config, removeReactionSummary, type DirectMessage, type ReactionStreamEvent, type ReplyPreview } from "@square/shared";
 
 export function ThreadView({ conversationId }: { conversationId: string }) {
   const qc = useQueryClient();
+  const { data: currentUser } = useQuery({ queryKey: ["me"], queryFn: () => api.me(), staleTime: 60_000 });
   const { data: conv } = useQuery({ queryKey: ["conversation", conversationId], queryFn: () => api.getConversation(conversationId) }); // PROPOSED
   const { data, isLoading } = useQuery({ queryKey: ["messages", conversationId], queryFn: () => api.listMessages(conversationId), staleTime: 5_000 }); // PROPOSED
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<MessageItem | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
+  const [showJumpLatest, setShowJumpLatest] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => { void api.markRead(conversationId).then(() => { qc.invalidateQueries({ queryKey: ["conversations"] }); qc.invalidateQueries({ queryKey: ["unread"] }); }).catch(() => {}); }, [conversationId, qc, data?.items?.length]); // PROPOSED
+
+  useEffect(() => api.subscribeReactionEvents("dm", conversationId, (event: ReactionStreamEvent) => {
+    if (event.type === "reaction.resync") {
+      const byMessage = new Map(event.messages.map(message => [message.messageId, message.reactions]));
+      qc.setQueryData<{ items: DirectMessage[] }>(["messages", conversationId], old => ({
+        items: (old?.items || []).map(message => ({
+          ...message,
+          reactions: byMessage.get(message.id) || [],
+        })),
+      }));
+      return;
+    }
+    if (event.userId === (currentUser?.id || "u1")) return;
+    qc.setQueryData<{ items: DirectMessage[] }>(["messages", conversationId], old => ({
+      items: (old?.items || []).map(message => message.id === event.messageId
+        ? { ...message, reactions: applyReactionCount(message.reactions || [], event.emoji, event.count) }
+        : message),
+    }));
+  }), [conversationId, currentUser?.id, qc]);
 
   useEffect(() => {
     let es: EventSource | null = null;
@@ -87,6 +108,27 @@ export function ThreadView({ conversationId }: { conversationId: string }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["messages", conversationId] }),
   });
 
+  async function react(messageId: string, emoji: string, add: boolean, clientId: string) {
+    const key = ["messages", conversationId] as const;
+    await qc.cancelQueries({ queryKey: key });
+    const previous = qc.getQueryData<{ items: DirectMessage[] }>(key);
+    qc.setQueryData<{ items: DirectMessage[] }>(key, old => ({
+      items: (old?.items || []).map(message => {
+        if (message.id !== messageId) return message;
+        const reactions = message.reactions || [];
+        return { ...message, reactions: add
+          ? addReactionSummary(reactions, emoji, currentUser?.id || "u1", currentUser?.id || "u1")
+          : removeReactionSummary(reactions, emoji) };
+      }),
+    }));
+    try {
+      await api.setMessageReaction("dm", conversationId, messageId, emoji, add, clientId);
+    } catch (error) {
+      if (previous) qc.setQueryData(key, previous);
+      throw error;
+    }
+  }
+
   const blocked = conv?.blocked;
   const peer = conv?.participant.username || "user";
   const items = (data?.items || []).map((m): MessageItem => ({
@@ -99,6 +141,8 @@ export function ThreadView({ conversationId }: { conversationId: string }) {
     deleted: m.deleted,
     replyToId: m.replyToId,
     replyPreview: m.replyPreview,
+    reactions: m.reactions || [],
+    mentionedUserIds: m.mentionedUserIds,
     mine: m.senderId === "u1",
   }));
   const lastMine = [...items].reverse().find(m => m.mine && !m.deleted);
@@ -117,7 +161,10 @@ export function ThreadView({ conversationId }: { conversationId: string }) {
           <Link href={`/u/${peer}`} prefetch={false} className="text-xs text-muted hover:text-text">View profile</Link>
         </div>
       </header>
-      <div ref={listRef} className="flex-1 overflow-auto p-3">
+      <div ref={listRef} onScroll={event => {
+        const element = event.currentTarget;
+        setShowJumpLatest(element.scrollHeight - element.scrollTop - element.clientHeight > 160);
+      }} className="relative flex-1 overflow-auto p-3 [overflow-anchor:auto]">
         {isLoading && <Skeleton className="h-24" />}
         {!isLoading && items.length === 0 && <p className="text-sm text-muted px-2">No messages yet.</p>}
         {items.map((m, i) => {
@@ -127,10 +174,16 @@ export function ThreadView({ conversationId }: { conversationId: string }) {
           return (
             <div key={m.id}>
               {showDay && <DaySeparator label={dayLabel(m.createdAt)} />}
-              <MessageRow item={m} currentUserId="u1" grouped={!!isGrouped} flash={flashId === m.id} showSeen={lastMine?.id === m.id} onReply={!blocked ? setReplyTo : undefined} onDelete={m.mine ? (it) => del.mutate(it.id) : undefined} onRetry={m.status === "failed" ? (it) => send.mutate({ value: it.content, reply: replyTo }) : undefined} onJumpToReply={jumpTo} />
+              <MessageRow item={m} currentUserId={currentUser?.id || "u1"} grouped={!!isGrouped} flash={flashId === m.id} showSeen={lastMine?.id === m.id} onReply={!blocked ? setReplyTo : undefined} onDelete={m.mine ? (it) => del.mutate(it.id) : undefined} onRetry={m.status === "failed" ? (it) => send.mutate({ value: it.content, reply: replyTo }) : undefined} onJumpToReply={jumpTo} showReactions canReact={!blocked} reactionDisabledReason={blocked ? "You can't message this user" : undefined} onReaction={(emoji, add, clientId) => react(m.id, emoji, add, clientId)} onReactionUsers={(emoji, cursor) => api.listReactionUsers("dm", conversationId, m.id, emoji, cursor)} />
             </div>
           );
         })}
+        {showJumpLatest && (
+          <button type="button" data-testid="jump-to-latest" onClick={() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" }); setShowJumpLatest(false); }} className="sticky bottom-4 ml-auto flex items-center gap-2 rounded-full bg-blue-strong px-4 py-2 text-sm font-semibold text-bg shadow-lg hover:bg-blue-deep">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M19 12l-7 7-7-7" /></svg>
+            Jump to latest
+          </button>
+        )}
       </div>
       <div className="border-t bg-bg-2">
         {replyTo && !blocked && (

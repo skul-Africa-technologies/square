@@ -3,6 +3,7 @@
 import { ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { CommunityStrip } from "./CommunityStrip";
+import { MobileSheet } from "./MobileSheet";
 import { AppSidebar } from "./AppSidebar";
 import { MessagesPanel } from "@/features/dm/MessagesPanel";
 import { MobileHub } from "@/features/dm/MobileHub";
@@ -17,8 +18,6 @@ export function AppShell({ children, rightRail }: { children: ReactNode; rightRa
   const isAssetView = /^\/c\/[^/]+\/[^/]+$/.test(pathname);
   const isProfileView = /^\/u\/[^/]+$/.test(pathname);
   const showMessagesPanel = pathname === "/home" || pathname.startsWith("/dm") || isProfileView;
-  const fullScreenMobile = isAssetView;
-
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -85,27 +84,24 @@ export function AppShell({ children, rightRail }: { children: ReactNode; rightRa
         </div>
       ) : (
         <div className="mobile-shell">
-          {fullScreenMobile ? (
-            <div className="min-h-[100dvh] bg-bg-2 flex flex-col">
-              <div className="sticky top-0 z-30 flex items-center gap-1 border-b bg-bg-2/95 px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur">
-                <button type="button" onClick={() => router.back()} aria-label="Back" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-surface hover:text-text">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg>
-                </button>
-              </div>
-              <div className="flex-1 min-h-0 overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">{children}</div>
-            </div>
-          ) : (
-            <div className="flex h-[100dvh] overflow-hidden">
-              <div className="mobile-strip">
-                <CommunityStrip />
-              </div>
-              <div className="mobile-sheet flex-1 min-w-0 overflow-hidden flex-col">
-                <div className="mobile-sheet-content flex-1 min-h-0 overflow-y-auto">
-                  {pathname === "/home" ? <MobileHomeHub /> : isHub ? <MobileHub /> : children}
+          <MobileSheet>
+            {isAssetView ? (
+              <div className="flex h-full min-h-0 flex-col">
+                <header className="flex shrink-0 items-center gap-1 border-b bg-bg-2 px-4 pb-2 pt-2">
+                  <button type="button" onClick={() => router.back()} aria-label="Back" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-surface hover:text-text">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg>
+                  </button>
+                </header>
+                <div className="mobile-sheet-content min-h-0 flex-1 overflow-y-auto">
+                  {children}
                 </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="mobile-sheet-content min-h-0 flex-1 overflow-y-auto">
+                {pathname === "/home" ? <MobileHomeHub /> : isHub ? <MobileHub /> : children}
+              </div>
+            )}
+          </MobileSheet>
         </div>
       )}
     </div>

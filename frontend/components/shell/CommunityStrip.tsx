@@ -18,6 +18,12 @@ export function CommunityStrip() {
     queryFn: () => api.myCommunities(),
     staleTime: 30_000,
   });
+  const { data: unread } = useQuery({
+    queryKey: ["unread"],
+    queryFn: () => api.unreadCount(),
+    staleTime: 5_000,
+    refetchInterval: 15_000,
+  });
   const isHub = pathname === "/home" || pathname.startsWith("/dm");
   const isExplore = pathname.startsWith("/explore") || pathname.startsWith("/channels");
 
@@ -40,6 +46,11 @@ export function CommunityStrip() {
           >
             <Image src="/logo-mark.png" alt="" width={44} height={44} className="h-11 w-11 object-cover" />
           </span>
+          {!!unread?.count && (
+            <span aria-label={`${unread.count} unread messages`} className="absolute -right-0.5 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-strong px-1 text-[9px] font-bold leading-none text-bg">
+              {unread.count > 99 ? "99+" : unread.count}
+            </span>
+          )}
         </Link>
 
         <div className="my-2 h-px w-8 shrink-0 bg-border" aria-hidden="true" />
@@ -61,13 +72,14 @@ export function CommunityStrip() {
             >
               <span
                 className={clsx(
-                  "flex h-11 w-11 items-center justify-center rounded-full border-2 text-xs font-semibold transition-[border-color] duration-200",
+                  "relative flex h-11 w-11 items-center justify-center rounded-full border-2 text-xs font-semibold transition-[border-color] duration-200",
                   active
                     ? "border-blue bg-blue-soft text-lime"
                     : "border-blue-border bg-surface text-lime",
                 )}
               >
                 {c.avatar || getInitials(c.name)}
+                {!!c.unreadCount && <span aria-label={`${c.unreadCount} unread messages`} className="absolute -right-0.5 top-0 h-2.5 w-2.5 rounded-full border-2 border-bg-2 bg-blue-strong" />}
               </span>
             </Link>
           );

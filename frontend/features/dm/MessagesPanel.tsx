@@ -94,6 +94,7 @@ export function MessagesPanel() {
                   <span className="relative shrink-0">
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-hi text-[11px] font-semibold">{getInitials(c.participant.username)}</span>
                     <PresenceDot status={c.presence} className="absolute -bottom-0.5 -right-0.5" />
+                    {unread && <span aria-hidden="true" className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-blue-strong" />}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline justify-between gap-2">
@@ -104,7 +105,8 @@ export function MessagesPanel() {
                       <span className="truncate">{c.blocked ? "You can't message this user" : c.lastMessagePreview || c.lastMessage || "No messages yet"}</span>
                     </span>
                   </span>
-                  {unread && !c.muted && <span className="ml-1 flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-lime px-1 text-[10px] font-semibold text-bg">{c.unreadCount > 99 ? "99+" : c.unreadCount}</span>}
+                  {unread && !c.muted && <span aria-label={`${c.unreadCount} unread`} className="ml-1 flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-blue-strong px-1 text-[10px] font-semibold text-bg">{c.unreadCount > 99 ? "99+" : c.unreadCount}</span>}
+                  {Boolean(c.mentionCount) && <span aria-label={`${c.mentionCount} direct mentions`} className="ml-1 flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-mention px-1 text-[10px] font-semibold text-bg">{c.mentionCount! > 99 ? "99+" : c.mentionCount}</span>}
                 </Link>
                 <button type="button" onClick={e => { e.preventDefault(); setMenuFor(m => m === c.id ? null : c.id); }} aria-label={`Options for ${c.participant.username}`} className={clsx("absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-hi hover:text-text", menuFor === c.id ? "opacity-100" : "opacity-0 focus-visible:opacity-100 group-hover:opacity-100")}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>

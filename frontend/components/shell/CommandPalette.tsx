@@ -189,7 +189,7 @@ export function CommandPalette({
   if (isMobile) {
     return (
       <div
-        className="fixed inset-0 z-[60] flex flex-col bg-bg-2"
+        className="fixed inset-0 z-[60] flex flex-col rounded-t-[var(--sheet-radius)] bg-bg-2"
         role="dialog" aria-modal="true" aria-label={mode === "new-message" ? "New message" : "Search"}
       >
         {/* top bar */}

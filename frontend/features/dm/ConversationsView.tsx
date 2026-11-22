@@ -25,7 +25,8 @@ export function ConversationsView({ compact }: { compact?: boolean }) {
               </div>
               <p className="text-xs text-muted truncate">{c.blocked ? "You can't message this user" : c.lastMessage || "No messages yet"}</p>
             </div>
-            {c.unreadCount > 0 && <span className="min-w-[20px] h-5 px-1 rounded-full bg-blue-strong text-bg text-[11px] font-semibold flex items-center justify-center">{c.unreadCount}</span>}
+            {c.unreadCount > 0 && <span aria-label={`${c.unreadCount} unread`} className="min-w-[20px] h-5 px-1 rounded-full bg-blue-strong text-bg text-[11px] font-semibold flex items-center justify-center">{c.unreadCount > 99 ? "99+" : c.unreadCount}</span>}
+            {Boolean(c.mentionCount) && <span aria-label={`${c.mentionCount} direct mentions`} className="min-w-[20px] h-5 px-1 rounded-full bg-mention text-bg text-[11px] font-semibold flex items-center justify-center">{c.mentionCount! > 99 ? "99+" : c.mentionCount}</span>}
           </Link>
         ))}
       </div>

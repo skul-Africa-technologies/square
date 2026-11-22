@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { PresenceDot } from "@/components/shell/PresenceDot";
 import { MemberList } from "@/features/assets/MemberList";
 import { DaySeparator, MessageRow, canGroup, dayLabel, type MessageItem } from "@/components/messages/MessageRow";
-import { config, type Asset, type AssetItem, type AssetKind, type Post, type Project, type Campaign } from "@square/shared";
+import { addReactionSummary, applyReactionCount, config, removeReactionSummary, type Asset, type AssetItem, type AssetKind, type Post, type Project, type Campaign, type ReactionStreamEvent } from "@square/shared";
 import { Skeleton } from "@/components/ui/skeleton";
 import clsx from "clsx";
 
@@ -25,9 +25,11 @@ export function CommunityAssetView({ community, asset }: { community: string; as
   const [replyTo, setReplyTo] = useState<MessageItem | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
   const [showUnreadBanner, setShowUnreadBanner] = useState(false);
+  const [showJumpLatest, setShowJumpLatest] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
+  const { data: currentUser } = useQuery({ queryKey: ["me"], queryFn: () => api.me(), staleTime: 60_000 });
   const { data: communityDetail, isLoading: commLoading } = useQuery({
     queryKey: ["community", community],
     queryFn: () => api.getCommunity(community),
@@ -74,6 +76,30 @@ export function CommunityAssetView({ community, asset }: { community: string; as
   }, [currentAsset]);
 
   useEffect(() => {
+    if (currentAsset?.kind !== "chat") return;
+    return api.subscribeReactionEvents("asset", currentAsset.id, (event: ReactionStreamEvent) => {
+      if (event.type === "reaction.resync") {
+        const byMessage = new Map(event.messages.map(message => [message.messageId, message.reactions]));
+        qc.setQueryData<{ items: Post[]; nextCursor?: string | null }>(["posts", community, asset], old => ({
+          ...old,
+          items: (old?.items || []).map(post => ({
+            ...post,
+            reactions: byMessage.get(post.id) || [],
+          })),
+        }));
+        return;
+      }
+      if (event.userId === (currentUser?.id || "u1")) return;
+      qc.setQueryData<{ items: Post[]; nextCursor?: string | null }>(["posts", community, asset], old => ({
+        ...old,
+        items: (old?.items || []).map(post => post.id === event.messageId
+          ? { ...post, reactions: applyReactionCount(post.reactions || [], event.emoji, event.count) }
+          : post),
+      }));
+    });
+  }, [asset, community, currentAsset, currentUser?.id, qc]);
+
+  useEffect(() => {
     if (currentAsset) {
       try {
         const stored = localStorage.getItem("square:lastAsset");
@@ -97,6 +123,7 @@ export function CommunityAssetView({ community, asset }: { community: string; as
     onSuccess: () => {
       setShowUnreadBanner(false);
       qc.invalidateQueries({ queryKey: ["community", community] });
+      qc.invalidateQueries({ queryKey: ["my-communities"] });
     },
   });
 
@@ -120,6 +147,9 @@ export function CommunityAssetView({ community, asset }: { community: string; as
     pinned: p.pinned,
     replyToId: p.replyToId,
     replyPreview: p.replyPreview,
+    deleted: p.deleted,
+    reactions: p.reactions || [],
+    mentionedUserIds: p.mentionedUserIds,
     mine: p.authorId === "u1",
   }));
 
@@ -129,6 +159,29 @@ export function CommunityAssetView({ community, asset }: { community: string; as
   const isFeed = currentAsset?.kind === "feed";
   const isBoard = currentAsset?.kind === "board";
   const isList = currentAsset?.kind === "list";
+
+  async function react(messageId: string, emoji: string, add: boolean, clientId: string) {
+    if (!currentAsset) throw new Error("Asset is no longer available");
+    const key = ["posts", community, asset] as const;
+    await qc.cancelQueries({ queryKey: key });
+    const previous = qc.getQueryData<{ items: Post[]; nextCursor?: string | null }>(key);
+    qc.setQueryData<{ items: Post[]; nextCursor?: string | null }>(key, old => ({
+      ...old,
+      items: (old?.items || []).map(post => {
+        if (post.id !== messageId) return post;
+        const reactions = post.reactions || [];
+        return { ...post, reactions: add
+          ? addReactionSummary(reactions, emoji, currentUser?.id || "u1", currentUser?.id || "u1")
+          : removeReactionSummary(reactions, emoji) };
+      }),
+    }));
+    try {
+      await api.setMessageReaction("asset", currentAsset.id, messageId, emoji, add, clientId);
+    } catch (error) {
+      if (previous) qc.setQueryData(key, previous);
+      throw error;
+    }
+  }
 
   if (commLoading) return <div className="flex h-full items-center justify-center"><Skeleton className="h-8 w-32" /></div>;
   if (!currentAsset) return <div className="flex h-full items-center justify-center p-8 text-center text-muted">Asset not found</div>;
@@ -141,7 +194,7 @@ export function CommunityAssetView({ community, asset }: { community: string; as
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <header className="flex h-11 shrink-0 items-center gap-3 border-b px-4 bg-bg-2/80 backdrop-blur">
+      <header className="flex h-11 shrink-0 items-center gap-3 border-b px-4 bg-bg-2">
         <span className="font-semibold text-sm"># {peer}</span>
         {assetDesc && <span className="text-muted text-sm truncate max-w-[300px]">· {assetDesc}</span>}
         <div className="ml-auto flex items-center gap-1">
@@ -159,13 +212,16 @@ export function CommunityAssetView({ community, asset }: { community: string; as
       </header>
 
       {showUnreadBanner && currentAsset.unreadCount && (
-        <div className="flex items-center justify-between border-b bg-lime-tint/20 px-4 py-2 text-sm">
-          <span>{currentAsset.unreadCount} new messages since {relativeTime(postsList[postsList.length - currentAsset.unreadCount]?.createdAt || "", now)}</span>
-          <Button size="sm" variant="ghost" onClick={() => markRead.mutate()}>Mark as read</Button>
+        <div data-testid="unread-banner" className="flex items-center justify-between border-b border-blue-border bg-blue-soft px-4 py-2 text-sm text-blue">
+          <span>{currentAsset.unreadCount} new messages since {postsList[postsList.length - currentAsset.unreadCount]?.createdAt ? new Date(postsList[postsList.length - currentAsset.unreadCount].createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "earlier"}</span>
+          <Button size="sm" variant="ghost" className="text-blue hover:bg-blue-soft hover:text-blue" onClick={() => markRead.mutate()}>Mark as read</Button>
         </div>
       )}
 
-      <div className="flex-1 min-h-0 overflow-auto">
+      <div ref={listRef} onScroll={event => {
+        const element = event.currentTarget;
+        setShowJumpLatest(element.scrollHeight - element.scrollTop - element.clientHeight > 160);
+      }} className="relative min-h-0 flex-1 overflow-auto [overflow-anchor:auto]">
         {isChat || isFeed ? (
           <div className="p-3">
             {postsLoading && <div className="space-y-2"><Skeleton className="h-14" /><Skeleton className="h-14" /></div>}
@@ -174,17 +230,24 @@ export function CommunityAssetView({ community, asset }: { community: string; as
                 const prev = i > 0 ? postsList[i - 1] : null;
                 const showDay = !prev || dayLabel(prev.createdAt) !== dayLabel(p.createdAt);
                 const isGrouped = config.GROUP_CONSECUTIVE_MESSAGES && prev && !showDay && canGroup(prev, p);
+                const firstUnreadIndex = Math.max(0, postsList.length - (currentAsset.unreadCount || 0));
                 return (
                   <li key={p.id}>
                     {showDay && <DaySeparator label={dayLabel(p.createdAt)} />}
+                    {showUnreadBanner && currentAsset.unreadCount && i === firstUnreadIndex && <NewMessagesDivider />}
                     <MessageRow
                       item={p}
-                      currentUserId="u1"
+                      currentUserId={currentUser?.id || "u1"}
                       grouped={!!isGrouped}
                       flash={flashId === p.id}
                       onReply={canPost ? setReplyTo : undefined}
                       onDelete={p.mine ? (it) => qc.invalidateQueries({ queryKey: ["posts", community, asset] }) : undefined}
                       onJumpToReply={jumpTo}
+                      showReactions={isChat}
+                      canReact={canPost}
+                      reactionDisabledReason={canPost ? undefined : myRole ? "You can't react here" : "Join to react"}
+                      onReaction={(emoji, add, clientId) => react(p.id, emoji, add, clientId)}
+                      onReactionUsers={(emoji, cursor) => api.listReactionUsers("asset", currentAsset.id, p.id, emoji, cursor)}
                     />
                   </li>
                 );
@@ -240,6 +303,12 @@ export function CommunityAssetView({ community, asset }: { community: string; as
         ) : (
           <div className="p-8 text-center text-muted">Asset view for {currentAsset.kind} coming soon.</div>
         )}
+        {showJumpLatest && (
+          <button type="button" data-testid="jump-to-latest" onClick={() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" }); setShowJumpLatest(false); }} className="absolute bottom-4 right-5 z-20 flex items-center gap-2 rounded-full bg-blue-strong px-4 py-2 text-sm font-semibold text-bg shadow-lg hover:bg-blue-deep">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M19 12l-7 7-7-7" /></svg>
+            Jump to latest
+          </button>
+        )}
       </div>
 
       <div className="border-t bg-bg-2">
@@ -293,6 +362,15 @@ export function CommunityAssetView({ community, asset }: { community: string; as
       {membersOpen && (
         <MemberList communityId={communityDetail?.community?.id || community} onClose={() => setMembersOpen(false)} />
       )}
+    </div>
+  );
+}
+
+function NewMessagesDivider() {
+  return (
+    <div data-testid="new-messages-divider" className="my-3 flex items-center gap-2 text-[10px] font-bold tracking-wide text-blue-strong">
+      <span className="h-px flex-1 bg-blue-strong" />
+      <span>NEW</span>
     </div>
   );
 }

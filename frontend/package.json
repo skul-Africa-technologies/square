@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"frontend: no unit tests (e2e via pnpm run test:e2e)\"",
+    "test": "vitest run lib/api/mock.assets.test.ts",
     "test:e2e": "NEXT_DIST_DIR=.next-e2e next build && NEXT_DIST_DIR=.next-e2e next start -p 3100",
     "analyze": "ANALYZE=true next build"
   },
@@ -20,6 +20,8 @@
     "@square/shared": "workspace:*",
     "@tanstack/react-query": "^5.62.0",
     "clsx": "^2.1.1",
+    "unicode-emoji-json": "^0.9.0",
+    "lucide-react": "^1.77.0",
     "next": "15.5.29",
     "react": "19.0.0",
     "react-dom": "19.0.0",
@@ -40,6 +42,7 @@
     "prettier": "^3.3.0",
     "prettier-plugin-tailwindcss": "^0.6.0",
     "tailwindcss": "^3.4.16",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^5.1.1"
   }
 }

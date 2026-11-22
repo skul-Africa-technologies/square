@@ -22,8 +22,11 @@ describe("asset permission logic", () => {
     expect(canRead("member", modsOnly!.permissions)).toBe(false);
   });
   it("ships four non-deletable defaults and unique suggestions", () => {
-    expect(DEFAULT_ASSETS.map(a => a.key)).toEqual(["general", "announcements", "guidelines", "events"]);
+    expect(DEFAULT_ASSETS.map(a => a.key)).toEqual(["announcements", "guidelines", "events", "general"]);
     expect(DEFAULT_ASSETS.every(a => a.isDefault)).toBe(true);
+    expect(DEFAULT_ASSETS.filter(a => a.key !== "general").every(a =>
+      a.permissions.canRead.includes("member") && !a.permissions.canPost.includes("member"),
+    )).toBe(true);
     const keys = ASSET_CATALOG.map(a => a.key);
     expect(new Set(keys).size).toBe(keys.length);
   });

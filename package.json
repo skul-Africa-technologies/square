@@ -10,7 +10,11 @@
   "scripts": {
     "dev": "turbo run dev --filter=@square/frontend",
     "dev:frontend": "pnpm --filter @square/frontend dev",
-    "dev:backend": "echo \"backend not started\"",
+    "dev:backend": "pnpm --filter @square/gateway dev",
+    "start:backend": "pnpm --filter @square/gateway start",
+    "db:migrate": "pnpm --filter @square/gateway migrate",
+    "build:backend": "turbo run build --filter=@square/gateway...",
+    "test:backend": "turbo run test --filter=@square/gateway...",
     "dev:clean": "pnpm --filter @square/frontend dev:clean",
     "build": "turbo run build",
     "lint": "turbo run lint",

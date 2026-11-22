@@ -1,14 +1,22 @@
 import type { ApiClient, Profile, UploadSignRequest, UploadSignResponse } from "./types";
 import { ClientApiError } from "./errors";
-import { ASSET_CATALOG, ASSET_CATEGORY_ORDER, DEFAULT_ASSETS } from "@square/shared";
+import { ADD_ASSET_ROLES, ASSET_CATALOG, ASSET_CATEGORY_ORDER, DEFAULT_ASSETS, getAssetCatalogEntry } from "@square/shared";
+import {
+  MAX_DISTINCT_REACTIONS_PER_MESSAGE,
+  MAX_REACTIONS_PER_USER_PER_MESSAGE,
+  QUICK_REACTIONS,
+  addReactionSummary,
+  isAllowedReactionEmoji,
+  removeReactionSummary,
+} from "@square/shared";
 import { activities as seedActivities, assets as seedAssets, badges, blockedUsers as seedBlocked, campaigns as seedCampaigns, communities as seedCommunities, conversations as seedConversations, directMessages as seedDMs, items as seedItems, memberships as seedMemberships, posts as seedPosts, projects as seedProjects, reservedTaken, schools, users } from "./seed";
-import type { Asset, AssetCatalogEntry, AssetItem, AssetPermissions, BlockedUser, Campaign, Community, CommunityDetail, CommunityMember, CommunityMembers, Conversation, DirectMessage, DiscoverBirthday, DiscoverCommunity, DiscoverEvent, DiscoverPerson, DiscoverResponse, DiscoverStudent, ExploreCommunity, Post, PresenceStatus, Project, Role, SearchResult, SearchResults, SearchSuggested, User } from "@square/shared";
+import type { Asset, AssetCatalogEntry, AssetCategoryGroup, AssetItem, AssetPermissions, BlockedUser, Campaign, Community, CommunityDetail, CommunityMember, CommunityMembers, Conversation, DirectMessage, DiscoverBirthday, DiscoverCommunity, DiscoverEvent, DiscoverPerson, DiscoverResponse, DiscoverStudent, ExploreCommunity, Post, PresenceStatus, Project, ReactionScope, ReactionSummary, ReactionUpdatedEvent, ReactionUser, Role, SearchResult, SearchResults, SearchSuggested, User } from "@square/shared";
 
 const delay = (ms = 200) => new Promise((r) => setTimeout(r, ms));
 let posts: Post[] = [...seedPosts];
 let assets: Asset[] = JSON.parse(JSON.stringify(seedAssets)) as Asset[];
 let items: AssetItem[] = [...seedItems];
-const projects = [...seedProjects];
+let projects = [...seedProjects];
 let campaignState: Campaign[] = JSON.parse(JSON.stringify(seedCampaigns)) as Campaign[];
 const communitiesState: Community[] = JSON.parse(JSON.stringify(seedCommunities)) as Community[];
 const memberships: Record<string, { userId: string; role: Role }[]> = JSON.parse(JSON.stringify(seedMemberships)) as typeof seedMemberships;
@@ -17,6 +25,50 @@ let verifiedNew = false;
 let conversationsState: Conversation[] = JSON.parse(JSON.stringify(seedConversations)) as Conversation[];
 let dms: DirectMessage[] = JSON.parse(JSON.stringify(seedDMs)) as DirectMessage[];
 let blocked: BlockedUser[] = [...seedBlocked];
+const reactionListeners = new Map<string, { listeners: Set<(event: ReactionUpdatedEvent) => void>; timer: ReturnType<typeof setInterval>; tick: number }>();
+
+function reactionRoomKey(scope: ReactionScope, roomId: string) { return `${scope}:${roomId}`; }
+function getReactionMessage(scope: ReactionScope, roomId: string, messageId: string): Post | DirectMessage | undefined {
+  return scope === "asset"
+    ? posts.find(message => message.id === messageId && message.assetId === roomId)
+    : dms.find(message => message.id === messageId && message.conversationId === roomId);
+}
+function emitReactionEvent(event: ReactionUpdatedEvent) {
+  reactionListeners.get(reactionRoomKey(event.scope, event.roomId))?.listeners.forEach(listener => listener(event));
+}
+function updateReactionCount(message: Post | DirectMessage, emoji: string, count: number) {
+  const reactions = message.reactions || [];
+  const exists = reactions.some(reaction => reaction.emoji === emoji);
+  message.reactions = count > 0
+    ? exists
+      ? reactions.map(reaction => reaction.emoji === emoji ? { ...reaction, count } : reaction)
+      : [...reactions, { emoji, count, me: false }]
+    : reactions.filter(reaction => reaction.emoji !== emoji);
+}
+function simulateReaction(scope: ReactionScope, roomId: string, tick: number) {
+  const messages = scope === "asset"
+    ? posts.filter(message => message.assetId === roomId && !message.deleted)
+    : dms.filter(message => message.conversationId === roomId && !message.deleted);
+  if (!messages.length) return;
+  const message = messages[tick % messages.length];
+  const emoji = QUICK_REACTIONS[tick % QUICK_REACTIONS.length];
+  const current = message.reactions?.find(reaction => reaction.emoji === emoji);
+  const removing = !!current && current.count > 1 && tick % 3 === 0;
+  const count = Math.max(0, (current?.count || 0) + (removing ? -1 : 1));
+  if (!current && (message.reactions?.length || 0) >= MAX_DISTINCT_REACTIONS_PER_MESSAGE) return;
+  updateReactionCount(message, emoji, count);
+  emitReactionEvent({
+    type: "reaction.updated",
+    scope,
+    roomId,
+    messageId: message.id,
+    emoji,
+    count,
+    op: removing ? "remove" : "add",
+    userId: users[(tick % (users.length - 1)) + 1].id,
+    clientId: `mock-${tick}`,
+  });
+}
 
 function paginate<T>(itemsIn: T[], nextCursor: string | null = null) { return { items: itemsIn, nextCursor }; }
 function afterFilter<T extends { createdAt?: string; id: string }>(itemsIn: T[], after?: string): T[] {
@@ -27,6 +79,10 @@ function afterFilter<T extends { createdAt?: string; id: string }>(itemsIn: T[],
 function communityById(idOrSlug: string) { return communitiesState.find(c => c.id === idOrSlug || c.slug === idOrSlug); }
 function assetById(idOrSlug: string) { return assets.find(a => a.id === idOrSlug || a.slug === idOrSlug); }
 function roleIn(communityId: string): Role | null { return memberships[communityId]?.find(m => m.userId === currentUser.id)?.role ?? null; }
+function canManageAssets(communityId: string): boolean {
+  const role = roleIn(communityId);
+  return role !== null && (ADD_ASSET_ROLES as readonly Role[]).includes(role);
+}
 function roleFor(communityId: string, username: string): Role | null {
   const u = users.find(x => x.username === username);
   return u ? memberships[communityId]?.find(m => m.userId === u.id)?.role ?? null : null;
@@ -36,9 +92,66 @@ function canRead(asset: Asset, role: Role | null): boolean {
   return role ? asset.permissions.canRead.includes(role) : asset.permissions.canRead.includes("member");
 }
 function canPost(asset: Asset, role: Role | null): boolean { return !!role && asset.permissions.canPost.includes(role); }
+function assetFromCatalog(communityId: string, entry: AssetCatalogEntry, order: number): Asset {
+  return {
+    id: `${communityId}-${entry.key}`,
+    communityId,
+    name: entry.name,
+    slug: entry.key,
+    description: entry.description,
+    kind: entry.kind,
+    category: entry.category,
+    permissions: JSON.parse(JSON.stringify(entry.permissions)) as AssetPermissions,
+    isDefault: !!entry.isDefault,
+    catalogKey: entry.key,
+    order,
+    hiddenFromMembers: entry.hiddenFromMembers,
+    unreadCount: 0,
+    lastReadPostId: null,
+  };
+}
+function allCommunityAssets(communityId: string): Asset[] {
+  const communityAssets = assets.filter(asset => asset.communityId === communityId);
+  const byKey = new Map(communityAssets.map(asset => [asset.catalogKey, asset]));
+  const defaults = DEFAULT_ASSETS.map((entry, order) => {
+    const stored = byKey.get(entry.key);
+    const asset = stored || assetFromCatalog(communityId, entry, order);
+    return {
+      ...asset,
+      name: entry.name,
+      slug: entry.key,
+      description: entry.description,
+      kind: entry.kind,
+      category: entry.category,
+      permissions: JSON.parse(JSON.stringify(entry.permissions)) as AssetPermissions,
+      isDefault: true,
+      catalogKey: entry.key,
+      order,
+      hiddenFromMembers: entry.hiddenFromMembers,
+    };
+  });
+  const optional = communityAssets
+    .filter(asset => !DEFAULT_ASSETS.some(entry => entry.key === asset.catalogKey))
+    .map(asset => {
+      const entry = getAssetCatalogEntry(asset.catalogKey);
+      if (!entry || entry.isDefault) throw new Error(`Unknown asset catalog key: ${asset.catalogKey || asset.id}`);
+      return { ...asset, name: entry.name, slug: entry.key, kind: entry.kind, category: entry.category, catalogKey: entry.key, isDefault: false };
+    });
+  return [...defaults, ...optional];
+}
+function groupedAssets(communityId: string): AssetCategoryGroup[] {
+  const visible = visibleAssets(communityId);
+  return ASSET_CATEGORY_ORDER
+    .map(category => ({ category, assets: visible.filter(asset => getAssetCatalogEntry(asset.catalogKey)?.category === category) }))
+    .filter(group => group.assets.length > 0);
+}
 function visibleAssets(communityId: string): Asset[] {
   const role = roleIn(communityId);
-  return assets.filter(a => a.communityId === communityId && canRead(a, role)).map(a => ({ ...a, locked: !canPost(a, role) })).sort((a, b) => a.order - b.order);
+  const categoryOrder = new Map(ASSET_CATEGORY_ORDER.map((category, index) => [category, index]));
+  return allCommunityAssets(communityId)
+    .filter(asset => canRead(asset, role))
+    .map(asset => ({ ...asset, locked: !canPost(asset, role) }))
+    .sort((a, b) => (categoryOrder.get(getAssetCatalogEntry(a.catalogKey)?.category || "Information") ?? 0) - (categoryOrder.get(getAssetCatalogEntry(b.catalogKey)?.category || "Information") ?? 0) || a.order - b.order);
 }
 function withCommunityState(c: Community): Community {
   const role = roleIn(c.id);
@@ -136,9 +249,7 @@ export const mockApi: ApiClient = {
     const c: Community = { id, slug, name: data.name || "New community", blurb: data.blurb || "", memberCount: 1, category: data.category || "Web2", categories: [data.category || "Web2"], schoolName: data.schoolName || currentUser.schoolName || "FUT Minna", avatar: (data.name || "NC").slice(0, 2).toUpperCase(), bannerUrl: data.bannerUrl, joined: true, role: "owner", isPublic: true, onlineCount: 1 };
     communitiesState.push(c);
     memberships[id] = [{ userId: currentUser.id, role: "owner" }];
-    DEFAULT_ASSETS.forEach((entry, i) => {
-      assets.push({ id: `${id}-${entry.key}`, communityId: id, name: entry.name, slug: entry.name, description: entry.description, kind: entry.kind, category: entry.category, template: entry.key, permissions: JSON.parse(JSON.stringify(entry.permissions)) as AssetPermissions, isDefault: true, catalogKey: entry.key, order: i, unreadCount: 0, lastReadPostId: null });
-    });
+    DEFAULT_ASSETS.forEach((entry, i) => assets.push(assetFromCatalog(id, entry, i)));
     return c;
   },
   // PROPOSED: not in backend doc
@@ -187,7 +298,12 @@ export const mockApi: ApiClient = {
     return { owners, moderators, online: rest.filter(r => r.presence === "online").sort(byName), offline: rest.filter(r => r.presence !== "online").sort(byName) } satisfies CommunityMembers;
   },
   // PROPOSED: not in backend doc
-  async myCommunities() { await delay(80); return communitiesState.filter(c => roleIn(c.id)).map(withCommunityState); },
+  async myCommunities() {
+    await delay(80);
+    return communitiesState
+      .filter(c => roleIn(c.id))
+      .map(c => ({ ...withCommunityState(c), unreadCount: assets.filter(asset => asset.communityId === c.id).reduce((sum, asset) => sum + (asset.unreadCount || 0), 0) }));
+  },
   // PROPOSED: not in backend doc
   async exploreCommunities(params) {
     await delay(140);
@@ -209,31 +325,60 @@ export const mockApi: ApiClient = {
   // PROPOSED: not in backend doc
   async getAssetCatalog() { await delay(80); return [...DEFAULT_ASSETS, ...ASSET_CATALOG] as AssetCatalogEntry[]; },
   // PROPOSED: not in backend doc
+  async listCommunityAssets(communitySlug) {
+    await delay(80);
+    const c = communityById(communitySlug);
+    if (!c) throw new ClientApiError({ code: "NOT_FOUND", message: "Community not found" });
+    return groupedAssets(c.id);
+  },
+  // PROPOSED: not in backend doc
   async addAsset(communityId, catalogKey) {
     await delay(140);
     const c = communityById(communityId); if (!c) throw new ClientApiError({ code: "NOT_FOUND", message: "Community not found" });
+    if (!canManageAssets(c.id)) throw new ClientApiError({ code: "FORBIDDEN", message: "Only community owners and moderators can add assets" });
     const entry = [...DEFAULT_ASSETS, ...ASSET_CATALOG].find(a => a.key === catalogKey);
-    if (!entry) throw new ClientApiError({ code: "NOT_FOUND", message: "Unknown asset" });
+    if (!entry || entry.isDefault) throw new ClientApiError({ code: "NOT_FOUND", message: "Unknown asset" });
     if (assets.some(a => a.communityId === c.id && a.catalogKey === catalogKey)) throw new ClientApiError({ code: "CONFLICT", message: "Asset already exists" });
-    const a: Asset = { id: `${c.id}-${entry.key}-${Date.now()}`, communityId: c.id, name: entry.name, slug: entry.name, description: entry.description, kind: entry.kind, category: entry.category, template: entry.key, permissions: JSON.parse(JSON.stringify(entry.permissions)) as AssetPermissions, isDefault: false, catalogKey: entry.key, order: assets.filter(x => x.communityId === c.id).length, hiddenFromMembers: entry.hiddenFromMembers, unreadCount: 0, lastReadPostId: null };
+    const a: Asset = { ...assetFromCatalog(c.id, entry, allCommunityAssets(c.id).length), id: `${c.id}-${entry.key}-${Date.now()}` };
     assets.push(a);
     return a;
+  },
+  // PROPOSED: not in backend doc
+  async reorderCommunityAssets(communitySlug, assetIds) {
+    await delay(80);
+    const c = communityById(communitySlug); if (!c) throw new ClientApiError({ code: "NOT_FOUND", message: "Community not found" });
+    if (!canManageAssets(c.id)) throw new ClientApiError({ code: "FORBIDDEN", message: "Only community owners and moderators can reorder assets" });
+    const current = allCommunityAssets(c.id);
+    const ids = new Set(assetIds);
+    if (ids.size !== current.length || current.some(asset => !ids.has(asset.id))) throw new ClientApiError({ code: "VALIDATION_FAILED", message: "Asset order must include every asset exactly once" });
+    const defaultIds = DEFAULT_ASSETS.map(entry => current.find(asset => asset.catalogKey === entry.key)!.id);
+    if (assetIds.filter(id => defaultIds.includes(id)).join("|") !== defaultIds.join("|")) throw new ClientApiError({ code: "VALIDATION_FAILED", message: "Default assets cannot be reordered" });
+    assets = assets.map(asset => {
+      const order = asset.communityId === c.id ? assetIds.indexOf(asset.id) : -1;
+      return order < 0 ? asset : { ...asset, order };
+    });
+    return groupedAssets(c.id);
   },
   // PROPOSED: not in backend doc
   async deleteAsset(assetId) {
     await delay(120);
     const a = assetById(assetId); if (!a) throw new ClientApiError({ code: "NOT_FOUND", message: "Asset not found" });
     if (a.isDefault) throw new ClientApiError({ code: "FORBIDDEN", message: "Default assets cannot be deleted" });
+    if (!canManageAssets(a.communityId)) throw new ClientApiError({ code: "FORBIDDEN", message: "Only community owners and moderators can remove assets" });
     assets = assets.filter(x => x.id !== a.id);
     posts = posts.filter(p => p.assetId !== a.id);
+    items = items.filter(item => item.assetId !== a.id);
+    projects = projects.filter(project => project.assetId !== a.id);
+    campaignState = campaignState.filter(campaign => campaign.assetId !== a.id);
     return { ok: true };
   },
   // PROPOSED: not in backend doc
   async updateAssetPermissions(assetId, permissions) {
     await delay(120);
-    assets = assets.map(a => a.id === assetId ? { ...a, permissions } : a);
     const a = assetById(assetId); if (!a) throw new ClientApiError({ code: "NOT_FOUND", message: "Asset not found" });
-    return a;
+    if (roleIn(a.communityId) !== "owner") throw new ClientApiError({ code: "FORBIDDEN", message: "Only community owners can edit asset permissions" });
+    assets = assets.map(asset => asset.id === assetId ? { ...asset, permissions } : asset);
+    return { ...a, permissions };
   },
   // PROPOSED: not in backend doc
   async markAssetRead(assetId) {
@@ -393,7 +538,86 @@ export const mockApi: ApiClient = {
     return m;
   },
   // PROPOSED: not in backend doc
-  async deleteMessage(conversationId, messageId) { await delay(80); dms = dms.map(m => m.id === messageId && m.conversationId === conversationId ? { ...m, deleted: true, text: "" } : m); return { ok: true }; },
+  async deleteMessage(conversationId, messageId) { await delay(80); dms = dms.map(m => m.id === messageId && m.conversationId === conversationId ? { ...m, deleted: true, text: "", reactions: [] } : m); return { ok: true }; },
+  // PROPOSED: not in backend doc
+  async setMessageReaction(scope, roomId, messageId, emoji, add, clientId) {
+    await delay(70);
+    if (!isAllowedReactionEmoji(emoji)) throw new ClientApiError({ code: "EMOJI_NOT_ALLOWED", message: "This emoji is not allowed" });
+    const message = getReactionMessage(scope, roomId, messageId);
+    if (!message || message.deleted) throw new ClientApiError({ code: "NOT_FOUND", message: "Message not found" });
+    if (scope === "asset") {
+      const asset = assetById(roomId);
+      const role = asset ? roleIn(asset.communityId) : null;
+      if (!asset || !canRead(asset, role) || !canPost(asset, role)) {
+        throw new ClientApiError({ code: "ASSET_FORBIDDEN", message: "You cannot react in this asset" });
+      }
+    } else {
+      const conversation = conversationsState.find(item => item.id === roomId);
+      const blockedPeer = conversation && blocked.some(user => user.username === conversation.participant.username);
+      if (!conversation || conversation.blocked || blockedPeer) {
+        throw new ClientApiError({ code: "DM_BLOCKED", message: "You can't message this user" });
+      }
+    }
+
+    const currentReactions = message.reactions || [];
+    const existing = currentReactions.find(reaction => reaction.emoji === emoji);
+    const mineCount = currentReactions.filter(reaction => reaction.me).length;
+    if (add) {
+      if (existing?.me) return { ok: true };
+      if (mineCount >= MAX_REACTIONS_PER_USER_PER_MESSAGE || (!existing && currentReactions.length >= MAX_DISTINCT_REACTIONS_PER_MESSAGE)) {
+        throw new ClientApiError({ code: "REACTION_LIMIT_REACHED", message: "Reaction limit reached" });
+      }
+      message.reactions = addReactionSummary(currentReactions, emoji, currentUser.id, currentUser.id);
+    } else {
+      message.reactions = removeReactionSummary(currentReactions, emoji);
+    }
+    void clientId;
+    return { ok: true };
+  },
+  // PROPOSED: not in backend doc
+  async listReactionUsers(scope, roomId, messageId, emoji, cursor) {
+    await delay(50);
+    const message = getReactionMessage(scope, roomId, messageId);
+    if (!message || message.deleted) throw new ClientApiError({ code: "NOT_FOUND", message: "Message not found" });
+    const summary = message.reactions?.find(reaction => reaction.emoji === emoji);
+    if (!summary) return paginate([]);
+    const candidates: ReactionUser[] = [];
+    if (summary.me) candidates.push({ id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl, me: true });
+    const otherCount = Math.max(0, summary.count - Number(summary.me));
+    const visibleUsers = users.filter(user => user.id !== currentUser.id && !blocked.some(block => block.id === user.id));
+    for (let index = 0; index < otherCount; index += 1) {
+      const user = visibleUsers[index];
+      candidates.push(user
+        ? { id: user.id, username: user.username, avatarUrl: user.avatarUrl, me: false }
+        : { id: `mock-user-${index}`, username: `member-${index + 1}`, me: false });
+    }
+    const offset = Math.max(0, Number(cursor || 0) || 0);
+    const page = candidates.slice(offset, offset + 20);
+    return paginate(page, offset + page.length < candidates.length ? String(offset + page.length) : null);
+  },
+  // PROPOSED: not in backend doc
+  subscribeReactionEvents(scope, roomId, listener) {
+    const key = reactionRoomKey(scope, roomId);
+    let subscription = reactionListeners.get(key);
+    if (!subscription) {
+      const created = { listeners: new Set<(event: ReactionUpdatedEvent) => void>(), tick: 0, timer: setInterval(() => {
+        created.tick += 1;
+        simulateReaction(scope, roomId, created.tick);
+      }, 5000) };
+      subscription = created;
+      reactionListeners.set(key, subscription);
+    }
+    subscription.listeners.add(listener);
+    return () => {
+      const active = reactionListeners.get(key);
+      if (!active) return;
+      active.listeners.delete(listener);
+      if (active.listeners.size === 0) {
+        clearInterval(active.timer);
+        reactionListeners.delete(key);
+      }
+    };
+  },
   // PROPOSED: not in backend doc
   async markRead(conversationId) { await delay(60); conversationsState = conversationsState.map(c => c.id === conversationId ? { ...c, unreadCount: 0 } : c); dms = dms.map(m => m.conversationId === conversationId && m.senderId !== currentUser.id ? { ...m, status: "seen" } : m); return { ok: true }; },
   // PROPOSED: not in backend doc

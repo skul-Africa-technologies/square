@@ -55,6 +55,7 @@ export interface Community {
   isPublic?: boolean;
   // PROPOSED: not in backend doc
   role?: Role | null;
+  unreadCount?: number;
 }
 
 export interface AssetPermissions {
@@ -99,6 +100,11 @@ export interface AssetCatalogEntry {
   hiddenFromMembers?: boolean;
 }
 
+export interface AssetCategoryGroup {
+  category: AssetCategory;
+  assets: Asset[];
+}
+
 // PROPOSED: not in backend doc
 export interface CommunityMember {
   id: string;
@@ -131,6 +137,28 @@ export interface ReplyPreview {
   deleted?: boolean;
 }
 
+export type ReactionScope = "asset" | "dm";
+export interface ReactionSummary { emoji: string; count: number; me: boolean }
+export interface ReactionUser { id: string; username: string; avatarUrl?: string; me: boolean }
+export interface ReactionUpdatedEvent {
+  type: "reaction.updated";
+  scope: ReactionScope;
+  roomId: string;
+  messageId: string;
+  emoji: string;
+  count: number;
+  op: "add" | "remove";
+  userId: string;
+  clientId?: string;
+}
+export interface ReactionResyncEvent {
+  type: "reaction.resync";
+  scope: ReactionScope;
+  roomId: string;
+  messages: Array<{ messageId: string; reactions: ReactionSummary[] }>;
+}
+export type ReactionStreamEvent = ReactionUpdatedEvent | ReactionResyncEvent;
+
 export interface Post {
   id: string;
   assetId: string;
@@ -149,6 +177,9 @@ export interface Post {
   replyToId?: string;
   // PROPOSED: not in backend doc
   replyPreview?: ReplyPreview;
+  deleted?: boolean;
+  reactions?: ReactionSummary[];
+  mentionedUserIds?: string[];
 }
 
 // PROPOSED: not in backend doc
@@ -231,6 +262,8 @@ export interface DirectMessage {
   replyToId?: string;
   // PROPOSED: not in backend doc
   replyPreview?: ReplyPreview;
+  reactions?: ReactionSummary[];
+  mentionedUserIds?: string[];
 }
 
 export interface Conversation {
@@ -248,6 +281,7 @@ export interface Conversation {
   otherUserId?: string;
   // PROPOSED: not in backend doc
   muted?: boolean;
+  mentionCount?: number;
 }
 
 // PROPOSED: not in backend doc

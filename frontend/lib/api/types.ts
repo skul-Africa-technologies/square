@@ -1,7 +1,8 @@
 import type {
-  Asset, AssetCatalogEntry, AssetItem, AssetPermissions, Activity, AuthRequestCodeResponse, AuthSignupRequest, AuthSignupResponse, AuthVerifyCodeResponse,
-  Badge, BlockedUser, Campaign, Community, CommunityDetail, CommunityMembers, Conversation, DirectMessage, DiscoverResponse, ExploreCommunity, Paginated, Post,
-  PresenceStatus, Project, ReplyPreview, School, SearchResults, SearchSuggested, User
+  Asset, AssetCatalogEntry, AssetCategoryGroup, AssetItem, AssetPermissions, Activity, AuthRequestCodeResponse, AuthSignupRequest, AuthSignupResponse, AuthVerifyCodeResponse,
+  Badge, BlockedUser, Campaign, Community, CommunityDetail, CommunityMembers, Conversation, DirectMessage, DiscoverResponse, ExploreCommunity,
+  Paginated, Post, PresenceStatus, Project, ReactionScope, ReactionStreamEvent, ReactionSummary, ReactionUser, ReplyPreview, School,
+  SearchResults, SearchSuggested, User
 } from "@square/shared";
 
 export interface UploadSignRequest { kind: "avatar" | "banner" | "post-media" }
@@ -54,7 +55,11 @@ export interface ApiClient {
   // PROPOSED: not in backend doc
   getAssetCatalog(): Promise<AssetCatalogEntry[]>;
   // PROPOSED: not in backend doc
+  listCommunityAssets(communitySlug: string): Promise<AssetCategoryGroup[]>;
+  // PROPOSED: not in backend doc
   addAsset(communityId: string, catalogKey: string): Promise<Asset>;
+  // PROPOSED: not in backend doc
+  reorderCommunityAssets(communitySlug: string, assetIds: string[]): Promise<AssetCategoryGroup[]>;
   // PROPOSED: not in backend doc
   deleteAsset(assetId: string): Promise<{ ok: true }>;
   // PROPOSED: not in backend doc
@@ -116,6 +121,12 @@ export interface ApiClient {
   sendMessage(conversationId: string, text: string, opts?: { replyToId?: string; replyPreview?: ReplyPreview }): Promise<DirectMessage>;
   // PROPOSED: not in backend doc
   deleteMessage(conversationId: string, messageId: string): Promise<{ ok: true }>;
+  // PROPOSED: not in backend doc
+  setMessageReaction(scope: ReactionScope, roomId: string, messageId: string, emoji: string, add: boolean, clientId: string): Promise<{ ok: true }>;
+  // PROPOSED: not in backend doc
+  listReactionUsers(scope: ReactionScope, roomId: string, messageId: string, emoji: string, cursor?: string): Promise<Paginated<ReactionUser>>;
+  // PROPOSED: not in backend doc
+  subscribeReactionEvents(scope: ReactionScope, roomId: string, listener: (event: ReactionStreamEvent) => void): () => void;
   // PROPOSED: not in backend doc
   markRead(conversationId: string): Promise<{ ok: true }>;
   // PROPOSED: not in backend doc

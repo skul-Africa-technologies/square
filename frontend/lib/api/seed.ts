@@ -91,8 +91,8 @@ function unread(assetId: string, count: number) {
 export const memberships: Record<string, { userId: string; role: Role }[]> = {
   wc: [
     { userId: "u3", role: "owner" },
-    { userId: "u2", role: "moderator" },
-    { userId: "u1", role: "member" },
+    { userId: "u1", role: "moderator" },
+    { userId: "u2", role: "member" },
     { userId: "u5", role: "member" },
     { userId: "u6", role: "member" },
     { userId: "u7", role: "member" },
@@ -100,8 +100,8 @@ export const memberships: Record<string, { userId: string; role: Role }[]> = {
     { userId: "u4", role: "member" },
   ],
   dl: [
-    { userId: "u5", role: "owner" },
-    { userId: "u1", role: "member" },
+    { userId: "u1", role: "owner" },
+    { userId: "u5", role: "member" },
     { userId: "u2", role: "member" },
     { userId: "u8", role: "member" },
   ],
@@ -156,11 +156,14 @@ function post(id: string, assetId: string, authorId: string, content: string, mi
   };
 }
 
+const reactions = (items: Array<[string, number, boolean?]>) =>
+  items.map(([emoji, count, me = false]) => ({ emoji, count, me }));
+
 export const posts: Post[] = [
-  post("p1", "wc-general", "u1", "Morning everyone — who's reviewing contracts later?", 60 * 26),
+  post("p1", "wc-general", "u1", "Morning everyone — who's reviewing contracts later?", 60 * 26, { reactions: reactions([["👍", 3]]) }),
   post("p1b", "wc-general", "u1", "I can share notes from yesterday if helpful.", 60 * 25),
-  post("p2", "wc-general", "u2", "I'll be there. Bringing a friend who's new to Web3.", 60 * 24, { replyToId: "p1", replyPreview: { id: "p1", authorUsername: "amaka-eze", snippet: "Morning everyone — who's reviewing contracts later?" } }),
-  post("p3", "wc-general", "u3", "Can someone share the reading list again?", 180),
+  post("p2", "wc-general", "u2", "I'll be there. Bringing a friend who's new to Web3.", 60 * 24, { replyToId: "p1", replyPreview: { id: "p1", authorUsername: "amaka-eze", snippet: "Morning everyone — who's reviewing contracts later?" }, reactions: reactions([["❤️", 2], ["🔥", 4, true], ["👀", 1]]) }),
+  post("p3", "wc-general", "u3", "Can someone share the reading list again?", 180, { reactions: reactions([["👍", 2], ["❤️", 4], ["😂", 1], ["🔥", 3], ["🎉", 2], ["👀", 1], ["🙏", 2], ["✅", 1], ["⭐", 2]]) }),
   post("p4", "wc-general", "u4", "There is a free intro-to-solidity workshop this Friday in the lab.", 150),
   post("p5", "wc-general", "u5", "Adding it to the events asset now.", 140),
   post("p6", "wc-general", "u6", "Anyone bringing a laptop with Foundry installed?", 120),
@@ -171,6 +174,9 @@ export const posts: Post[] = [
   post("p11", "wc-general", "u8", "Thanks Zainab!", 70),
   post("p12", "wc-general", "u5", "Reminder: bring your own power strip.", 60),
   post("p13", "wc-general", "u1", "Also: the workshop needs two more helpers.", 45),
+  post("p14", "wc-general", "u2", "Huge thanks to @amaka-eze for organizing the notes!", 30, {
+    mentionedUserIds: ["u1"],
+    reactions: reactions([["👍", 1], ["❤️", 1], ["😂", 1], ["🔥", 1], ["🎉", 1], ["👀", 1], ["🙏", 1], ["✅", 1], ["⭐", 1], ["💯", 1], ["🚀", 1], ["💡", 1], ["👏", 1], ["🤝", 1], ["🌟", 1], ["🥳", 1], ["💪", 1], ["😎", 1], ["🫶", 1], ["🎯", 1]]) }),
 
   post("p20", "wc-announcements", "u3", "Welcome to Web3 Club. Start in #general and say hello.", 60 * 48, { pinned: true }),
   post("p21", "wc-announcements", "u2", "Workshop sign-ups close Thursday at noon.", 60 * 12),
@@ -244,7 +250,7 @@ export const badges: Badge[] = [
 ];
 
 export const conversations: Conversation[] = [
-  { id: "dm1", participant: { id: "u2", username: "tunde-ade" }, otherUserId: "u2", lastMessage: "See you at the lab by 5?", lastMessagePreview: "See you at the lab by 5?", lastMessageAt: ago(4), unreadCount: 2, presence: "online" },
+  { id: "dm1", participant: { id: "u2", username: "tunde-ade" }, otherUserId: "u2", lastMessage: "See you at the lab by 5?", lastMessagePreview: "See you at the lab by 5?", lastMessageAt: ago(4), unreadCount: 2, mentionCount: 1, presence: "online" },
   { id: "dm2", participant: { id: "u5", username: "chioma-n" }, otherUserId: "u5", lastMessage: "Thanks for the feedback!", lastMessagePreview: "Thanks for the feedback!", lastMessageAt: ago(96), unreadCount: 0, presence: "online" },
   { id: "dm3", participant: { id: "u4", username: "victory-gray" }, otherUserId: "u4", lastMessage: "You can't message this user", lastMessagePreview: "You can't message this user", lastMessageAt: ago(60 * 26), unreadCount: 0, blocked: true, presence: "hidden" },
   { id: "dm4", participant: { id: "u7", username: "zainab-b" }, otherUserId: "u7", lastMessage: "Sending the draft tonight.", lastMessagePreview: "Sending the draft tonight.", lastMessageAt: ago(60 * 5), unreadCount: 1, presence: "online" },
@@ -254,10 +260,10 @@ export const conversations: Conversation[] = [
 ];
 
 export const directMessages: DirectMessage[] = [
-  { id: "m1", conversationId: "dm1", senderId: "u1", text: "Hey, are you joining the meetup?", createdAt: ago(30), status: "seen" },
+  { id: "m1", conversationId: "dm1", senderId: "u1", text: "Hey, are you joining the meetup?", createdAt: ago(30), status: "seen", reactions: reactions([["👍", 2, true]]) },
   { id: "m1b", conversationId: "dm1", senderId: "u1", text: "I can save us seats.", createdAt: ago(29), status: "seen" },
-  { id: "m2", conversationId: "dm1", senderId: "u2", text: "Yes! I'll come with notes.", createdAt: ago(20), status: "seen", replyToId: "m1", replyPreview: { id: "m1", authorUsername: "amaka-eze", snippet: "Hey, are you joining the meetup?" } },
-  { id: "m3", conversationId: "dm1", senderId: "u2", text: "See you at the lab by 5?", createdAt: ago(4), status: "sent" },
+  { id: "m2", conversationId: "dm1", senderId: "u2", text: "Yes! I'll come with notes.", createdAt: ago(20), status: "seen", replyToId: "m1", replyPreview: { id: "m1", authorUsername: "amaka-eze", snippet: "Hey, are you joining the meetup?" }, reactions: reactions([["🙌", 3], ["✨", 1]]) },
+  { id: "m3", conversationId: "dm1", senderId: "u2", text: "See you at the lab by 5, @amaka-eze?", createdAt: ago(4), status: "sent", mentionedUserIds: ["u1"], reactions: reactions([["👍", 1], ["❤️", 1, true], ["😂", 2]]) },
   { id: "m4", conversationId: "dm2", senderId: "u5", text: "Can you check my mockup?", createdAt: ago(110), status: "seen" },
   { id: "m5", conversationId: "dm2", senderId: "u1", text: "Looks clean — maybe tighten spacing.", createdAt: ago(100), status: "seen" },
   { id: "m6", conversationId: "dm2", senderId: "u5", text: "Thanks for the feedback!", createdAt: ago(96), status: "seen" },

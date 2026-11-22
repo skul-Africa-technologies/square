@@ -1,4 +1,4 @@
-import type { ApiError } from "@square/shared";
+import type { ApiError, ReactionScope, ReactionStreamEvent } from "@square/shared";
 import type { ApiClient, UploadSignRequest } from "./types";
 import { ClientApiError } from "./errors";
 import { appConfig } from "../config";
@@ -62,7 +62,11 @@ export const realApi: ApiClient = {
   // PROPOSED: not in backend doc
   getAssetCatalog: () => req(`/asset-catalog`),
   // PROPOSED: not in backend doc
-  addAsset: (communityId, catalogKey) => req(`/communities/${communityId}/assets`, { method: "POST", body: JSON.stringify({ catalogKey }) }),
+  listCommunityAssets: (slug) => req(`/communities/${encodeURIComponent(slug)}/assets`),
+  // PROPOSED: not in backend doc
+  addAsset: (communitySlug, catalogKey) => req(`/communities/${encodeURIComponent(communitySlug)}/assets`, { method: "POST", body: JSON.stringify({ catalogKey }) }),
+  // PROPOSED: not in backend doc
+  reorderCommunityAssets: (slug, assetIds) => req(`/communities/${encodeURIComponent(slug)}/assets/order`, { method: "PUT", body: JSON.stringify({ assetIds }) }),
   // PROPOSED: not in backend doc
   deleteAsset: (assetId) => req(`/assets/${assetId}`, { method: "DELETE" }),
   // PROPOSED: not in backend doc
@@ -124,6 +128,37 @@ export const realApi: ApiClient = {
   sendMessage: (conversationId, text, opts) => req(`/me/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ text, ...opts }) }),
   // PROPOSED: not in backend doc
   deleteMessage: (conversationId, messageId) => req(`/me/conversations/${conversationId}/messages/${messageId}`, { method: "DELETE" }),
+  // PROPOSED: not in backend doc
+  setMessageReaction: async (scope: ReactionScope, _roomId: string, messageId: string, emoji: string, add: boolean, clientId: string) => {
+    const root = scope === "dm" ? "/dm/messages" : "/messages";
+    await req(`${root}/${encodeURIComponent(messageId)}/reactions/${encodeURIComponent(emoji)}${add ? "" : "/me"}`, {
+      method: add ? "PUT" : "DELETE",
+      headers: { "Idempotency-Key": clientId },
+    });
+    return { ok: true as const };
+  },
+  // PROPOSED: not in backend doc
+  listReactionUsers: (scope, _roomId, messageId, emoji, cursor) => {
+    const root = scope === "dm" ? "/dm/messages" : "/messages";
+    const params = new URLSearchParams();
+    if (cursor) params.set("cursor", cursor);
+    return req(`${root}/${encodeURIComponent(messageId)}/reactions/${encodeURIComponent(emoji)}/users${params.size ? `?${params}` : ""}`);
+  },
+  // PROPOSED: not in backend doc
+  subscribeReactionEvents: (scope, roomId, listener) => {
+    const params = new URLSearchParams({ scope, roomId });
+    const source = new EventSource(`${appConfig.apiUrl}/reactions/stream?${params}`, { withCredentials: true });
+    const onReaction = (message: MessageEvent<string>) => {
+      try {
+        listener(JSON.parse(message.data) as ReactionStreamEvent);
+      } catch (error) {
+        console.error("Could not parse reaction.updated event", error);
+      }
+    };
+    source.addEventListener("reaction.updated", onReaction as EventListener);
+    source.addEventListener("reaction.resync", onReaction as EventListener);
+    return () => source.close();
+  },
   // PROPOSED: not in backend doc
   markRead: (conversationId) => req(`/me/conversations/${conversationId}/read`, { method: "POST" }),
   // PROPOSED: not in backend doc

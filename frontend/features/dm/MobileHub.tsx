@@ -35,7 +35,7 @@ export function MobileHub() {
 
   return (
     <div className="flex min-h-full flex-col">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b bg-bg-2/95 px-4 py-2 backdrop-blur">
+      <header className="sticky top-0 z-10 flex items-center gap-2 border-b bg-bg-2 px-4 py-2">
         <h1 className="flex-1 font-heading text-base font-semibold">Messages</h1>
         <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Search" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-surface hover:text-text">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
@@ -80,6 +80,7 @@ export function MobileHub() {
                   <span className="relative shrink-0">
                     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-hi text-[11px] font-semibold">{getInitials(c.participant.username)}</span>
                     <PresenceDot status={c.presence} className="absolute -bottom-0.5 -right-0.5" />
+                    {unread && <span aria-hidden="true" className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-blue-strong" />}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline justify-between gap-2">
@@ -88,7 +89,8 @@ export function MobileHub() {
                     </span>
                     <span className={clsx("block truncate text-xs", unread ? "text-text/80" : "text-muted")}>{c.lastMessagePreview || c.lastMessage || "No messages yet"}</span>
                   </span>
-                  {unread && <span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-lime px-1 text-[10px] font-semibold text-bg">{c.unreadCount > 99 ? "99+" : c.unreadCount}</span>}
+                  {unread && <span aria-label={`${c.unreadCount} unread`} className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-blue-strong px-1 text-[10px] font-semibold text-bg">{c.unreadCount > 99 ? "99+" : c.unreadCount}</span>}
+                  {Boolean(c.mentionCount) && <span aria-label={`${c.mentionCount} direct mentions`} className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-mention px-1 text-[10px] font-semibold text-bg">{c.mentionCount! > 99 ? "99+" : c.mentionCount}</span>}
                 </Link>
               );
             })}
