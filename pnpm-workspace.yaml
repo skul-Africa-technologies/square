@@ -4,3 +4,5 @@ packages:
   - "backend/*"
 allowBuilds:
   esbuild: true
+overrides:
+  postcss: 8.5.33
