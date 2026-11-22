@@ -17,12 +17,12 @@ importers:
       eslint-plugin-security:
         specifier: ^3.0.1
         version: 3.0.1
-      gitleaks:
-        specifier: ^1.0.0
-        version: 1.0.0
       turbo:
         specifier: ^2.11.13
         version: 2.11.13
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
   backend/assets: {}
 
@@ -1794,9 +1794,6 @@ packages:
 
   get-tsconfig@4.14.3:
     resolution: {integrity: sha512-++QEw4DIY7WGoukz+/+A/8dGYPT9l9yIadnmSgZ8Rjr3YVSVDipQSO9CdnJo9ePqFqUUqh+wk9uIaoiAwsiPkA==}
-
-  gitleaks@1.0.0:
-    resolution: {integrity: sha512-mTtKkWCAeHnTiBmRzjKnot8D8zX/JVDuRffuvSCr+z93vuBXygeifGZ7lXOB8Hjxto+DikSoF0XXfxntd1BZSQ==}
 
   glob-parent@5.1.2:
     resolution: {integrity: sha512-AOIgSQCepiJYwP3ARnGx+5VnTu2HBYdzbGP45eLw1vr3zB3vZLeyed1sC9hnbcOc9/SrMyM5RPQrkGz4aS9Zow==}
@@ -4534,8 +4531,6 @@ snapshots:
   get-tsconfig@4.14.3:
     dependencies:
       resolve-pkg-maps: 1.0.0
-
-  gitleaks@1.0.0: {}
 
   glob-parent@5.1.2:
     dependencies:
