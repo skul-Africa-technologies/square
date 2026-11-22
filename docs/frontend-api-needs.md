@@ -79,19 +79,31 @@ This document lists every API endpoint the frontend calls, its request/response 
 
 ## Assets
 
+The asset endpoints below are `// PROPOSED: not in backend doc`.
+
 ### `GET /api/asset-catalog`
 **Screen:** AddAssetDialog
 **Response:** `AssetCatalogEntry[]` — all default + optional catalog entries.
 
-### `POST /api/communities/:id/assets`
+### `GET /api/communities/:slug/assets`
+**Screen:** Desktop community sidebar, mobile community assets page
+**Response:** `AssetCategoryGroup[]` — catalog-ordered category groups containing visible assets, unread counts, and read-only state.
+
+### `POST /api/communities/:slug/assets`
 **Screen:** AddAssetDialog
 **Request:** `{ catalogKey: string }`
 **Response:** `Asset` — the newly created asset instance.
 
 ### `DELETE /api/assets/:id`
-**Screen:** Asset settings (owner only), AddAssetDialog (remove)
+**Screen:** Asset row actions (owners and moderators)
 **Response:** `{ ok: true }`
 **Notes:** Fails for default assets (`isDefault: true`).
+
+### `PUT /api/communities/:slug/assets/order`
+**Screen:** Community asset ordering
+**Request:** `{ assetIds: string[] }`
+**Response:** `AssetCategoryGroup[]`
+**Notes:** Every asset must appear once; default assets retain their required order.
 
 ### `PATCH /api/assets/:id/permissions`
 **Screen:** Asset settings (owner only)
@@ -114,6 +126,58 @@ This document lists every API endpoint the frontend calls, its request/response 
 **Screen:** CommunityAssetView (composer)
 **Request:** `{ content: string, media?: Post["media"], replyToId?: string, replyPreview?: ReplyPreview }`
 **Response:** `Post`
+
+## Message Reactions
+
+The following community-chat and DM endpoints are `// PROPOSED: not in backend doc`. Every chat
+message and reply, and every DM message and reply, includes `reactions: [{ emoji, count, me }]`
+ordered by the first reaction time. Feed-post like buttons are unchanged.
+
+### `PUT /api/messages/:id/reactions/:emoji`
+**Screen:** CommunityAssetView (chat message)
+**Access:** `A:post`
+**Response:** `204` — idempotently adds the current user's reaction.
+
+### `DELETE /api/messages/:id/reactions/:emoji/me`
+**Screen:** CommunityAssetView (chat message)
+**Access:** `A:post`
+**Response:** `204` — removes the current user's reaction.
+
+### `GET /api/messages/:id/reactions/:emoji/users?cursor=...`
+**Screen:** CommunityAssetView (who reacted)
+**Access:** `A:read`
+**Response:** `Paginated<ReactionUser>`
+
+### `DELETE /api/messages/:id/reactions/:emoji`
+**Screen:** CommunityAssetView (moderation)
+**Access:** `C:mod`
+**Response:** `204` — clears one emoji and writes an audit event.
+
+### `DELETE /api/messages/:id/reactions`
+**Screen:** CommunityAssetView (moderation)
+**Access:** `C:mod`
+**Response:** `204` — clears all message reactions and writes an audit event.
+
+### `PUT /api/dm/messages/:id/reactions/:emoji`
+**Screen:** ThreadView (DM message)
+**Access:** Participant, unblocked
+**Response:** `204` — idempotently adds the current user's reaction.
+
+### `DELETE /api/dm/messages/:id/reactions/:emoji/me`
+**Screen:** ThreadView (DM message)
+**Access:** Participant, unblocked
+**Response:** `204` — removes the current user's reaction.
+
+### `GET /api/dm/messages/:id/reactions/:emoji/users?cursor=...`
+**Screen:** ThreadView (who reacted)
+**Access:** Participant, unblocked
+**Response:** `Paginated<ReactionUser>`
+
+### `GET /api/reactions/stream?scope=asset|dm&roomId=...` (SSE)
+**Screen:** CommunityAssetView, ThreadView
+**Response:** `reaction.resync` snapshot followed by authorized `reaction.updated` events for that
+room. Community room subscriptions require read access; DM subscriptions require participant status
+and no block.
 
 ## Items (List & Form Assets)
 
