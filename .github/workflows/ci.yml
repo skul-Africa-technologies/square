@@ -50,7 +50,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run build --filter=@square/frontend[origin/main]
+      - run: pnpm run build:frontend
       - run: pnpm run test --filter=@square/shared[origin/main]
 
   e2e:

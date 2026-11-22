@@ -1,4 +1,6 @@
-import type { NextConfig } from "next";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 
 const csp = [
   "default-src 'self'",
@@ -25,7 +27,7 @@ const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
 ];
 
-const baseConfig: NextConfig = {
+const baseConfig = {
   transpilePackages: ["@square/shared"],
   poweredByHeader: false,
   distDir: process.env.NEXT_DIST_DIR || ".next",
@@ -34,11 +36,10 @@ const baseConfig: NextConfig = {
   },
 };
 
-let config: NextConfig = baseConfig;
+let config = baseConfig;
 if (process.env.ANALYZE === "true") {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const withBundleAnalyzer = require("@next/bundle-analyzer")({ enabled: true });
-  config = withBundleAnalyzer(baseConfig);
+  const withBundleAnalyzer = require("@next/bundle-analyzer");
+  config = withBundleAnalyzer({ enabled: true })(baseConfig);
 }
 
 export default config;

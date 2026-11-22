@@ -1,6 +1,9 @@
 {
   "name": "square",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "packageManager": "pnpm@11.5.0",
   "workspaces": [
     "frontend",
@@ -12,13 +15,16 @@
     "dev:frontend": "pnpm --filter @square/frontend dev",
     "dev:backend": "pnpm --filter @square/gateway dev",
     "start:backend": "pnpm --filter @square/gateway start",
+    "build:frontend": "pnpm --filter @square/shared typecheck && pnpm --filter @square/frontend build:prod",
+    "start:frontend": "pnpm --filter @square/frontend start:prod",
     "db:migrate": "pnpm --filter @square/gateway migrate",
     "build:backend": "turbo run build --filter=@square/gateway...",
     "test:backend": "turbo run test --filter=@square/gateway...",
     "dev:clean": "pnpm --filter @square/frontend dev:clean",
-    "build": "turbo run build",
+    "build": "pnpm run build:frontend",
+    "start": "pnpm run start:frontend",
     "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
+    "typecheck": "turbo run typecheck --concurrency=2",
     "test": "turbo run test",
     "format": "prettier --write .",
     "audit": "pnpm audit --prod",
