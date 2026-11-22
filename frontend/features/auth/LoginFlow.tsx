@@ -1,6 +1,8 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -13,209 +15,456 @@ import { validateUsername, toDisplayUsername } from "@square/shared";
 import type { School } from "@square/shared";
 import { appConfig } from "@/lib/config";
 import { copy } from "@/lib/copy";
+import { ClientApiError } from "@/lib/api/errors";
+import type { User } from "@square/shared";
 
+type Mode = "login" | "signup";
+type Step = "email" | "code" | "no-account" | "setup";
+type FlowState = { mode: Mode; email: string; ticket?: string; ticketExpiresAt?: number };
+const FLOW_KEY = "square.auth-flow.v1";
+const LAST_EMAIL_KEY = "square.last-login-email.v1";
 const emailSchema = z.object({ email: z.string().email("Enter a valid email") });
-const AUTH_ERROR = "We couldn't complete that request. Please try again.";
+const GENERIC_ERROR = "We couldn't complete that request. Please try again.";
 
-export function LoginFlow() {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [email, setEmail] = useState("");
+function readFlow(): FlowState | null {
+  try {
+    const raw = sessionStorage.getItem(FLOW_KEY);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as FlowState;
+    return value && (value.mode === "login" || value.mode === "signup") && typeof value.email === "string" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveFlow(flow: FlowState | null) {
+  try {
+    if (flow) sessionStorage.setItem(FLOW_KEY, JSON.stringify(flow));
+    else sessionStorage.removeItem(FLOW_KEY);
+  } catch {
+    // The current page can complete the flow even when session storage is disabled.
+  }
+}
+
+function errorMessage(error: unknown): string {
+  const code = error instanceof ClientApiError ? error.code.toUpperCase() : "";
+  if (code === "CODE_EXPIRED" || code === "INVALID_CODE" || code === "INVALID") return "That code is wrong or expired. Try again.";
+  if (code === "TOO_MANY_ATTEMPTS") return "Too many attempts. Request a new code.";
+  if (code === "RESEND_TOO_SOON" || code === "RATE_LIMITED") return "Please wait before requesting another code.";
+  if (code === "TICKET_EXPIRED") return "Start again to verify your email.";
+  if (code === "USERNAME_TAKEN") return "That username is already taken.";
+  if (code === "INVALID_USERNAME") return "Choose a valid username.";
+  if (code === "AGE_NOT_ALLOWED" || code === "INVALID_SIGNUP") return "You can't create an account with those details.";
+  return GENERIC_ERROR;
+}
+
+function isAllowedAge(value: string) {
+  const birth = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(birth.getTime()) || birth > new Date()) return false;
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - 16);
+  return birth <= cutoff;
+}
+
+export function LoginFlow({ mode = "login", initialStep = "email" }: { mode?: Mode; initialStep?: Step }) {
+  const [step, setStep] = useState<Step>(initialStep);
+  const [flow, setFlow] = useState<FlowState>({ mode, email: "" });
+  const [toast, setToast] = useState("");
   const router = useRouter();
 
-  async function completeAuth(token?: string) {
-    // Session tokens only in httpOnly Secure cookies (server-set). In mock mode we establish a server cookie;
-    // real mode must rely on backend-set httpOnly cookie on auth responses.
-    if (appConfig.useMock) await establishMockSession();
-    void token;
-    router.push("/home");
-  }
+  useEffect(() => {
+    const stored = readFlow();
+    if (initialStep === "setup") {
+      if (!stored?.ticket || stored.mode !== "signup" || !stored.ticketExpiresAt || stored.ticketExpiresAt <= Date.now()) {
+        saveFlow(null);
+        router.replace("/signup?message=start-again");
+        return;
+      }
+      setFlow(stored);
+      setStep("setup");
+    } else if (stored?.mode === mode) {
+      setFlow(stored);
+      setStep(stored.ticket ? "no-account" : stored.email ? "code" : "email");
+    } else if (mode === "login") {
+      try {
+        const lastEmail = localStorage.getItem(LAST_EMAIL_KEY);
+        if (lastEmail) setFlow({ mode, email: "" });
+      } catch {
+        // Login remains available when local storage is disabled.
+      }
+    }
+
+    const message = new URLSearchParams(window.location.search).get("message");
+    if (message === "start-again") setToast("Start again to verify your email");
+  }, [initialStep, mode, router]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(""), 4000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  const updateFlow = (next: FlowState | null) => {
+    setFlow(next || { mode, email: "" });
+    saveFlow(next);
+  };
+
+  const finishSignIn = useCallback(async (user?: User, accountExistsToast = false) => {
+    if (appConfig.useMock) {
+      if (!user) throw new Error("Mock authentication response did not include a user");
+      await establishMockSession(user.id);
+    }
+    saveFlow(null);
+    let destination = "/home";
+    if (!user?.schoolId || !user.dob) {
+      destination = "/settings/profile?banner=profile-incomplete";
+    } else if (accountExistsToast) {
+      destination = "/home?toast=account-exists";
+    } else if (mode === "login") {
+      try {
+        const next = new URLSearchParams(window.location.search).get("next");
+        if (next?.startsWith("/") && !next.startsWith("//") && !next.includes("\\")) {
+          const parsed = new URL(next, window.location.origin);
+          if (parsed.origin === window.location.origin) destination = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+        }
+      } catch {
+        destination = "/home";
+      }
+    }
+    router.replace(destination);
+  }, [mode, router]);
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
-      <div className="hidden lg:flex relative flex-col justify-end p-10 bg-bg-2 border-r overflow-hidden">
+    <div className="grid min-h-screen lg:grid-cols-2">
+      <div className="relative hidden flex-col justify-end overflow-hidden border-r bg-bg-2 p-10 lg:flex">
         <Image src="/hero-mascot.jpg" alt="Square mascot" fill className="object-cover opacity-80" priority sizes="50vw" />
         <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/40 to-transparent" />
         <div className="relative z-10 max-w-md">
-          <div className="flex items-center gap-2 mb-6">
+          <div className="mb-6 flex items-center gap-2">
             <Image src="/logo-mark.png" alt="Square" width={36} height={36} className="rounded-lg" />
-            <span className="font-heading font-semibold text-xl">Square</span>
+            <span className="font-heading text-xl font-semibold">Square</span>
           </div>
           <h1 className="font-heading text-4xl font-semibold leading-tight">{copy.login.heroTitle}</h1>
           <p className="mt-3 text-muted">{copy.login.heroSubtitle}</p>
         </div>
       </div>
-      <div className="flex items-center justify-center p-6 lg:p-12">
+      <div className="flex min-h-screen items-center justify-center p-6 lg:p-12">
         <div className="w-full max-w-md">
-          <div className="lg:hidden mb-8">
-            <div className="flex items-center gap-2 mb-4">
+          <div className="mb-8 lg:hidden">
+            <div className="mb-4 flex items-center gap-2">
               <Image src="/logo-mark.png" alt="Square" width={32} height={32} className="rounded-lg" />
-              <span className="font-heading font-semibold text-lg">Square</span>
+              <span className="font-heading text-lg font-semibold">Square</span>
             </div>
             <h1 className="font-heading text-3xl font-semibold">{copy.login.heroTitle}</h1>
-            <p className="mt-2 text-muted text-sm">{copy.login.heroSubtitle}</p>
+            <p className="mt-2 text-sm text-muted">{copy.login.heroSubtitle}</p>
           </div>
-          {step === 1 && <EmailStep onSent={(e) => { setEmail(e); setStep(2); }} />}
-          {step === 2 && <CodeStep email={email} onVerified={(res) => { if (res.hasAccount) { void completeAuth(res.token); } else { setStep(3); } }} onBack={() => setStep(1)} />}
-          {step === 3 && <DetailsStep onDone={(tok) => { void completeAuth(tok); }} />}
+          {toast && <p className="mb-4 rounded-lg border border-lime/40 bg-surface px-3 py-2 text-sm" role="status">{toast}</p>}
+          {step === "email" && (
+            <EmailStep mode={mode} initialEmail={flow.email} onSent={(email) => {
+              const next = { mode, email };
+              updateFlow(next);
+              if (mode === "login") {
+                try { localStorage.setItem(LAST_EMAIL_KEY, email); } catch { /* Optional convenience only. */ }
+              }
+              setStep("code");
+            }} />
+          )}
+          {step === "code" && flow.email && (
+            <CodeStep mode={mode} email={flow.email} onChangeEmail={() => { updateFlow(null); setStep("email"); }}
+              onVerified={async (result) => {
+                if (!result.isNewUser) {
+                  await finishSignIn(result.user, mode === "signup");
+                  return;
+                }
+                if (!result.signupTicket) throw new Error("Signup verification response did not include a ticket");
+                const next: FlowState = { mode, email: flow.email, ticket: result.signupTicket, ticketExpiresAt: Date.now() + 15 * 60 * 1000 };
+                updateFlow(next);
+                if (mode === "login") setStep("no-account");
+                else router.replace("/signup/setup");
+              }} />
+          )}
+          {step === "no-account" && (
+            <section className="space-y-4" aria-live="polite">
+              <div>
+                <h2 className="font-heading text-2xl font-semibold">No account for this email yet</h2>
+                <p className="mt-1 text-sm text-muted">Create an account to join your campus on Square.</p>
+              </div>
+              <Button className="min-h-11 w-full" onClick={() => {
+                if (!flow.ticket || (flow.ticketExpiresAt || 0) <= Date.now()) {
+                  updateFlow(null);
+                  setToast("Start again to verify your email");
+                  setStep("email");
+                  return;
+                }
+                const next = { ...flow, mode: "signup" as const };
+                updateFlow(next);
+                router.push("/signup/setup");
+              }}>Create account</Button>
+              <button type="button" className="min-h-11 w-full text-sm text-muted hover:text-text" onClick={() => { updateFlow(null); setStep("email"); }}>Use a different email</button>
+            </section>
+          )}
+          {step === "setup" && flow.ticket && (
+            <SetupStep ticket={flow.ticket} onDone={async (userId) => {
+              try {
+                if (appConfig.useMock) await establishMockSession(userId);
+                saveFlow(null);
+                router.replace("/home");
+              } catch {
+                setToast(GENERIC_ERROR);
+              }
+            }} onExpired={() => {
+              saveFlow(null);
+              router.replace("/signup?message=start-again");
+            }} />
+          )}
+          {step === "email" && (
+            <p className="mt-6 text-center text-sm text-muted">
+              {mode === "login" ? <>New to Square? <Link href="/signup" className="text-text underline">Sign up</Link></> : <>Already have an account? <Link href="/login" className="text-text underline">Log in</Link></>}
+            </p>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function EmailStep({ onSent }: { onSent: (email: string, retryAfter?: number) => void }) {
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<{ email: string }>({ resolver: zodResolver(emailSchema) });
-  const [err, setErr] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState(0);
-  useEffect(() => { if (cooldown <= 0) return; const t = setInterval(() => setCooldown(c => c - 1), 1000); return () => clearInterval(t); }, [cooldown]);
+function EmailStep({ mode, initialEmail, onSent }: { mode: Mode; initialEmail: string; onSent: (email: string) => void }) {
+  const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<{ email: string }>({ resolver: zodResolver(emailSchema), defaultValues: { email: initialEmail } });
+  const [error, setError] = useState<string | null>(null);
+  const [lastEmail, setLastEmail] = useState("");
+
+  useEffect(() => {
+    if (mode !== "login" || initialEmail) return;
+    try {
+      const last = localStorage.getItem(LAST_EMAIL_KEY) || "";
+      setLastEmail(last);
+      if (last) setValue("email", last);
+    } catch { /* Optional convenience only. */ }
+  }, [initialEmail, mode, setValue]);
+
   return (
-    <form className="space-y-4" onSubmit={handleSubmit(async (v) => {
-      setErr(null);
+    <form className="space-y-4" onSubmit={handleSubmit(async ({ email }) => {
+      setError(null);
       try {
-        const res = await api.requestCode(v.email);
-        const retry = typeof res.retryAfter === "number" ? res.retryAfter : 0;
-        if (retry > 0) setCooldown(retry);
-        onSent(v.email, retry);
-      } catch { setErr(AUTH_ERROR); }
+        await api.requestCode(email);
+        onSent(email.trim());
+      } catch (reason) { setError(errorMessage(reason)); }
     })}>
       <div>
-        <h2 className="font-heading text-2xl font-semibold">{copy.login.welcome}</h2>
-        <p className="text-muted text-sm mt-1">Sign in or create an account with your email.</p>
+        <h2 className="font-heading text-2xl font-semibold">{mode === "login" ? "Welcome back" : "Create your account"}</h2>
+        <p className="mt-1 text-sm text-muted">{mode === "login" ? "Log in with your email" : "Join your campus on Square"}</p>
       </div>
       <div>
-        <label className="text-sm mb-1 block">Email</label>
-        <Input type="email" placeholder="you@school.edu" autoComplete="email" {...register("email")} error={errors.email?.message} />
+        <label htmlFor="auth-email" className="mb-1 block text-sm">Email</label>
+        <Input id="auth-email" type="email" placeholder="you@school.edu" autoComplete="email" autoFocus error={errors.email?.message} {...register("email")} />
+        {lastEmail && mode === "login" && (
+          <button type="button" className="mt-1 min-h-11 text-xs text-muted underline hover:text-text" onClick={() => { setValue("email", ""); setLastEmail(""); }}>
+            Not you?
+          </button>
+        )}
+        {appConfig.useMock && <p className="mt-2 text-xs text-muted">Mock mode: any 6-digit code works; amaka@example.com is an existing account</p>}
       </div>
-      <Button type="submit" className="w-full" disabled={isSubmitting || cooldown > 0}>{isSubmitting ? "Sending..." : cooldown > 0 ? `Send code in ${cooldown}s` : "Send code"}</Button>
-      {err && <p className="text-sm text-red-400" role="alert">{err}</p>}
-      <p className="text-xs text-muted">No wallet needed. Add one later.</p>
+      <Button type="submit" className="min-h-11 w-full" disabled={isSubmitting}>{isSubmitting ? "Sending..." : "Send code"}</Button>
+      {error && <p className="text-sm text-red-400" role="alert" aria-live="polite">{error}</p>}
     </form>
   );
 }
 
-function CodeStep({ email, onVerified, onBack }: { email: string; onVerified: (res: { hasAccount: boolean; token?: string }) => void; onBack: () => void }) {
+function CodeStep({ mode, email, onChangeEmail, onVerified }: {
+  mode: Mode;
+  email: string;
+  onChangeEmail: () => void;
+  onVerified: (result: { isNewUser: boolean; user?: User; signupTicket?: string }) => void | Promise<void>;
+}) {
   const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
-  const [err, setErr] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(60);
+  const [shake, setShake] = useState(false);
   const refs = useRef<Array<HTMLInputElement | null>>([]);
-  useEffect(() => { if (cooldown <= 0) return; const t = setInterval(() => setCooldown(c => c - 1), 1000); return () => clearInterval(t); }, [cooldown]);
+  const attemptedCode = useRef("");
   const code = digits.join("");
-  const setAt = (i: number, val: string) => {
-    const v = val.replace(/\D/g, "").slice(-1);
-    const next = [...digits]; next[i] = v; setDigits(next);
-    if (v && i < 5) refs.current[i + 1]?.focus();
-  };
-  const onPaste = (e: React.ClipboardEvent) => {
-    const t = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-    if (t.length) { e.preventDefault(); const next = Array(6).fill(""); t.split("").forEach((c, i) => next[i] = c); setDigits(next); refs.current[Math.min(t.length, 5)]?.focus(); }
-  };
-  const verify = async () => {
-    setErr(null); setLoading(true);
-    try { const res = await api.verifyCode(email, code); onVerified(res); }
-    catch { setErr(AUTH_ERROR); }
-    finally { setLoading(false); }
-  };
-  const resend = async () => {
-    if (cooldown > 0 || loading) return;
-    setErr(null); setLoading(true);
-    try {
-      const res = await api.requestCode(email);
-      const retry = typeof res.retryAfter === "number" ? res.retryAfter : 60;
-      setCooldown(Math.max(1, retry));
-    } catch { setErr(AUTH_ERROR); }
-    finally { setLoading(false); }
-  };
-  return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="font-heading text-2xl font-semibold">Enter code</h2>
-        <p className="text-muted text-sm mt-1">We sent a 6-digit code to {email}</p>
-      </div>
-      <div className="flex gap-2" onPaste={onPaste}>
-        {digits.map((d, i) => (
-          <input key={i} ref={el => { refs.current[i] = el; }} value={d} onChange={e => setAt(i, e.target.value)}
-            onKeyDown={e => { if (e.key === "Backspace" && !digits[i] && i > 0) refs.current[i - 1]?.focus(); }}
-            inputMode="numeric" aria-label={`Digit ${i + 1}`} maxLength={1} autoComplete="one-time-code"
-            className="h-12 w-12 rounded-lg border bg-bg-2 text-center text-lg focus:border-blue-strong focus:outline-none" />
-        ))}
-      </div>
-      {err && <p className="text-sm text-red-400" role="alert">{err}</p>}
-      <Button onClick={verify} className="w-full" disabled={code.length !== 6 || loading}>{loading ? "Verifying..." : "Verify"}</Button>
-      <div className="flex items-center justify-between text-sm">
-        <button type="button" onClick={onBack} className="text-muted hover:text-text" disabled={loading}>Change email</button>
-        <button type="button" onClick={resend} disabled={cooldown > 0 || loading} className="text-muted hover:text-text disabled:opacity-50">{cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}</button>
-      </div>
-    </div>
-  );
-}
 
-function DetailsStep({ onDone }: { onDone: (token?: string) => void }) {
-  const [username, setUsername] = useState("");
-  const [schoolId, setSchoolId] = useState("");
-  const [schoolQ, setSchoolQ] = useState("");
-  const [schools, setSchools] = useState<School[]>([]);
-  const [showSchools, setShowSchools] = useState(false);
-  const [dob, setDob] = useState("");
-  const [avail, setAvail] = useState<"idle" | "checking" | "free" | "taken" | "invalid">("idle");
-  const [msg, setMsg] = useState<string>("");
-  const [err, setErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  useEffect(() => { let on = true; api.listSchools(schoolQ).then(r => { if (on) setSchools(r); }).catch(() => { }); return () => { on = false; }; }, [schoolQ]);
+  useEffect(() => { refs.current[0]?.focus(); }, []);
   useEffect(() => {
-    if (!username) { setAvail("idle"); setMsg(""); return; }
-    const v = validateUsername(username);
-    if (!v.ok) { setAvail("invalid"); setMsg(v.reason); return; }
-    setAvail("checking"); setMsg("Checking...");
-    const t = setTimeout(async () => {
-      try { const r = await api.usernameAvailable(v.stored); setAvail(r.available ? "free" : "taken"); setMsg(r.available ? `${toDisplayUsername(v.stored)} is free` : `${toDisplayUsername(v.stored)} is taken`); }
-      catch { setAvail("idle"); setMsg(""); }
-    }, 400);
-    return () => clearTimeout(t);
-  }, [username]);
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault(); setErr(null);
-    const v = validateUsername(username);
-    if (!v.ok) { setErr(v.reason); return; }
-    if (avail !== "free") { setErr("Choose an available username"); return; }
-    if (!schoolId) { setErr("Select your school"); return; }
-    if (!dob) { setErr("Date of birth is required"); return; }
+    if (cooldown <= 0) return;
+    const timer = window.setTimeout(() => setCooldown((value) => value - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [cooldown]);
+
+  const verify = useCallback(async () => {
+    if (loading || code.length !== 6) return;
+    setError(null);
     setLoading(true);
-    try { const res = await api.signup({ emailToken: "opaque", username: v.stored, schoolId, dob }); onDone(res.token); }
-    catch { setErr(AUTH_ERROR); }
-    finally { setLoading(false); }
+    try {
+      const result = await api.verifyCode(email, code);
+      await onVerified(result);
+    } catch (reason) {
+      const message = errorMessage(reason);
+      setError(message);
+      if (message.startsWith("That code")) {
+        setDigits(Array(6).fill(""));
+        setShake(true);
+        window.setTimeout(() => setShake(false), 350);
+        refs.current[0]?.focus();
+      }
+    } finally { setLoading(false);  }
+  }, [code, email, loading, onVerified]);
+
+  useEffect(() => {
+    if (code.length === 6 && code !== attemptedCode.current) {
+      attemptedCode.current = code;
+      void verify();
+    }
+  }, [code, verify]);
+
+  const submit = (event: React.FormEvent) => { event.preventDefault(); void verify(); };
+  const paste = (event: React.ClipboardEvent) => {
+    const pasted = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!pasted) return;
+    event.preventDefault();
+    attemptedCode.current = "";
+    setDigits(Array.from({ length: 6 }, (_, index) => pasted[index] || ""));
+    refs.current[Math.min(pasted.length, 5)]?.focus();
   };
+
   return (
     <form className="space-y-4" onSubmit={submit}>
       <div>
-        <p className="text-xs text-lime mb-1">Step 3 of 3 · New here</p>
+        <h2 className="font-heading text-2xl font-semibold">{mode === "login" ? "Verify and log in" : "Verify and continue"}</h2>
+        <p className="mt-1 text-sm text-muted">We sent a 6-digit code to {email}</p>
+      </div>
+      <div className={`flex gap-2 ${shake ? "animate-[auth-shake_.3s_ease-in-out]" : ""}`} onPaste={paste}>
+        {digits.map((digit, index) => (
+          <input key={index} ref={(element) => { refs.current[index] = element; }} value={digit} onChange={(event) => {
+            const value = event.target.value.replace(/\D/g, "").slice(-1);
+            attemptedCode.current = "";
+            setDigits((current) => current.map((item, position) => position === index ? value : item));
+            if (value && index < 5) refs.current[index + 1]?.focus();
+          }} onKeyDown={(event) => { if (event.key === "Backspace" && !digits[index] && index > 0) refs.current[index - 1]?.focus(); }}
+            inputMode="numeric" aria-label={`Digit ${index + 1}`} maxLength={1} autoComplete={index === 0 ? "one-time-code" : "off"}
+            className="h-12 min-w-0 flex-1 rounded-lg border bg-bg-2 text-center text-lg focus:border-blue-strong focus:outline-none" />
+        ))}
+      </div>
+      {error && <p className="text-sm text-red-400" role="alert" aria-live="polite">{error}</p>}
+      <Button type="submit" className="min-h-11 w-full" disabled={code.length !== 6 || loading}>{loading ? "Verifying..." : mode === "login" ? "Verify and log in" : "Verify and continue"}</Button>
+      <div className="flex items-center justify-between text-sm">
+        <button type="button" onClick={onChangeEmail} className="min-h-11 text-muted hover:text-text" disabled={loading}>Use a different email</button>
+        <button type="button" onClick={async () => {
+          setError(null);
+          try {
+            const result = await api.requestCode(email);
+            setCooldown(result.retryAfter || 60);
+            attemptedCode.current = "";
+            setDigits(Array(6).fill(""));
+          } catch (reason) { setError(errorMessage(reason)); }
+        }} disabled={cooldown > 0 || loading} className="min-h-11 text-muted hover:text-text disabled:opacity-50">
+          {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function SetupStep({ ticket, onDone, onExpired }: { ticket: string; onDone: (userId: string) => void; onExpired: () => void }) {
+  const [username, setUsername] = useState("");
+  const [schoolId, setSchoolId] = useState("");
+  const [schoolQuery, setSchoolQuery] = useState("");
+  const [schools, setSchools] = useState<School[]>([]);
+  const [showSchools, setShowSchools] = useState(false);
+  const [dob, setDob] = useState("");
+  const [availability, setAvailability] = useState<"idle" | "checking" | "free" | "taken" | "invalid" | "error">("idle");
+  const [availabilityMessage, setAvailabilityMessage] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const ticketCheck = readFlow();
+  const completed = useRef(false);
+
+  useEffect(() => {
+    if (!completed.current && (!ticketCheck?.ticket || ticketCheck.ticket !== ticket || (ticketCheck.ticketExpiresAt || 0) <= Date.now())) onExpired();
+  }, [onExpired, ticket, ticketCheck?.ticket, ticketCheck?.ticketExpiresAt]);
+
+  useEffect(() => {
+    if (!ticketCheck?.ticketExpiresAt) return;
+    const timer = window.setTimeout(() => { if (!completed.current) onExpired(); }, Math.max(0, ticketCheck.ticketExpiresAt - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [onExpired, ticketCheck?.ticketExpiresAt]);
+
+  useEffect(() => {
+    let active = true;
+    api.listSchools(schoolQuery).then((result) => { if (active) setSchools(result); }).catch(() => {
+      if (active) setError("Schools couldn't be loaded. Please try again.");
+    });
+    return () => { active = false; };
+  }, [schoolQuery]);
+
+  useEffect(() => {
+    if (!username) { setAvailability("idle"); setAvailabilityMessage(""); return; }
+    const valid = validateUsername(username);
+    if (!valid.ok) { setAvailability("invalid"); setAvailabilityMessage(valid.reason); return; }
+    setAvailability("checking");
+    setAvailabilityMessage("Checking availability...");
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await api.usernameAvailable(valid.stored);
+        setAvailability(result.available ? "free" : "taken");
+        setAvailabilityMessage(result.available ? `${toDisplayUsername(valid.stored)} is available` : `${toDisplayUsername(valid.stored)} is taken`);
+      } catch {
+        setAvailability("error");
+        setAvailabilityMessage("Couldn't check username availability. Try again.");
+      }
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [username]);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setError(null);
+    const valid = validateUsername(username);
+    if (!valid.ok) { setError(valid.reason); return; }
+    if (availability !== "free") { setError(availability === "taken" ? "That username is already taken." : "Choose an available username."); return; }
+    if (!schoolId) { setError("Select your school."); return; }
+    if (!dob || !isAllowedAge(dob)) { setError("You can't create an account with those details."); return; }
+    setLoading(true);
+    try {
+      const result = await api.signup({ signupTicket: ticket, username: valid.stored, schoolId, dateOfBirth: dob });
+      completed.current = true;
+      await onDone(result.user.id);
+    } catch (reason) {
+      if (reason instanceof ClientApiError && reason.code.toUpperCase() === "TICKET_EXPIRED") onExpired();
+      else setError(errorMessage(reason));
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <form className="space-y-4" onSubmit={submit}>
+      <div>
+        <p className="mb-1 text-xs text-lime">Step 3 of 3</p>
         <h2 className="font-heading text-2xl font-semibold">Set up your profile</h2>
       </div>
       <div>
-        <label className="text-sm mb-1 block">Username</label>
-        <div className="flex items-center rounded-lg border bg-bg-2 px-3 focus-within:border-blue-strong">
-          <span className="text-muted mr-1">#</span>
-          <input value={username.replace(/^#/, "")} onChange={e => setUsername(e.target.value)} className="w-full bg-transparent py-2.5 text-sm outline-none" placeholder="your-name" aria-label="Username" autoComplete="username" />
+        <label htmlFor="auth-username" className="mb-1 block text-sm">Username</label>
+        <div className="flex min-h-11 items-center rounded-lg border bg-bg-2 px-3 focus-within:border-blue-strong">
+          <span className="mr-1 text-muted" aria-hidden="true">#</span>
+          <input id="auth-username" value={username.replace(/^#/, "")} onChange={(event) => setUsername(event.target.value)} className="w-full bg-transparent py-2.5 text-sm outline-none" placeholder="your-name" autoComplete="username" />
         </div>
-        {msg && <p className={`mt-1 text-xs ${avail === "free" ? "text-lime" : avail === "taken" || avail === "invalid" ? "text-red-400" : "text-muted"}`}>{msg}</p>}
+        <p className={`mt-1 min-h-4 text-xs ${availability === "free" ? "text-lime" : availability === "taken" || availability === "invalid" || availability === "error" ? "text-red-400" : "text-muted"}`} aria-live="polite">{availabilityMessage}</p>
       </div>
       <div className="relative">
-        <label className="text-sm mb-1 block">School</label>
-        <Input value={schoolQ} onChange={e => { setSchoolQ(e.target.value); setShowSchools(true); }} onFocus={() => setShowSchools(true)} placeholder="Search your school" aria-label="School" autoComplete="organization" />
+        <label htmlFor="auth-school" className="mb-1 block text-sm">School</label>
+        <Input id="auth-school" value={schoolQuery} onChange={(event) => { setSchoolQuery(event.target.value); setSchoolId(""); setShowSchools(true); }} onFocus={() => setShowSchools(true)} placeholder="Search your school" autoComplete="organization" role="combobox" aria-expanded={showSchools} aria-controls="school-options" />
         {showSchools && schools.length > 0 && (
-          <div className="absolute z-10 mt-1 w-full rounded-lg border bg-surface max-h-48 overflow-auto">
-            {schools.map(s => (
-              <button type="button" key={s.id} className="w-full text-left px-3 py-2 text-sm hover:bg-surface-hi" onClick={() => { setSchoolId(s.id); setSchoolQ(s.name); setShowSchools(false); }}>{s.name}</button>
-            ))}
+          <div id="school-options" role="listbox" className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border bg-surface">
+            {schools.map((school) => <button type="button" role="option" aria-selected={school.id === schoolId} key={school.id} className="min-h-11 w-full px-3 py-2 text-left text-sm hover:bg-surface-hi" onClick={() => { setSchoolId(school.id); setSchoolQuery(school.name); setShowSchools(false); }}>{school.name}</button>)}
           </div>
         )}
       </div>
       <div>
-        <label className="text-sm mb-1 block">Date of birth <span className="text-muted">(private)</span></label>
-        <Input type="date" value={dob} onChange={e => setDob(e.target.value)} aria-label="Date of birth" />
+        <label htmlFor="auth-dob" className="mb-1 block text-sm">Date of birth <span className="text-muted">(private)</span></label>
+        <Input id="auth-dob" type="date" value={dob} onChange={(event) => setDob(event.target.value)} />
       </div>
-      {err && <p className="text-sm text-red-400" role="alert">{err}</p>}
-      <Button type="submit" className="w-full" disabled={loading || avail === "checking"}>{loading ? "Creating..." : "Continue"}</Button>
+      {error && <p className="text-sm text-red-400" role="alert" aria-live="polite">{error}</p>}
+      <Button type="submit" className="min-h-11 w-full" disabled={loading || availability === "checking"}>{loading ? "Creating account..." : "Create account"}</Button>
     </form>
   );
 }

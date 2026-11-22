@@ -7,6 +7,8 @@ import { appConfig } from "@/lib/config";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DaySeparator, MessageRow, canGroup, dayLabel, type MessageItem } from "@/components/messages/MessageRow";
+import { MentionInput } from "@/components/messages/MentionInput";
+import { useMentionJump } from "@/components/messages/useMentionJump";
 import { addReactionSummary, applyReactionCount, config, removeReactionSummary, type DirectMessage, type ReactionStreamEvent, type ReplyPreview } from "@square/shared";
 
 export function ThreadView({ conversationId }: { conversationId: string }) {
@@ -18,7 +20,9 @@ export function ThreadView({ conversationId }: { conversationId: string }) {
   const [replyTo, setReplyTo] = useState<MessageItem | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
   const [showJumpLatest, setShowJumpLatest] = useState(false);
+  const [floatingUiOpen, setFloatingUiOpen] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const mentionJump = useMentionJump("dm", conversationId, listRef, data?.items?.length || 0);
 
   useEffect(() => { void api.markRead(conversationId).then(() => { qc.invalidateQueries({ queryKey: ["conversations"] }); qc.invalidateQueries({ queryKey: ["unread"] }); }).catch(() => {}); }, [conversationId, qc, data?.items?.length]); // PROPOSED
 
@@ -100,6 +104,7 @@ export function ThreadView({ conversationId }: { conversationId: string }) {
     onSuccess: (m, _v, ctx) => {
       qc.setQueryData<{ items: DirectMessage[] }>(["messages", conversationId], (old) => ({ items: (old?.items || []).map(x => x.id === ctx?.tmpId ? m : x) }));
       qc.invalidateQueries({ queryKey: ["conversations"] });
+      qc.invalidateQueries({ queryKey: ["mentions", "dm", conversationId] });
     },
   });
 
@@ -174,12 +179,14 @@ export function ThreadView({ conversationId }: { conversationId: string }) {
           return (
             <div key={m.id}>
               {showDay && <DaySeparator label={dayLabel(m.createdAt)} />}
-              <MessageRow item={m} currentUserId={currentUser?.id || "u1"} grouped={!!isGrouped} flash={flashId === m.id} showSeen={lastMine?.id === m.id} onReply={!blocked ? setReplyTo : undefined} onDelete={m.mine ? (it) => del.mutate(it.id) : undefined} onRetry={m.status === "failed" ? (it) => send.mutate({ value: it.content, reply: replyTo }) : undefined} onJumpToReply={jumpTo} showReactions canReact={!blocked} reactionDisabledReason={blocked ? "You can't message this user" : undefined} onReaction={(emoji, add, clientId) => react(m.id, emoji, add, clientId)} onReactionUsers={(emoji, cursor) => api.listReactionUsers("dm", conversationId, m.id, emoji, cursor)} />
+              <MessageRow item={m} currentUserId={currentUser?.id || "u1"} grouped={!!isGrouped} flash={flashId === m.id || mentionJump.flashId === m.id} showSeen={lastMine?.id === m.id} onReply={!blocked ? setReplyTo : undefined} onDelete={m.mine ? (it) => del.mutate(it.id) : undefined} onRetry={m.status === "failed" ? (it) => send.mutate({ value: it.content, reply: replyTo }) : undefined} onJumpToReply={jumpTo} showReactions canReact={!blocked} reactionDisabledReason={blocked ? "You can't message this user" : undefined} onFloatingUiChange={setFloatingUiOpen} onReaction={(emoji, add, clientId) => react(m.id, emoji, add, clientId)} onReactionUsers={(emoji, cursor) => api.listReactionUsers("dm", conversationId, m.id, emoji, cursor)} />
             </div>
           );
         })}
-        {showJumpLatest && (
-          <button type="button" data-testid="jump-to-latest" onClick={() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" }); setShowJumpLatest(false); }} className="sticky bottom-4 ml-auto flex items-center gap-2 rounded-full bg-blue-strong px-4 py-2 text-sm font-semibold text-bg shadow-lg hover:bg-blue-deep">
+        <div className="sr-only" aria-live="polite">{mentionJump.announcement}</div>
+        {!floatingUiOpen && mentionJump.button && <div className="absolute bottom-3 right-3 z-30">{mentionJump.button}</div>}
+        {!floatingUiOpen && showJumpLatest && (
+          <button type="button" data-testid="jump-to-latest" onClick={() => { const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches; listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: reducedMotion ? "auto" : "smooth" }); setShowJumpLatest(false); }} className={`absolute right-3 z-20 flex items-center gap-2 rounded-full bg-blue-strong px-4 py-2 text-sm font-semibold text-bg shadow-lg hover:bg-blue-deep ${mentionJump.pendingCount ? "bottom-[68px] md:bottom-16" : "bottom-3"}`}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M19 12l-7 7-7-7" /></svg>
             Jump to latest
           </button>
@@ -201,7 +208,7 @@ export function ThreadView({ conversationId }: { conversationId: string }) {
             <div className="rounded-lg border bg-surface p-3 text-sm text-muted">You can't message this user</div>
           ) : (
             <div className="flex gap-2">
-              <input value={text} onChange={e => setText(e.target.value)} placeholder="Message" className="flex-1 rounded-lg border bg-bg px-3 py-2 text-sm outline-none focus:border-blue-strong" aria-label="Message" />
+              <MentionInput value={text} onChange={setText} scope="dm" roomId={conversationId} onSubmit={() => { if (text.trim()) send.mutate({ value: text.trim(), reply: replyTo }); }} placeholder="Message" className="w-full rounded-lg border bg-bg px-3 py-2 text-sm outline-none focus:border-blue-strong" />
               <Button onClick={() => text.trim() && send.mutate({ value: text.trim(), reply: replyTo })} disabled={!text.trim() || send.isPending} aria-label="Send message">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9l20-7z"/></svg>
               </Button>

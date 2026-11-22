@@ -3,11 +3,13 @@ import { cookies } from "next/headers";
 
 const COOKIE = "sq_session";
 
-export async function POST() {
+export async function POST(request: Request) {
   // Dev/mock-only helper to establish an httpOnly session cookie without exposing tokens to JS.
   // Real auth must set cookies server-side on the auth API domain/response.
   const jar = await cookies();
-  jar.set(COOKIE, "1", {
+  const body = await request.json() as { userId?: string };
+  if (!body.userId) return NextResponse.json({ error: "userId is required" }, { status: 400 });
+  jar.set(COOKIE, body.userId, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

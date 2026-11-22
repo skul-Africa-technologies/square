@@ -1,6 +1,6 @@
 import type {
   Asset, AssetCatalogEntry, AssetCategoryGroup, AssetItem, AssetPermissions, Activity, AuthRequestCodeResponse, AuthSignupRequest, AuthSignupResponse, AuthVerifyCodeResponse,
-  Badge, BlockedUser, Campaign, Community, CommunityDetail, CommunityMembers, Conversation, DirectMessage, DiscoverResponse, ExploreCommunity,
+  Badge, BlockedUser, Campaign, Community, CommunityDetail, CommunityMembers, Conversation, DirectMessage, DiscoverResponse, ExploreCommunity, MentionRecord, MentionScope, MentionableMember,
   Paginated, Post, PresenceStatus, Project, ReactionScope, ReactionStreamEvent, ReactionSummary, ReactionUser, ReplyPreview, School,
   SearchResults, SearchSuggested, User
 } from "@square/shared";
@@ -128,9 +128,15 @@ export interface ApiClient {
   // PROPOSED: not in backend doc
   subscribeReactionEvents(scope: ReactionScope, roomId: string, listener: (event: ReactionStreamEvent) => void): () => void;
   // PROPOSED: not in backend doc
+  listMentions(scope: MentionScope, roomId: string): Promise<MentionRecord[]>;
+  // PROPOSED: not in backend doc
+  markMentionsSeen(scope: MentionScope, roomId: string, data: { messageIds?: string[]; all?: true }, options?: { keepalive?: boolean }): Promise<{ ok: true }>;
+  // PROPOSED: not in backend doc
+  mentionableMembers(scope: MentionScope, roomId: string, params?: { q?: string; cursor?: string; limit?: number }): Promise<Paginated<MentionableMember>>;
+  // PROPOSED: not in backend doc
   markRead(conversationId: string): Promise<{ ok: true }>;
   // PROPOSED: not in backend doc
-  unreadCount(): Promise<{ count: number }>;
+  unreadCount(): Promise<{ unread: number; mentions: number }>;
 
   // PROPOSED: not in backend doc
   blockUser(username: string): Promise<{ ok: true }>;

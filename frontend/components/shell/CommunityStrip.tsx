@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { getInitials } from "@square/shared";
 import { CreateCommunityModal } from "./CreateCommunityModal";
+import { UnreadBadge } from "@/components/messages/UnreadBadge";
 import clsx from "clsx";
 
 export function CommunityStrip() {
@@ -46,11 +47,7 @@ export function CommunityStrip() {
           >
             <Image src="/logo-mark.png" alt="" width={44} height={44} className="h-11 w-11 object-cover" />
           </span>
-          {!!unread?.count && (
-            <span aria-label={`${unread.count} unread messages`} className="absolute -right-0.5 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-strong px-1 text-[9px] font-bold leading-none text-bg">
-              {unread.count > 99 ? "99+" : unread.count}
-            </span>
-          )}
+          {unread && <UnreadBadge unread={unread.unread} mentions={unread.mentions} className="absolute -right-1 -top-1" ringClassName="ring-bg" />}
         </Link>
 
         <div className="my-2 h-px w-8 shrink-0 bg-border" aria-hidden="true" />
@@ -79,7 +76,7 @@ export function CommunityStrip() {
                 )}
               >
                 {c.avatar || getInitials(c.name)}
-                {!!c.unreadCount && <span aria-label={`${c.unreadCount} unread messages`} className="absolute -right-0.5 top-0 h-2.5 w-2.5 rounded-full border-2 border-bg-2 bg-blue-strong" />}
+                <UnreadBadge unread={c.unreadCount || 0} mentions={c.mentions || 0} className="absolute -right-2 -top-1" ringClassName="ring-bg-2" />
               </span>
             </Link>
           );

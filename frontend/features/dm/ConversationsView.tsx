@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { getInitials } from "@square/shared";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty } from "@/components/ui/empty";
+import { UnreadBadge } from "@/components/messages/UnreadBadge";
 
 export function ConversationsView({ compact }: { compact?: boolean }) {
   const { data, isLoading } = useQuery({ queryKey: ["conversations"], queryFn: () => api.listConversations(), staleTime: 10_000, refetchInterval: 20_000 }); // PROPOSED
@@ -16,7 +17,7 @@ export function ConversationsView({ compact }: { compact?: boolean }) {
       {items.length === 0 && <Empty title="No conversations yet" hint="Start a message from someone’s profile." />}
       <div className="space-y-2">
         {items.map(c => (
-          <Link key={c.id} href={`/dm/${c.id}`} prefetch={false} className="flex items-center gap-3 rounded-xl border bg-surface p-3 hover:border-lime/40">
+          <Link key={c.id} href={`/dm/${c.id}`} prefetch={false} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border bg-surface p-3 hover:border-lime/40">
             <div className="h-10 w-10 rounded-full bg-surface-hi flex items-center justify-center text-xs font-semibold">{getInitials(c.participant.username)}</div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
@@ -25,8 +26,7 @@ export function ConversationsView({ compact }: { compact?: boolean }) {
               </div>
               <p className="text-xs text-muted truncate">{c.blocked ? "You can't message this user" : c.lastMessage || "No messages yet"}</p>
             </div>
-            {c.unreadCount > 0 && <span aria-label={`${c.unreadCount} unread`} className="min-w-[20px] h-5 px-1 rounded-full bg-blue-strong text-bg text-[11px] font-semibold flex items-center justify-center">{c.unreadCount > 99 ? "99+" : c.unreadCount}</span>}
-            {Boolean(c.mentionCount) && <span aria-label={`${c.mentionCount} direct mentions`} className="min-w-[20px] h-5 px-1 rounded-full bg-mention text-bg text-[11px] font-semibold flex items-center justify-center">{c.mentionCount! > 99 ? "99+" : c.mentionCount}</span>}
+            <UnreadBadge unread={c.unreadCount} mentions={c.mentions || 0} ringClassName="ring-surface" />
           </Link>
         ))}
       </div>

@@ -56,6 +56,8 @@ export interface Community {
   // PROPOSED: not in backend doc
   role?: Role | null;
   unreadCount?: number;
+  // PROPOSED: not in backend doc
+  mentions?: number;
 }
 
 export interface AssetPermissions {
@@ -84,6 +86,8 @@ export interface Asset {
   // PROPOSED: not in backend doc
   unreadCount?: number;
   // PROPOSED: not in backend doc
+  mentions?: number;
+  // PROPOSED: not in backend doc
   lastReadPostId?: string | null;
 }
 
@@ -110,6 +114,7 @@ export interface CommunityMember {
   id: string;
   username: string;
   avatarUrl?: string;
+  schoolName?: string;
   role: Role;
   presence?: PresenceStatus;
 }
@@ -138,6 +143,16 @@ export interface ReplyPreview {
 }
 
 export type ReactionScope = "asset" | "dm";
+export type MentionScope = "asset" | "dm";
+export interface MentionRecord { messageId: string; seq: number; createdAt: string }
+export interface MentionableMember {
+  id: string;
+  username: string;
+  avatarUrl?: string;
+  schoolName?: string;
+  role?: Role;
+  presence?: PresenceStatus;
+}
 export interface ReactionSummary { emoji: string; count: number; me: boolean }
 export interface ReactionUser { id: string; username: string; avatarUrl?: string; me: boolean }
 export interface ReactionUpdatedEvent {
@@ -281,7 +296,8 @@ export interface Conversation {
   otherUserId?: string;
   // PROPOSED: not in backend doc
   muted?: boolean;
-  mentionCount?: number;
+  // PROPOSED: not in backend doc
+  mentions?: number;
 }
 
 // PROPOSED: not in backend doc
@@ -305,10 +321,15 @@ export interface BlockedUser { id: string; username: string }
 export interface ApiError { code: string; message: string; field?: string }
 export interface Paginated<T> { items: T[]; nextCursor?: string | null }
 
-export interface AuthRequestCodeResponse { ok: true }
-export interface AuthVerifyCodeResponse { hasAccount: boolean; token?: string }
-export interface AuthSignupRequest { emailToken: string; username: string; schoolId: string; dob: string }
-export interface AuthSignupResponse { token: string }
+export interface AuthRequestCodeResponse { ok: true; retryAfter?: number }
+export interface AuthVerifyCodeResponse {
+  isNewUser: boolean;
+  user?: User;
+  signupTicket?: string;
+  retryAfter?: number;
+}
+export interface AuthSignupRequest { signupTicket: string; username: string; schoolId: string; dateOfBirth: string }
+export interface AuthSignupResponse { user: User }
 
 // PROPOSED: not in backend doc
 export interface DiscoverSection {

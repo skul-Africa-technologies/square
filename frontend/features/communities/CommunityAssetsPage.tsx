@@ -9,6 +9,7 @@ import { ADD_ASSET_ROLES, ASSET_CATEGORY_ORDER, getAssetCatalogEntry, getInitial
 import { Skeleton } from "@/components/ui/skeleton";
 import { AddAssetDialog } from "@/features/assets/AddAssetDialog";
 import { AssetRowActions } from "@/features/assets/AssetRowActions";
+import { UnreadBadge } from "@/components/messages/UnreadBadge";
 import clsx from "clsx";
 import { ChevronDown, Globe2, LockKeyhole, Plus, Share2 } from "lucide-react";
 
@@ -150,7 +151,7 @@ export default function CommunityAssetsPage({ community }: { community: string }
                         >
                           {getAssetCatalogEntry(asset.catalogKey)?.name}
                         </span>
-                        {unread && <span aria-label={`${unreadCount} new`} className="shrink-0 rounded-full bg-blue-strong px-2 py-1 text-[10px] font-bold leading-none text-bg">{unreadCount > 99 ? "99+ NEW" : `${unreadCount} NEW`}</span>}
+                        {unread && <UnreadBadge unread={unreadCount} mentions={asset.mentions || 0} size="mobile" ringClassName="ring-bg" />}
                         {locked && <LockKeyhole className="h-3.5 w-3.5 shrink-0 text-muted" aria-label="Read-only" />}
                       </Link>
                     </AssetRowActions>

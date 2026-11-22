@@ -9,6 +9,7 @@ import { formatUsername, getInitials, plural } from "@square/shared";
 import { relativeTime, useNow } from "@/lib/time";
 import { PresenceDot } from "@/components/shell/PresenceDot";
 import { CommandPalette } from "@/components/shell/CommandPalette";
+import { UnreadBadge } from "@/components/messages/UnreadBadge";
 import clsx from "clsx";
 
 export const MOBILE_HOME_DEFAULT = "discover" as const;
@@ -141,6 +142,7 @@ export function MobileHomeHub() {
 
   const items = conversations || [];
   const totalUnread = items.reduce((sum, conversation) => sum + conversation.unreadCount, 0);
+  const totalMentions = items.reduce((sum, conversation) => sum + (conversation.mentions || 0), 0);
   const recent = items.filter((c: { blocked?: boolean }) => !c.blocked).slice(0, 6);
   const firstUnread = items.findIndex((c: { unreadCount: number }) => c.unreadCount > 0);
 
@@ -193,7 +195,7 @@ export function MobileHomeHub() {
             aria-label="Messages"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-            {totalUnread > 0 && <span aria-label={`${totalUnread} unread messages`} className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-blue-strong" />}
+            <UnreadBadge unread={totalUnread} mentions={totalMentions} className="absolute -right-2 -top-2" ringClassName="ring-bg-2" />
           </button>
         </div>
         <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Search" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-surface hover:text-text">
@@ -681,11 +683,7 @@ function MobileMessagesView({
                     {getInitials(c.participant.username)}
                   </span>
                   <PresenceDot status={c.presence} className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5" />
-                  {c.unreadCount > 0 && (
-                    <span className="absolute -right-1 top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-strong px-1 text-[10px] font-semibold text-bg">
-                      {c.unreadCount > 99 ? "99+" : c.unreadCount}
-                    </span>
-                  )}
+                  <UnreadBadge unread={c.unreadCount} mentions={c.mentions || 0} size="mobile" className="absolute -right-2 top-0" ringClassName="ring-bg" />
                 </span>
                 <span className="mt-1 block truncate text-[11px] text-muted">{formatUsername(c.participant.username)}</span>
               </Link>
@@ -726,16 +724,7 @@ function MobileMessagesView({
                     {c.lastMessagePreview || c.lastMessage || "No messages yet"}
                   </span>
                 </span>
-                {unread && (
-                  <span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-blue-strong px-1 text-[10px] font-semibold text-bg">
-                    {c.unreadCount > 99 ? "99+" : c.unreadCount}
-                  </span>
-                )}
-                {Boolean(c.mentionCount) && (
-                  <span aria-label={`${c.mentionCount} direct mentions`} className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-mention px-1 text-[10px] font-semibold text-bg">
-                    {c.mentionCount > 99 ? "99+" : c.mentionCount}
-                  </span>
-                )}
+                <UnreadBadge unread={c.unreadCount} mentions={c.mentions || 0} size="mobile" ringClassName="ring-bg" />
               </Link>
             );
           })}

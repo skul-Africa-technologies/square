@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { PresenceDot } from "@/components/shell/PresenceDot";
 import { MemberList } from "@/features/assets/MemberList";
 import { DaySeparator, MessageRow, canGroup, dayLabel, type MessageItem } from "@/components/messages/MessageRow";
+import { MentionInput } from "@/components/messages/MentionInput";
+import { useMentionJump } from "@/components/messages/useMentionJump";
 import { addReactionSummary, applyReactionCount, config, removeReactionSummary, type Asset, type AssetItem, type AssetKind, type Post, type Project, type Campaign, type ReactionStreamEvent } from "@square/shared";
 import { Skeleton } from "@/components/ui/skeleton";
 import clsx from "clsx";
@@ -24,8 +26,10 @@ export function CommunityAssetView({ community, asset }: { community: string; as
   const [membersOpen, setMembersOpen] = useState(false);
   const [replyTo, setReplyTo] = useState<MessageItem | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
+  const [messageText, setMessageText] = useState("");
   const [showUnreadBanner, setShowUnreadBanner] = useState(false);
   const [showJumpLatest, setShowJumpLatest] = useState(false);
+  const [floatingUiOpen, setFloatingUiOpen] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -35,39 +39,43 @@ export function CommunityAssetView({ community, asset }: { community: string; as
     queryFn: () => api.getCommunity(community),
     staleTime: 60_000,
   });
+  const currentAsset = communityDetail?.assets?.find(a => a.slug === asset);
+  const myRole = communityDetail?.community?.role;
+  const requireAssetId = () => {
+    if (!currentAsset) throw new Error("Asset is no longer available");
+    return currentAsset.id;
+  };
+  const canPost = currentAsset ? currentAsset.permissions.canPost.includes(myRole || "member") : false;
+  const canRead = currentAsset ? currentAsset.permissions.canRead.includes(myRole || "member") : false;
 
   const { data: posts, isLoading: postsLoading } = useQuery({
     queryKey: ["posts", community, asset],
-    queryFn: () => api.listPosts(`${community}-${asset}`),
+    queryFn: () => api.listPosts(requireAssetId()),
     staleTime: 10_000,
-    enabled: !commLoading,
+    enabled: !commLoading && !!currentAsset,
   });
+  const mentionJump = useMentionJump("asset", currentAsset?.id || "", listRef, posts?.items?.length || 0, !!currentAsset);
 
   const { data: items } = useQuery({
     queryKey: ["items", community, asset],
-    queryFn: () => api.listItems(`${community}-${asset}`),
+    queryFn: () => api.listItems(requireAssetId()),
     staleTime: 30_000,
-    enabled: !commLoading,
+    enabled: !commLoading && !!currentAsset,
   });
 
   const { data: projectsData } = useQuery({
     queryKey: ["projects", community, asset],
-    queryFn: () => api.listProjects(`${community}-${asset}`),
+    queryFn: () => api.listProjects(requireAssetId()),
     staleTime: 30_000,
-    enabled: !commLoading,
+    enabled: !commLoading && !!currentAsset,
   });
 
   const { data: campaignsData } = useQuery({
     queryKey: ["campaigns", community, asset],
-    queryFn: () => api.listCampaigns(`${community}-${asset}`),
+    queryFn: () => api.listCampaigns(requireAssetId()),
     staleTime: 30_000,
-    enabled: !commLoading,
+    enabled: !commLoading && !!currentAsset,
   });
-
-  const currentAsset = communityDetail?.assets?.find(a => a.slug === asset);
-  const myRole = communityDetail?.community?.role;
-  const canPost = currentAsset ? currentAsset.permissions.canPost.includes(myRole || "member") : false;
-  const canRead = currentAsset ? currentAsset.permissions.canRead.includes(myRole || "member") : false;
 
   useEffect(() => {
     if (currentAsset?.unreadCount && currentAsset.unreadCount > 0) {
@@ -111,7 +119,7 @@ export function CommunityAssetView({ community, asset }: { community: string; as
   }, [community, asset]);
 
   const sendPost = useMutation({
-    mutationFn: (content: string) => api.createPost(`${community}-${asset}`, { content, replyToId: replyTo?.id, replyPreview: replyTo ? { id: replyTo.id, authorUsername: replyTo.authorUsername || "unknown", snippet: replyTo.deleted ? "" : replyTo.content.slice(0, 80), deleted: replyTo.deleted } : undefined }),
+    mutationFn: (content: string) => api.createPost(requireAssetId(), { content, replyToId: replyTo?.id, replyPreview: replyTo ? { id: replyTo.id, authorUsername: replyTo.authorUsername || "unknown", snippet: replyTo.deleted ? "" : replyTo.content.slice(0, 80), deleted: replyTo.deleted } : undefined }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["posts", community, asset] });
       qc.invalidateQueries({ queryKey: ["home-feed"] });
@@ -119,7 +127,7 @@ export function CommunityAssetView({ community, asset }: { community: string; as
   });
 
   const markRead = useMutation({
-    mutationFn: () => api.markAssetRead(`${community}-${asset}`),
+    mutationFn: () => api.markAssetRead(requireAssetId()),
     onSuccess: () => {
       setShowUnreadBanner(false);
       qc.invalidateQueries({ queryKey: ["community", community] });
@@ -128,12 +136,12 @@ export function CommunityAssetView({ community, asset }: { community: string; as
   });
 
   const addItem = useMutation({
-    mutationFn: (data: Partial<AssetItem>) => api.createItem(`${community}-${asset}`, data),
+    mutationFn: (data: Partial<AssetItem>) => api.createItem(requireAssetId(), data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["items", community, asset] }),
   });
 
   const createProject = useMutation({
-    mutationFn: (data: { title: string; description: string; status: "idea" | "building" | "launched" }) => api.createProject(`${community}-${asset}`, data),
+    mutationFn: (data: { title: string; description: string; status: "idea" | "building" | "launched" }) => api.createProject(requireAssetId(), data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projects", community, asset] }),
   });
 
@@ -189,7 +197,7 @@ export function CommunityAssetView({ community, asset }: { community: string; as
 
   function jumpTo(id: string) {
     const el = document.getElementById(`msg-${id}`);
-    if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); setFlashId(id); setTimeout(() => setFlashId(x => x === id ? null : x), 1500); }
+    if (el) { const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches; el.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" }); setFlashId(id); setTimeout(() => setFlashId(x => x === id ? null : x), 1500); }
   }
 
   return (
@@ -239,13 +247,14 @@ export function CommunityAssetView({ community, asset }: { community: string; as
                       item={p}
                       currentUserId={currentUser?.id || "u1"}
                       grouped={!!isGrouped}
-                      flash={flashId === p.id}
+                      flash={flashId === p.id || mentionJump.flashId === p.id}
                       onReply={canPost ? setReplyTo : undefined}
                       onDelete={p.mine ? (it) => qc.invalidateQueries({ queryKey: ["posts", community, asset] }) : undefined}
                       onJumpToReply={jumpTo}
                       showReactions={isChat}
                       canReact={canPost}
                       reactionDisabledReason={canPost ? undefined : myRole ? "You can't react here" : "Join to react"}
+                      onFloatingUiChange={setFloatingUiOpen}
                       onReaction={(emoji, add, clientId) => react(p.id, emoji, add, clientId)}
                       onReactionUsers={(emoji, cursor) => api.listReactionUsers("asset", currentAsset.id, p.id, emoji, cursor)}
                     />
@@ -303,8 +312,10 @@ export function CommunityAssetView({ community, asset }: { community: string; as
         ) : (
           <div className="p-8 text-center text-muted">Asset view for {currentAsset.kind} coming soon.</div>
         )}
-        {showJumpLatest && (
-          <button type="button" data-testid="jump-to-latest" onClick={() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" }); setShowJumpLatest(false); }} className="absolute bottom-4 right-5 z-20 flex items-center gap-2 rounded-full bg-blue-strong px-4 py-2 text-sm font-semibold text-bg shadow-lg hover:bg-blue-deep">
+        <div className="sr-only" aria-live="polite">{mentionJump.announcement}</div>
+        {!floatingUiOpen && mentionJump.button && <div className="absolute bottom-3 right-3 z-30">{mentionJump.button}</div>}
+        {!floatingUiOpen && showJumpLatest && (
+          <button type="button" data-testid="jump-to-latest" onClick={() => { const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches; listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: reducedMotion ? "auto" : "smooth" }); setShowJumpLatest(false); }} className={`absolute right-3 z-20 flex items-center gap-2 rounded-full bg-blue-strong px-4 py-2 text-sm font-semibold text-bg shadow-lg hover:bg-blue-deep ${mentionJump.pendingCount ? "bottom-[68px] md:bottom-16" : "bottom-3"}`}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M19 12l-7 7-7-7" /></svg>
             Jump to latest
           </button>
@@ -331,14 +342,8 @@ export function CommunityAssetView({ community, asset }: { community: string; as
           <div className="p-3">
             {(isChat || isFeed) && canPost && (
               <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Message"
-                  onKeyDown={e => { if (e.key === "Enter" && e.currentTarget.value.trim()) { sendPost.mutate(e.currentTarget.value.trim()); e.currentTarget.value = ""; } }}
-                  className="flex-1 rounded-lg border bg-bg px-3 py-2 text-sm outline-none focus:border-blue-strong"
-                  aria-label="Message"
-                />
-                <Button onClick={() => { const input = document.querySelector('input[aria-label="Message"]') as HTMLInputElement; if (input?.value.trim()) { sendPost.mutate(input.value.trim()); input.value = ""; } }} disabled={sendPost.isPending} aria-label="Send message">
+                <MentionInput value={messageText} onChange={setMessageText} scope="asset" roomId={currentAsset.id} onSubmit={() => { if (messageText.trim()) { sendPost.mutate(messageText.trim()); setMessageText(""); } }} placeholder="Message" className="w-full rounded-lg border bg-bg px-3 py-2 text-sm outline-none focus:border-blue-strong" />
+                <Button onClick={() => { if (messageText.trim()) { sendPost.mutate(messageText.trim()); setMessageText(""); } }} disabled={sendPost.isPending || !messageText.trim()} aria-label="Send message">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9l20-7z"/></svg>
                 </Button>
               </div>

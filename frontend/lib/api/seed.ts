@@ -177,8 +177,14 @@ export const posts: Post[] = [
   post("p14", "wc-general", "u2", "Huge thanks to @amaka-eze for organizing the notes!", 30, {
     mentionedUserIds: ["u1"],
     reactions: reactions([["👍", 1], ["❤️", 1], ["😂", 1], ["🔥", 1], ["🎉", 1], ["👀", 1], ["🙏", 1], ["✅", 1], ["⭐", 1], ["💯", 1], ["🚀", 1], ["💡", 1], ["👏", 1], ["🤝", 1], ["🌟", 1], ["🥳", 1], ["💪", 1], ["😎", 1], ["🫶", 1], ["🎯", 1]]) }),
+  ...Array.from({ length: 40 }, (_, index) => post(
+    `p-long-${index + 1}`, "wc-general", ["u2", "u3", "u5", "u6"][index % 4],
+    index === 20 ? "Web3 Club update: @amaka-eze, can you review this?" : `Web3 Club chat update ${index + 1}`,
+    29 - index * 0.6,
+    index === 20 ? { mentionedUserIds: ["u1"] } : {},
+  )),
 
-  post("p20", "wc-announcements", "u3", "Welcome to Web3 Club. Start in #general and say hello.", 60 * 48, { pinned: true }),
+  post("p20", "wc-announcements", "u3", "Welcome to Web3 Club. Start in #general and say hello.", 60 * 48, { pinned: true, mentionedUserIds: ["u1"] }),
   post("p21", "wc-announcements", "u2", "Workshop sign-ups close Thursday at noon.", 60 * 12),
 
   post("p22", "wc-guidelines", "u3", "Be kind. Stay on topic in #general. Ask in #support when stuck.", 60 * 72, { pinned: true }),
@@ -209,6 +215,7 @@ export const posts: Post[] = [
 ];
 
 unread("wc-general", 12);
+unread("wc-announcements", 1);
 unread("wc-support", 3);
 unread("dl-general", 2);
 
@@ -250,13 +257,13 @@ export const badges: Badge[] = [
 ];
 
 export const conversations: Conversation[] = [
-  { id: "dm1", participant: { id: "u2", username: "tunde-ade" }, otherUserId: "u2", lastMessage: "See you at the lab by 5?", lastMessagePreview: "See you at the lab by 5?", lastMessageAt: ago(4), unreadCount: 2, mentionCount: 1, presence: "online" },
+  { id: "dm1", participant: { id: "u2", username: "tunde-ade" }, otherUserId: "u2", lastMessage: "See you at the lab by 5?", lastMessagePreview: "See you at the lab by 5?", lastMessageAt: ago(4), unreadCount: 2, presence: "online" },
   { id: "dm2", participant: { id: "u5", username: "chioma-n" }, otherUserId: "u5", lastMessage: "Thanks for the feedback!", lastMessagePreview: "Thanks for the feedback!", lastMessageAt: ago(96), unreadCount: 0, presence: "online" },
   { id: "dm3", participant: { id: "u4", username: "victory-gray" }, otherUserId: "u4", lastMessage: "You can't message this user", lastMessagePreview: "You can't message this user", lastMessageAt: ago(60 * 26), unreadCount: 0, blocked: true, presence: "hidden" },
   { id: "dm4", participant: { id: "u7", username: "zainab-b" }, otherUserId: "u7", lastMessage: "Sending the draft tonight.", lastMessagePreview: "Sending the draft tonight.", lastMessageAt: ago(60 * 5), unreadCount: 1, presence: "online" },
   { id: "dm5", participant: { id: "u6", username: "sam-okoro" }, otherUserId: "u6", lastMessage: "The servo arrived, testing later.", lastMessagePreview: "The servo arrived, testing later.", lastMessageAt: ago(60 * 30), unreadCount: 0, presence: "offline" },
   { id: "dm6", participant: { id: "u8", username: "david-k" }, otherUserId: "u8", lastMessage: "Photos from the walk are up.", lastMessagePreview: "Photos from the walk are up.", lastMessageAt: ago(60 * 24 * 9), unreadCount: 0, presence: "online" },
-  { id: "dm7", participant: { id: "u3", username: "kemi-obi" }, otherUserId: "u3", lastMessage: "Audit notes shared.", lastMessagePreview: "Audit notes shared.", lastMessageAt: ago(60 * 24 * 40), unreadCount: 0, presence: "offline" },
+  { id: "dm7", participant: { id: "u3", username: "kemi-obi" }, otherUserId: "u3", lastMessage: "Can you check this too, @amaka-eze?", lastMessagePreview: "Can you check this too, @amaka-eze?", lastMessageAt: ago(6), unreadCount: 2, presence: "offline" },
 ];
 
 export const directMessages: DirectMessage[] = [
@@ -264,10 +271,16 @@ export const directMessages: DirectMessage[] = [
   { id: "m1b", conversationId: "dm1", senderId: "u1", text: "I can save us seats.", createdAt: ago(29), status: "seen" },
   { id: "m2", conversationId: "dm1", senderId: "u2", text: "Yes! I'll come with notes.", createdAt: ago(20), status: "seen", replyToId: "m1", replyPreview: { id: "m1", authorUsername: "amaka-eze", snippet: "Hey, are you joining the meetup?" }, reactions: reactions([["🙌", 3], ["✨", 1]]) },
   { id: "m3", conversationId: "dm1", senderId: "u2", text: "See you at the lab by 5, @amaka-eze?", createdAt: ago(4), status: "sent", mentionedUserIds: ["u1"], reactions: reactions([["👍", 1], ["❤️", 1, true], ["😂", 2]]) },
+  ...Array.from({ length: 40 }, (_, index): DirectMessage => ({
+    id: `m-long-${index + 1}`, conversationId: "dm1", senderId: "u2",
+    text: `Follow-up message ${index + 1}`, createdAt: ago(3 - index * 0.05), status: "sent",
+  })),
   { id: "m4", conversationId: "dm2", senderId: "u5", text: "Can you check my mockup?", createdAt: ago(110), status: "seen" },
   { id: "m5", conversationId: "dm2", senderId: "u1", text: "Looks clean — maybe tighten spacing.", createdAt: ago(100), status: "seen" },
   { id: "m6", conversationId: "dm2", senderId: "u5", text: "Thanks for the feedback!", createdAt: ago(96), status: "seen" },
   { id: "m7", conversationId: "dm4", senderId: "u7", text: "Sending the draft tonight.", createdAt: ago(60 * 5), status: "sent" },
+  { id: "m9", conversationId: "dm7", senderId: "u3", text: "First note for you, @amaka-eze.", createdAt: ago(7), status: "sent", mentionedUserIds: ["u1"] },
+  { id: "m10", conversationId: "dm7", senderId: "u3", text: "Can you check this too, @amaka-eze?", createdAt: ago(6), status: "sent", mentionedUserIds: ["u1"] },
   { id: "m8", conversationId: "dm5", senderId: "u6", text: "The servo arrived, testing later.", createdAt: ago(60 * 30), status: "seen" },
 ];
 

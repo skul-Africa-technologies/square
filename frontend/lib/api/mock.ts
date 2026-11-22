@@ -10,7 +10,7 @@ import {
   removeReactionSummary,
 } from "@square/shared";
 import { activities as seedActivities, assets as seedAssets, badges, blockedUsers as seedBlocked, campaigns as seedCampaigns, communities as seedCommunities, conversations as seedConversations, directMessages as seedDMs, items as seedItems, memberships as seedMemberships, posts as seedPosts, projects as seedProjects, reservedTaken, schools, users } from "./seed";
-import type { Asset, AssetCatalogEntry, AssetCategoryGroup, AssetItem, AssetPermissions, BlockedUser, Campaign, Community, CommunityDetail, CommunityMember, CommunityMembers, Conversation, DirectMessage, DiscoverBirthday, DiscoverCommunity, DiscoverEvent, DiscoverPerson, DiscoverResponse, DiscoverStudent, ExploreCommunity, Post, PresenceStatus, Project, ReactionScope, ReactionSummary, ReactionUpdatedEvent, ReactionUser, Role, SearchResult, SearchResults, SearchSuggested, User } from "@square/shared";
+import type { Asset, AssetCatalogEntry, AssetCategoryGroup, AssetItem, AssetPermissions, BlockedUser, Campaign, Community, CommunityDetail, CommunityMember, CommunityMembers, Conversation, DirectMessage, DiscoverBirthday, DiscoverCommunity, DiscoverEvent, DiscoverPerson, DiscoverResponse, DiscoverStudent, ExploreCommunity, MentionRecord, MentionScope, MentionableMember, Post, PresenceStatus, Project, ReactionScope, ReactionSummary, ReactionUpdatedEvent, ReactionUser, Role, SearchResult, SearchResults, SearchSuggested, User } from "@square/shared";
 
 const delay = (ms = 200) => new Promise((r) => setTimeout(r, ms));
 let posts: Post[] = [...seedPosts];
@@ -21,13 +21,103 @@ let campaignState: Campaign[] = JSON.parse(JSON.stringify(seedCampaigns)) as Cam
 const communitiesState: Community[] = JSON.parse(JSON.stringify(seedCommunities)) as Community[];
 const memberships: Record<string, { userId: string; role: Role }[]> = JSON.parse(JSON.stringify(seedMemberships)) as typeof seedMemberships;
 let currentUser: User = { ...users[0] };
-let verifiedNew = false;
 let conversationsState: Conversation[] = JSON.parse(JSON.stringify(seedConversations)) as Conversation[];
 let dms: DirectMessage[] = JSON.parse(JSON.stringify(seedDMs)) as DirectMessage[];
 let blocked: BlockedUser[] = [...seedBlocked];
 const reactionListeners = new Map<string, { listeners: Set<(event: ReactionUpdatedEvent) => void>; timer: ReturnType<typeof setInterval>; tick: number }>();
+type MockMention = MentionRecord & { scope: MentionScope; roomId: string; userId: string };
+let mentionSequence = 0;
+const mockMentions: MockMention[] = [
+  ...posts.flatMap(message => (message.mentionedUserIds || []).map(userId => ({
+    scope: "asset" as const, roomId: message.assetId, userId, messageId: message.id, seq: ++mentionSequence, createdAt: message.createdAt,
+  }))),
+  ...dms.flatMap(message => (message.mentionedUserIds || []).map(userId => ({
+    scope: "dm" as const, roomId: message.conversationId, userId, messageId: message.id, seq: ++mentionSequence, createdAt: message.createdAt,
+  }))),
+];
+const seenMockMentions = new Set<string>();
+
+const MOCK_USERS_KEY = "square.mock-users.v1";
+const MOCK_TICKETS_KEY = "square.mock-signup-tickets.v1";
+const MOCK_LAST_USER_KEY = "square.mock-session-user.v1";
+const initialAccounts = [
+  { email: "amaka@example.com", user: users[0] },
+  { email: "tunde@example.com", user: users[1] },
+  { email: "kemi@example.com", user: users[2] },
+];
+type MockAccount = { email: string; user: User };
+type SignupTicket = { email: string; expiresAt: number };
+
+function readAccounts(): MockAccount[] {
+  if (typeof window === "undefined") return initialAccounts;
+  try {
+    const stored = window.localStorage.getItem(MOCK_USERS_KEY);
+    if (!stored) {
+      window.localStorage.setItem(MOCK_USERS_KEY, JSON.stringify(initialAccounts));
+      return initialAccounts;
+    }
+    const parsed: unknown = JSON.parse(stored);
+    if (Array.isArray(parsed) && parsed.every((entry) => entry && typeof entry.email === "string" && entry.user?.id)) {
+      const byEmail = new Map(initialAccounts.map((account) => [account.email, account]));
+      for (const account of parsed as MockAccount[]) byEmail.set(account.email.toLowerCase(), account);
+      const merged = [...byEmail.values()];
+      window.localStorage.setItem(MOCK_USERS_KEY, JSON.stringify(merged));
+      return merged;
+    }
+  } catch {
+    // Storage may be disabled; seeded in-memory accounts remain available.
+  }
+  return initialAccounts;
+}
+
+function saveAccounts(accounts: MockAccount[]) {
+  try { window.localStorage.setItem(MOCK_USERS_KEY, JSON.stringify(accounts)); } catch { /* Memory-only fallback. */ }
+}
+
+function readTickets(): Record<string, SignupTicket> {
+  if (typeof window === "undefined") return {};
+  try {
+    const stored = window.sessionStorage.getItem(MOCK_TICKETS_KEY);
+    return stored ? JSON.parse(stored) as Record<string, SignupTicket> : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveTickets(tickets: Record<string, SignupTicket>) {
+  try { window.sessionStorage.setItem(MOCK_TICKETS_KEY, JSON.stringify(tickets)); } catch { /* Ticket validation still has its server-contract expiry. */ }
+}
+
+let mockAccounts = readAccounts();
+for (const account of mockAccounts) {
+  if (!users.some((user) => user.id === account.user.id)) users.push(account.user);
+}
+if (typeof window !== "undefined") {
+  try {
+    const activeId = window.localStorage.getItem(MOCK_LAST_USER_KEY);
+    const active = mockAccounts.find((account) => account.user.id === activeId);
+    if (active) currentUser = active.user;
+  } catch { /* Keep the seeded user when storage is unavailable. */ }
+}
 
 function reactionRoomKey(scope: ReactionScope, roomId: string) { return `${scope}:${roomId}`; }
+function mentionKey(scope: MentionScope, roomId: string, messageId: string, userId: string) {
+  return `${scope}:${roomId}:${messageId}:${userId}`;
+}
+function unseenMentions(scope: MentionScope, roomId: string) {
+  return mockMentions
+    .filter(mention => mention.scope === scope && mention.roomId === roomId && mention.userId === currentUser.id && !seenMockMentions.has(mentionKey(scope, roomId, mention.messageId, mention.userId)))
+    .sort((a, b) => a.seq - b.seq);
+}
+function unreadMentionCount(scope: MentionScope, roomId: string, unread: number) {
+  return Math.min(Math.max(0, unread), unseenMentions(scope, roomId).length);
+}
+function recordMentions(scope: MentionScope, roomId: string, messageId: string, createdAt: string, ids: string[]) {
+  for (const userId of new Set(ids)) {
+    if (userId === currentUser.id || mockMentions.some(mention => mention.scope === scope && mention.roomId === roomId && mention.messageId === messageId && mention.userId === userId)) continue;
+    mockMentions.push({ scope, roomId, messageId, userId, seq: ++mentionSequence, createdAt });
+  }
+}
 function getReactionMessage(scope: ReactionScope, roomId: string, messageId: string): Post | DirectMessage | undefined {
   return scope === "asset"
     ? posts.find(message => message.id === messageId && message.assetId === roomId)
@@ -150,12 +240,74 @@ function visibleAssets(communityId: string): Asset[] {
   const categoryOrder = new Map(ASSET_CATEGORY_ORDER.map((category, index) => [category, index]));
   return allCommunityAssets(communityId)
     .filter(asset => canRead(asset, role))
-    .map(asset => ({ ...asset, locked: !canPost(asset, role) }))
+    .map(asset => summarizeAsset({ ...asset, locked: !canPost(asset, role) }))
     .sort((a, b) => (categoryOrder.get(getAssetCatalogEntry(a.catalogKey)?.category || "Information") ?? 0) - (categoryOrder.get(getAssetCatalogEntry(b.catalogKey)?.category || "Information") ?? 0) || a.order - b.order);
 }
 function withCommunityState(c: Community): Community {
   const role = roleIn(c.id);
   return { ...c, joined: !!role, role };
+}
+function summarizeAsset(asset: Asset): Asset {
+  const unread = asset.unreadCount || 0;
+  return { ...asset, mentions: unreadMentionCount("asset", asset.id, unread) };
+}
+function summarizeConversation(conversation: Conversation): Conversation {
+  return { ...conversation, mentions: unreadMentionCount("dm", conversation.id, conversation.unreadCount) };
+}
+const largePickerMembers: MentionableMember[] = Array.from({ length: 500 }, (_, index) => {
+  const suffix = String(index + 1).padStart(3, "0");
+  return { id: `wc-picker-${suffix}`, username: `campus-member-${suffix}`, schoolName: "Western College", role: "member", presence: index % 4 === 0 ? "online" : "offline" };
+});
+function mentionableCandidates(scope: MentionScope, roomId: string): MentionableMember[] {
+  if (scope === "dm") {
+    const conversation = conversationsState.find(item => item.id === roomId);
+    if (!conversation) throw new ClientApiError({ code: "NOT_FOUND", message: "Conversation not found" });
+    const person = users.find(user => user.id === conversation.participant.id);
+    return [{
+      id: conversation.participant.id,
+      username: conversation.participant.username,
+      avatarUrl: person?.avatarUrl,
+      schoolName: person?.schoolName,
+      presence: person?.presence,
+    }];
+  }
+  const asset = assetById(roomId);
+  if (!asset) throw new ClientApiError({ code: "NOT_FOUND", message: "Asset not found" });
+  const memberRows = memberships[asset.communityId] || [];
+  const candidates = memberRows
+    .filter(row => asset.permissions.canRead.includes(row.role))
+    .map((row): MentionableMember | null => {
+      const person = users.find(user => user.id === row.userId);
+      return person ? {
+        id: person.id, username: person.username, avatarUrl: person.avatarUrl, schoolName: person.schoolName,
+        role: row.role, presence: person.presence,
+      } : null;
+    })
+    .filter((member): member is MentionableMember => member !== null);
+  if (asset.communityId === "wc" && asset.permissions.canRead.includes("member")) candidates.push(...largePickerMembers);
+  const recentSpeakerIds = (scope === "asset" ? posts.filter(post => post.assetId === roomId) : [])
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 200)
+    .map(post => post.authorId);
+  const recentRank = new Map(recentSpeakerIds.map((id, index) => [id, index]));
+  return candidates.sort((a, b) =>
+    (recentRank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (recentRank.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+    || a.username.localeCompare(b.username),
+  );
+}
+function resolveMentionIds(scope: MentionScope, roomId: string, text: string): string[] {
+  const safeText = text.replace(/`+[^`]*`+/g, " ");
+  const candidates = mentionableCandidates(scope, roomId);
+  const byUsername = new Map(candidates.map(member => [member.username.replace(/^#/, "").toLowerCase(), member]));
+  const ids: string[] = [];
+  const token = /(^|[^\p{L}\p{N}._%+-])@([\p{L}\p{M}\p{Extended_Pictographic}\p{Emoji_Modifier}\u200D\uFE0F]+(?:-[\p{L}\p{M}\p{Extended_Pictographic}\p{Emoji_Modifier}\u200D\uFE0F]+)*)/gu;
+  for (const match of safeText.matchAll(token)) {
+    const member = byUsername.get(match[2].toLowerCase());
+    if (!member || member.id === currentUser.id || blocked.some(entry => entry.id === member.id || entry.username === member.username)) continue;
+    if (!ids.includes(member.id)) ids.push(member.id);
+    if (ids.length === 5) break;
+  }
+  return ids;
 }
 
 function todayBirthdays(): DiscoverBirthday[] {
@@ -220,25 +372,88 @@ function interestCommunities(): DiscoverCommunity[] {
 }
 
 export const mockApi: ApiClient = {
-  async requestCode() { await delay(); return { ok: true, retryAfter: 60 }; },
-  async verifyCode(_email, code) {
+  async requestCode() { await delay(); return { ok: true }; },
+  async verifyCode(email, code) {
     await delay();
-    if (code === "000000") throw new ClientApiError({ code: "EXPIRED", message: "Code expired", field: "code" });
-    if (code === "999999") throw new ClientApiError({ code: "CANCELLED", message: "Code cancelled after too many tries", field: "code" });
+    if (code === "000000") throw new ClientApiError({ code: "CODE_EXPIRED", message: "Code expired", field: "code" });
+    if (code === "999999") throw new ClientApiError({ code: "TOO_MANY_ATTEMPTS", message: "Too many attempts", field: "code" });
     if (!/^\d{6}$/.test(code)) throw new ClientApiError({ code: "INVALID", message: "Wrong code", field: "code" });
-    const existing = code === "111111";
-    verifiedNew = !existing;
-    return existing ? { hasAccount: true } : { hasAccount: false };
+    const account = mockAccounts.find((entry) => entry.email.toLowerCase() === email.trim().toLowerCase());
+    if (account) {
+      currentUser = account.user;
+      try { window.localStorage.setItem(MOCK_LAST_USER_KEY, currentUser.id); } catch { /* Session cookie remains authoritative. */ }
+      return { isNewUser: false, user: account.user };
+    }
+    const signupTicket = `mock_${crypto.randomUUID()}`;
+    const tickets = readTickets();
+    tickets[signupTicket] = { email: email.trim().toLowerCase(), expiresAt: Date.now() + 15 * 60 * 1000 };
+    saveTickets(tickets);
+    return { isNewUser: true, signupTicket };
   },
   async signup(data) {
     await delay();
-    if (!verifiedNew) throw new ClientApiError({ code: "NO_TOKEN", message: "Verify email first" });
-    currentUser = { id: "u-new", username: data.username, schoolId: data.schoolId, schoolName: schools.find(s => s.id === data.schoolId)?.name, verifiedStudent: true, joinedAt: new Date().toISOString(), badgeIds: ["verified"], skills: [], presence: "online" };
-    return { token: "server-cookie" };
+    const tickets = readTickets();
+    const ticket = tickets[data.signupTicket];
+    if (!ticket || ticket.expiresAt <= Date.now()) {
+      delete tickets[data.signupTicket];
+      saveTickets(tickets);
+      throw new ClientApiError({ code: "TICKET_EXPIRED", message: "Signup ticket expired" });
+    }
+    if (mockAccounts.some((account) => account.email === ticket.email)) {
+      throw new ClientApiError({ code: "ACCOUNT_EXISTS", message: "Account already exists" });
+    }
+    const normalized = data.username.replace(/^#/, "").toLowerCase();
+    if (!normalized || mockAccounts.some((account) => account.user.username.toLowerCase() === normalized) || reservedTaken.has(`#${normalized}`)) {
+      throw new ClientApiError({ code: "USERNAME_TAKEN", message: "Username is unavailable", field: "username" });
+    }
+    const school = schools.find((entry) => entry.id === data.schoolId);
+    if (!school || !data.dateOfBirth || new Date(data.dateOfBirth).toString() === "Invalid Date") {
+      throw new ClientApiError({ code: "INVALID_SIGNUP", message: "Signup details are invalid" });
+    }
+    const birthDate = new Date(`${data.dateOfBirth}T00:00:00`);
+    const ageLimit = new Date();
+    ageLimit.setFullYear(ageLimit.getFullYear() - 16);
+    if (birthDate > ageLimit || birthDate > new Date()) {
+      throw new ClientApiError({ code: "AGE_NOT_ALLOWED", message: "Age requirements not met" });
+    }
+    const created: User = {
+      id: `u_${crypto.randomUUID()}`,
+      username: normalized,
+      schoolId: school.id,
+      schoolName: school.name,
+      dob: data.dateOfBirth,
+      verifiedStudent: true,
+      joinedAt: new Date().toISOString(),
+      badgeIds: ["verified"],
+      skills: [],
+      presence: "online",
+    };
+    mockAccounts = [...mockAccounts, { email: ticket.email, user: created }];
+    saveAccounts(mockAccounts);
+    users.push(created);
+    currentUser = created;
+    try { window.localStorage.setItem(MOCK_LAST_USER_KEY, created.id); } catch { /* Session cookie remains authoritative. */ }
+    delete tickets[data.signupTicket];
+    saveTickets(tickets);
+    return { user: created };
   },
-  async usernameAvailable(username) { await delay(180); return { available: !reservedTaken.has(username.toLowerCase()) }; },
+  async usernameAvailable(username) {
+    await delay(180);
+    const normalized = username.replace(/^#/, "").toLowerCase();
+    return { available: !reservedTaken.has(normalized) && !reservedTaken.has(`#${normalized}`) && !mockAccounts.some((account) => account.user.username.toLowerCase() === normalized) };
+  },
   async listSchools(query) { await delay(100); const q = (query || "").toLowerCase(); return schools.filter(s => s.name.toLowerCase().includes(q)); },
-  async me() { await delay(100); return currentUser; },
+  async me() {
+    await delay(100);
+    if (typeof window !== "undefined") {
+      try {
+        const activeId = window.localStorage.getItem(MOCK_LAST_USER_KEY);
+        const active = mockAccounts.find((account) => account.user.id === activeId);
+        if (active) currentUser = active.user;
+      } catch { /* Keep the current in-memory user. */ }
+    }
+    return currentUser;
+  },
   async updateMe(data) { await delay(120); currentUser = { ...currentUser, ...data }; return currentUser; },
 
   // PROPOSED: not in backend doc
@@ -302,7 +517,14 @@ export const mockApi: ApiClient = {
     await delay(80);
     return communitiesState
       .filter(c => roleIn(c.id))
-      .map(c => ({ ...withCommunityState(c), unreadCount: assets.filter(asset => asset.communityId === c.id).reduce((sum, asset) => sum + (asset.unreadCount || 0), 0) }));
+      .map(c => {
+        const communityAssets = visibleAssets(c.id);
+        return {
+          ...withCommunityState(c),
+          unreadCount: communityAssets.reduce((sum, asset) => sum + (asset.unreadCount || 0), 0),
+          mentions: communityAssets.reduce((sum, asset) => sum + (asset.mentions || 0), 0),
+        };
+      });
   },
   // PROPOSED: not in backend doc
   async exploreCommunities(params) {
@@ -387,6 +609,46 @@ export const mockApi: ApiClient = {
     return { ok: true };
   },
 
+  // PROPOSED: not in backend doc
+  async listMentions(scope, roomId) {
+    await delay(60);
+    if (scope === "asset" && !assetById(roomId)) throw new ClientApiError({ code: "NOT_FOUND", message: "Asset not found" });
+    if (scope === "dm" && !conversationsState.some(conversation => conversation.id === roomId)) throw new ClientApiError({ code: "NOT_FOUND", message: "Conversation not found" });
+    return unseenMentions(scope, roomId).map(({ messageId, seq, createdAt }) => ({ messageId, seq, createdAt }));
+  },
+  // PROPOSED: not in backend doc
+  async markMentionsSeen(scope, roomId, data) {
+    await delay(40);
+    const ids = data.all ? unseenMentions(scope, roomId).map(mention => mention.messageId) : data.messageIds || [];
+    for (const mention of mockMentions) {
+      if (mention.scope === scope && mention.roomId === roomId && mention.userId === currentUser.id && ids.includes(mention.messageId)) {
+        seenMockMentions.add(mentionKey(scope, roomId, mention.messageId, mention.userId));
+      }
+    }
+    return { ok: true };
+  },
+  // PROPOSED: not in backend doc
+  async mentionableMembers(scope, roomId, params) {
+    await delay(80);
+    const candidates = mentionableCandidates(scope, roomId);
+    const query = (params?.q || "").replace(/^#/, "").trim().toLowerCase();
+    const candidateRank = new Map(candidates.map((member, index) => [member.id, index]));
+    const ranked = candidates
+      .filter(member => member.id !== currentUser.id)
+      .filter(member => !blocked.some(entry => entry.id === member.id || entry.username === member.username))
+      .filter(member => !query || member.username.toLowerCase().includes(query))
+      .map(member => ({ member, prefix: !query || member.username.toLowerCase().startsWith(query) }))
+      .sort((a, b) => Number(b.prefix) - Number(a.prefix) || (
+        query
+          ? a.member.username.localeCompare(b.member.username)
+          : (candidateRank.get(a.member.id) ?? 0) - (candidateRank.get(b.member.id) ?? 0)
+      ));
+    const offset = Math.max(0, Number.parseInt(params?.cursor || "0", 10) || 0);
+    const limit = Math.min(50, Math.max(1, params?.limit || 20));
+    const page = ranked.slice(offset, offset + limit).map(entry => entry.member);
+    return { items: page, nextCursor: offset + page.length < ranked.length ? String(offset + page.length) : null };
+  },
+
   async listPosts(assetId, opts) {
     await delay(100);
     const itemsOut = afterFilter(posts.filter(p => p.assetId === assetId).sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)), opts?.after);
@@ -397,6 +659,11 @@ export const mockApi: ApiClient = {
     const a = assetById(assetId);
     const c = a ? communityById(a.communityId) : undefined;
     const p: Post = { id: `p_${Date.now()}`, assetId, authorId: currentUser.id, authorUsername: currentUser.username, content: data.content, createdAt: new Date().toISOString(), media: data.media, communityId: c?.id, communityName: c?.name, communitySlug: c?.slug, assetName: a?.name, assetSlug: a?.slug, replyToId: data.replyToId, replyPreview: data.replyPreview };
+    const taggedIds = resolveMentionIds("asset", assetId, data.content);
+    if (taggedIds.length) {
+      p.mentionedUserIds = taggedIds;
+      recordMentions("asset", assetId, p.id, p.createdAt, taggedIds);
+    }
     posts.push(p);
     return p;
   },
@@ -512,19 +779,19 @@ export const mockApi: ApiClient = {
   },
 
   // PROPOSED: not in backend doc
-  async listConversations() { await delay(100); return [...conversationsState].sort((a, b) => (b.lastMessageAt || "").localeCompare(a.lastMessageAt || "")); },
+  async listConversations() { await delay(100); return conversationsState.map(summarizeConversation).sort((a, b) => (b.lastMessageAt || "").localeCompare(a.lastMessageAt || "")); },
   // PROPOSED: not in backend doc
   async getOrCreateConversation(username) {
     await delay(120);
     const existing = conversationsState.find(c => c.participant.username === username);
-    if (existing) return existing;
+    if (existing) return summarizeConversation(existing);
     const u = users.find(x => x.username === username) || { id: username, username, presence: "offline" as const };
     const conv: Conversation = { id: `dm_${Date.now()}`, participant: { id: u.id, username: u.username }, otherUserId: u.id, unreadCount: 0, blocked: blocked.some(b => b.username === username), presence: u.presence === "hidden" ? "offline" : u.presence };
     conversationsState = [conv, ...conversationsState];
-    return conv;
+    return summarizeConversation(conv);
   },
   // PROPOSED: not in backend doc
-  async getConversation(id) { await delay(80); const c = conversationsState.find(x => x.id === id); if (!c) throw new ClientApiError({ code: "NOT_FOUND", message: "Conversation not found" }); return c; },
+  async getConversation(id) { await delay(80); const c = conversationsState.find(x => x.id === id); if (!c) throw new ClientApiError({ code: "NOT_FOUND", message: "Conversation not found" }); return summarizeConversation(c); },
   // PROPOSED: not in backend doc
   async listMessages(conversationId, opts) { await delay(100); const out = afterFilter(dms.filter(m => m.conversationId === conversationId).sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)), opts?.after); return paginate(out); },
   // PROPOSED: not in backend doc
@@ -533,6 +800,11 @@ export const mockApi: ApiClient = {
     const conv = conversationsState.find(c => c.id === conversationId);
     if (conv?.blocked) throw new ClientApiError({ code: "BLOCKED", message: "Blocked" });
     const m: DirectMessage = { id: `m_${Date.now()}`, conversationId, senderId: currentUser.id, text, createdAt: new Date().toISOString(), status: "sent", replyToId: opts?.replyToId, replyPreview: opts?.replyPreview };
+    const taggedIds = resolveMentionIds("dm", conversationId, text);
+    if (taggedIds.length) {
+      m.mentionedUserIds = taggedIds;
+      recordMentions("dm", conversationId, m.id, m.createdAt, taggedIds);
+    }
     dms.push(m);
     conversationsState = conversationsState.map(c => c.id === conversationId ? { ...c, lastMessage: text, lastMessagePreview: text, lastMessageAt: m.createdAt } : c);
     return m;
@@ -621,7 +893,15 @@ export const mockApi: ApiClient = {
   // PROPOSED: not in backend doc
   async markRead(conversationId) { await delay(60); conversationsState = conversationsState.map(c => c.id === conversationId ? { ...c, unreadCount: 0 } : c); dms = dms.map(m => m.conversationId === conversationId && m.senderId !== currentUser.id ? { ...m, status: "seen" } : m); return { ok: true }; },
   // PROPOSED: not in backend doc
-  async unreadCount() { await delay(50); return { count: conversationsState.reduce((a, c) => a + c.unreadCount, 0) }; },
+  async unreadCount() {
+    await delay(50);
+    const assetSummaries = assets.filter(asset => roleIn(asset.communityId) && canRead(asset, roleIn(asset.communityId))).map(summarizeAsset);
+    const dmSummaries = conversationsState.map(summarizeConversation);
+    return {
+      unread: assetSummaries.reduce((total, asset) => total + (asset.unreadCount || 0), 0) + dmSummaries.reduce((total, conversation) => total + conversation.unreadCount, 0),
+      mentions: assetSummaries.reduce((total, asset) => total + (asset.mentions || 0), 0) + dmSummaries.reduce((total, conversation) => total + (conversation.mentions || 0), 0),
+    };
+  },
 
   // PROPOSED: not in backend doc
   async blockUser(username) { await delay(100); if (!blocked.some(b => b.username === username)) blocked.push({ id: username, username }); conversationsState = conversationsState.map(c => c.participant.username === username ? { ...c, blocked: true } : c); return { ok: true }; },

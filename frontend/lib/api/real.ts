@@ -1,4 +1,4 @@
-import type { ApiError, ReactionScope, ReactionStreamEvent } from "@square/shared";
+import type { ApiError, MentionScope, ReactionScope, ReactionStreamEvent } from "@square/shared";
 import type { ApiClient, UploadSignRequest } from "./types";
 import { ClientApiError } from "./errors";
 import { appConfig } from "../config";
@@ -160,9 +160,34 @@ export const realApi: ApiClient = {
     return () => source.close();
   },
   // PROPOSED: not in backend doc
+  listMentions: (scope: MentionScope, roomId: string) => {
+    const root = scope === "dm" ? `/dm/conversations/${encodeURIComponent(roomId)}` : `/assets/${encodeURIComponent(roomId)}`;
+    return req(`${root}/mentions?unread=true`);
+  },
+  // PROPOSED: not in backend doc
+  markMentionsSeen: (scope: MentionScope, roomId: string, data, options) => {
+    const root = scope === "dm" ? `/dm/conversations/${encodeURIComponent(roomId)}` : `/assets/${encodeURIComponent(roomId)}`;
+    return req(`${root}/mentions/seen`, { method: "POST", body: JSON.stringify(data), keepalive: options?.keepalive });
+  },
+  // PROPOSED: not in backend doc
+  mentionableMembers: (scope: MentionScope, roomId: string, params) => {
+    const root = scope === "dm" ? `/dm/conversations/${encodeURIComponent(roomId)}` : `/assets/${encodeURIComponent(roomId)}`;
+    const query = new URLSearchParams();
+    if (params?.q) query.set("q", params.q);
+    if (params?.cursor) query.set("cursor", params.cursor);
+    if (params?.limit) query.set("limit", String(params.limit));
+    return req(`${root}/mentionable${query.size ? `?${query}` : ""}`);
+  },
+  // PROPOSED: not in backend doc
   markRead: (conversationId) => req(`/me/conversations/${conversationId}/read`, { method: "POST" }),
   // PROPOSED: not in backend doc
-  unreadCount: () => req(`/me/unread`),
+  unreadCount: async () => {
+    const summary = await req<{ dm: { unread: number; mentions: number }; assets: { unread: number; mentions: number }[] }>("/me/unread");
+    return {
+      unread: summary.dm.unread + summary.assets.reduce((total, asset) => total + asset.unread, 0),
+      mentions: summary.dm.mentions + summary.assets.reduce((total, asset) => total + asset.mentions, 0),
+    };
+  },
 
   // PROPOSED: not in backend doc
   blockUser: (username) => req(`/me/blocks`, { method: "POST", body: JSON.stringify({ username }) }),

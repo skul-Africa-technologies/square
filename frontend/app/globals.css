@@ -22,7 +22,6 @@
   --blue-deep: #0EA5E9;
   --blue-soft: rgba(125,211,252,.12);
   --blue-border: rgba(125,211,252,.35);
-  --mention: #F97316;
   /* Name colors (single source of truth). Change here only. */
   --name-other: #B6FF3B; /* lime, others */
   --name-self: #7DD3FC;  /* sky blue, signed-in user */
@@ -40,6 +39,12 @@ body { @apply bg-bg text-text font-body antialiased; }
 * { border-color: var(--border); }
 ::selection { background: var(--lime-tint); color: var(--text); }
 :focus-visible { outline: 2px solid var(--blue-strong); outline-offset: 2px; }
+
+@keyframes auth-shake {
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+}
 
 .text-name-other { color: var(--name-other); }
 .text-name-self { color: var(--name-self); }

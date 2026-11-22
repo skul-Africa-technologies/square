@@ -5,19 +5,22 @@ This document lists every API endpoint the frontend calls, its request/response 
 ## Authentication
 
 ### `POST /api/auth/request-code`
-**Screen:** Login
+**Screen:** Login, Signup
 **Request:** `{ email: string }`
-**Response:** `{ ok: true, retryAfter?: number }`
+**Response:** `202 { ok: true }` for both known and unknown emails, with identical response body and timing. Never disclose account existence before verification.
 
 ### `POST /api/auth/verify-code`
-**Screen:** Login
+**Screen:** Login, Signup
 **Request:** `{ email: string, code: string }`
-**Response:** `{ hasAccount: boolean, token?: string, retryAfter?: number }`
+**Response for an existing account:** `{ isNewUser: false, user: User }`; sign the user in and set the session.
+**Response for an unknown email:** `{ isNewUser: true, signupTicket: string }`; do not create an account. The ticket is valid for 15 minutes and is required by signup.
 
 ### `POST /api/auth/signup`
 **Screen:** Signup
-**Request:** `{ emailToken: string, username: string, schoolId: string, dob: string }`
-**Response:** `{ token: string }`
+**Request:** `{ signupTicket: string, username: string, schoolId: string, dateOfBirth: string }`
+**Response:** `{ user: User }`; create the account only on this request, then sign the user in and set the session.
+
+The signup ticket can be used once. An expired or invalid ticket, unavailable username, or age-gate failure is returned as a typed API error. Username availability and signup must use the same normalized uniqueness rules.
 
 ### `GET /api/auth/username-available?username=...`
 **Screen:** Signup
@@ -126,6 +129,46 @@ The asset endpoints below are `// PROPOSED: not in backend doc`.
 **Screen:** CommunityAssetView (composer)
 **Request:** `{ content: string, media?: Post["media"], replyToId?: string, replyPreview?: ReplyPreview }`
 **Response:** `Post`
+
+## Mentions and unread summaries
+
+The mention endpoints and unread mention counts are `// PROPOSED: not in backend doc`.
+
+### `GET /api/me/unread`
+**Screen:** AppSidebar, CommunityStrip, mobile Messages tab
+**Response:** `{ dm: { unread: number, mentions: number }, assets: { assetId: string, unread: number, mentions: number }[] }`
+**Notes:** `mentions` is the subset of unread messages that tag the current user. Lists show a count, an `@` icon, or both from these two values.
+
+### `GET /api/assets/:id/mentions?unread=true`
+**Screen:** CommunityAssetView (mention jump button)
+**Response:** `MentionRecord[]` — `{ messageId: string, seq: number, createdAt: string }[]`
+
+### `POST /api/assets/:id/mentions/seen`
+**Screen:** CommunityAssetView (visible/jumped mentions and leaving an asset)
+**Request:** `{ messageIds?: string[], all?: true }`
+**Response:** `{ ok: true }`
+**Notes:** Call with message IDs when a mention was visible for 600 ms or jumped to; call with `{ all: true }` on exit using `sendBeacon` or `fetch(..., { keepalive: true })`.
+
+### `GET /api/assets/:id/mentionable?q=&cursor=&limit=`
+**Screen:** CommunityAssetView (message composer)
+**Response:** `Paginated<MentionableMember>` — members who can read the asset, excluding the caller and blocked users.
+**Notes:** Empty-query results rank recent speakers first, then alphabetically. Prefix matches precede contains matches.
+
+### `GET /api/dm/conversations/:id/mentions?unread=true`
+**Screen:** ThreadView (mention jump button)
+**Response:** `MentionRecord[]`
+
+### `POST /api/dm/conversations/:id/mentions/seen`
+**Screen:** ThreadView (visible/jumped mentions and leaving a DM)
+**Request:** `{ messageIds?: string[], all?: true }`
+**Response:** `{ ok: true }`
+**Notes:** Uses the same visibility, jump, and leave semantics as asset mentions.
+
+### `GET /api/dm/conversations/:id/mentionable?q=&cursor=&limit=`
+**Screen:** ThreadView (message composer)
+**Response:** `Paginated<MentionableMember>` — only the other conversation participant, subject to block rules.
+
+Mention parsing on message creation resolves `@username` against readable community members or the DM participant. It ignores code spans, self, unknown, blocked, and unreadable users; at most five distinct users are mentioned per message. Editing a message only adds newly mentioned users.
 
 ## Message Reactions
 

@@ -8,6 +8,7 @@ import { toDisplayUsername, getInitials } from "@square/shared";
 import { relativeTime, useNow } from "@/lib/time";
 import { PresenceDot } from "@/components/shell/PresenceDot";
 import { CommandPalette } from "@/components/shell/CommandPalette";
+import { UnreadBadge } from "@/components/messages/UnreadBadge";
 import clsx from "clsx";
 
 export function MobileHub() {
@@ -59,7 +60,7 @@ export function MobileHub() {
                   <span className="relative mx-auto block h-14 w-14">
                     <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-hi text-sm font-semibold">{getInitials(c.participant.username)}</span>
                     <PresenceDot status={c.presence} className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5" />
-                    {c.unreadCount > 0 && <span className="absolute -right-1 top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-strong px-1 text-[10px] font-semibold text-bg">{c.unreadCount > 99 ? "99+" : c.unreadCount}</span>}
+                    <UnreadBadge unread={c.unreadCount} mentions={c.mentions || 0} size="mobile" className="absolute -right-2 top-0" ringClassName="ring-bg" />
                   </span>
                   <span className="mt-1 block truncate text-[11px] text-muted">{toDisplayUsername(c.participant.username)}</span>
                 </Link>
@@ -89,8 +90,7 @@ export function MobileHub() {
                     </span>
                     <span className={clsx("block truncate text-xs", unread ? "text-text/80" : "text-muted")}>{c.lastMessagePreview || c.lastMessage || "No messages yet"}</span>
                   </span>
-                  {unread && <span aria-label={`${c.unreadCount} unread`} className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-blue-strong px-1 text-[10px] font-semibold text-bg">{c.unreadCount > 99 ? "99+" : c.unreadCount}</span>}
-                  {Boolean(c.mentionCount) && <span aria-label={`${c.mentionCount} direct mentions`} className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-mention px-1 text-[10px] font-semibold text-bg">{c.mentionCount! > 99 ? "99+" : c.mentionCount}</span>}
+                  <UnreadBadge unread={c.unreadCount} mentions={c.mentions || 0} size="mobile" ringClassName="ring-bg" />
                 </Link>
               );
             })}

@@ -15,6 +15,24 @@ Backend services live under `backend/`, one folder per service:
 
 Each service is an independent package named `@square/<service>`.
 
+## 5 Authentication API
+
+The frontend login and signup flows both begin with email verification. Account existence is not
+revealed by `POST /auth/request-code`: known and unknown addresses receive the same `202` response
+body and timing. The code is verified before the server identifies the account state.
+
+| Method | Path | Request | Response and behavior |
+|---|---|---|---|
+| POST | `/auth/request-code` | `{ email }` | `202 { ok: true }`; response is indistinguishable for known and unknown email addresses |
+| POST | `/auth/verify-code` | `{ email, code }` | Existing account: `{ isNewUser: false, user }` and establish a session. Unknown email: `{ isNewUser: true, signupTicket }`; do not create an account |
+| POST | `/auth/signup` | `{ signupTicket, username, schoolId, dateOfBirth }` | Consume a valid 15-minute signup ticket, create the account, establish a session, and return `{ user }` |
+| GET | `/users/username-available?username=...` | — | `{ available: boolean }`; use the same uniqueness rules as signup |
+
+Signup tickets are single-use and expire after 15 minutes. An account is created only after the
+signup request succeeds. Signup rejects invalid/expired tickets, taken usernames, and users who do
+not meet the age gate. Verification of a known account always signs that account in and never
+returns a signup ticket.
+
 ## 6 Data Model
 
 ### 6.6 Community chat

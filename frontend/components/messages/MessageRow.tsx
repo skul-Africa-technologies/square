@@ -1,5 +1,6 @@
 "use client";
 import React, { forwardRef, lazy, Suspense, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { toDisplayUsername, getInitials, type Paginated, type ReactionSummary, type ReactionUser, type ReplyPreview } from "@square/shared";
 import clsx from "clsx";
 import { SmilePlus } from "lucide-react";
@@ -25,16 +26,42 @@ export type MessageItem = {
 };
 
 function renderContent(text: string, currentUsername: string) {
-  const parts = text.split(/(https?:\/\/[^\s]+|@[a-zA-Z0-9][a-zA-Z0-9-]*)/g);
-  return parts.map((part, i) => {
-    if (/^https?:\/\/[^\s]+$/.test(part)) {
-      return <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue underline underline-offset-2 break-all">{part}</a>;
+  const usernamePattern = String.raw`[\p{L}\p{M}\p{Extended_Pictographic}\p{Emoji_Modifier}\u200D\uFE0F]+(?:-[\p{L}\p{M}\p{Extended_Pictographic}\p{Emoji_Modifier}\u200D\uFE0F]+)*`;
+  const codeParts = text.split(/(`+[^`]*`+)/g);
+  return codeParts.flatMap((chunk, chunkIndex) => {
+    if (/^`+[^`]*`+$/.test(chunk)) {
+      return <code key={`code-${chunkIndex}`} className="rounded bg-surface px-1 text-[0.95em]">{chunk.replace(/^`+|`+$/g, "")}</code>;
     }
-    if (/^@[a-zA-Z0-9][a-zA-Z0-9-]*$/.test(part)) {
-      return <span key={i} data-testid="mention-pill" className={clsx("rounded bg-blue-soft px-1 text-blue", part.slice(1).toLowerCase() === currentUsername.toLowerCase() && "font-semibold")}>{part}</span>;
-    }
-    return <React.Fragment key={i}>{part}</React.Fragment>;
+    const parts = chunk.split(new RegExp(`(https?:\\/\\/[^\\s]+|(?<![\\p{L}\\p{N}._%+-])@${usernamePattern})`, "gu"));
+    return parts.map((part, index) => {
+      const key = `${chunkIndex}-${index}`;
+      if (/^https?:\/\/[^\s]+$/.test(part)) {
+        return <a key={key} href={part} target="_blank" rel="noopener noreferrer" className="text-blue underline underline-offset-2 break-all">{part}</a>;
+      }
+      if (new RegExp(`^@${usernamePattern}$`, "u").test(part)) {
+        return <MentionPill key={key} username={part.slice(1)} currentUsername={currentUsername} />;
+      }
+      return <React.Fragment key={key}>{part}</React.Fragment>;
+    });
   });
+}
+
+function MentionPill({ username, currentUsername }: { username: string; currentUsername: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative inline-block" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <Link
+        href={`/u/${encodeURIComponent(username)}`}
+        data-testid="mention-pill"
+        className={clsx("rounded bg-blue-soft px-1 text-blue hover:underline", username.toLowerCase() === currentUsername.toLowerCase() && "font-semibold text-blue-strong")}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+      >
+        @{username}
+      </Link>
+      {open && <span role="tooltip" className="absolute bottom-full left-0 z-30 mb-1 whitespace-nowrap rounded-lg border border-blue-border bg-bg-2 px-2 py-1 text-xs text-text shadow-lg">#{username} · View profile</span>}
+    </span>
+  );
 }
 
 export function dayLabel(iso: string) {
@@ -68,9 +95,10 @@ export const MessageRow = forwardRef<HTMLDivElement, {
   canReact?: boolean;
   reactionDisabledReason?: string;
   currentUsername?: string;
+  onFloatingUiChange?: (open: boolean) => void;
   onReaction?: (emoji: string, add: boolean, clientId: string) => Promise<void>;
   onReactionUsers?: (emoji: string, cursor?: string) => Promise<Paginated<ReactionUser>>;
-}>(function MessageRow({ item, currentUserId, grouped, showSeen, flash, onReply, onDelete, onRetry, onJumpToReply, showReactions, canReact = true, reactionDisabledReason, currentUsername = "amaka-eze", onReaction, onReactionUsers }, ref) {
+}>(function MessageRow({ item, currentUserId, grouped, showSeen, flash, onReply, onDelete, onRetry, onJumpToReply, showReactions, canReact = true, reactionDisabledReason, currentUsername = "amaka-eze", onFloatingUiChange, onReaction, onReactionUsers }, ref) {
   const name = item.authorUsername ? toDisplayUsername(item.authorUsername) : (item.authorId || "user");
   const initials = getInitials(item.authorUsername || item.authorId || "u");
   const nameColor = getNameColor(item.authorId, currentUserId);
@@ -89,11 +117,8 @@ export const MessageRow = forwardRef<HTMLDivElement, {
 
   useEffect(() => setReactions(item.reactions || []), [item.reactions]);
   useEffect(() => () => { if (longPress.current) clearTimeout(longPress.current); }, []);
+  useEffect(() => onFloatingUiChange?.(pickerOpen || !!usersEmoji), [onFloatingUiChange, pickerOpen, usersEmoji]);
 
-  const mention = !!currentUserId && (
-    item.mentionedUserIds?.includes(currentUserId) ||
-    item.content.toLowerCase().includes(`@${currentUsername.toLowerCase()}`)
-  );
   const mineCount = reactions.filter(reaction => reaction.me).length;
 
   async function toggleReaction(emoji: string) {
@@ -156,7 +181,7 @@ export const MessageRow = forwardRef<HTMLDivElement, {
   }
 
   return (
-    <div ref={ref} id={`msg-${item.id}`} data-testid="message-row" className={clsx("group relative rounded-lg px-2 py-1 transition-colors [overflow-anchor:auto]", flash && "bg-blue-soft/50", mention && "bg-blue-soft")} style={mention ? { boxShadow: "inset 2px 0 0 var(--blue-strong)" } : undefined}>
+    <div ref={ref} id={`msg-${item.id}`} data-testid="message-row" className={clsx("group relative rounded-lg px-2 py-1 transition-colors motion-reduce:transition-none [overflow-anchor:auto]", flash && "bg-blue-soft outline outline-1 outline-blue-border")}>
       <div className="flex gap-3">
         <div className="w-9 shrink-0">
           {!grouped && (

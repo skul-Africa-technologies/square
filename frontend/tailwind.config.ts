@@ -20,7 +20,6 @@ const config: Config = {
         "blue-deep": "#0EA5E9",
         "blue-soft": "rgba(125,211,252,0.12)",
         "blue-border": "rgba(125,211,252,0.35)",
-        mention: "#F97316",
         "name-other": "var(--name-other)",
         "name-self": "var(--name-self)",
       },

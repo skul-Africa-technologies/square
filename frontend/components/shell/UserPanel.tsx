@@ -7,9 +7,12 @@ import { api } from "@/lib/api";
 import { toDisplayUsername, getInitials } from "@square/shared";
 import { PresenceDot } from "./PresenceDot";
 import clsx from "clsx";
+import { clearSession } from "@/lib/session";
+import { useRouter } from "next/navigation";
 
 export function UserPanel({ onOpenProfile, className }: { onOpenProfile?: () => void; className?: string }) {
   const qc = useQueryClient();
+  const router = useRouter();
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => api.me(), staleTime: 30_000 });
   const [open, setOpen] = useState(false);
   const [appearOffline, setAppearOffline] = useState(false);
@@ -57,6 +60,7 @@ export function UserPanel({ onOpenProfile, className }: { onOpenProfile?: () => 
           <div className="my-1 h-px bg-border" />
           <Link href="/settings" prefetch={false} role="menuitem" className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-surface-hi">Settings</Link>
           {onOpenProfile && <button type="button" role="menuitem" onClick={() => { setOpen(false); onOpenProfile(); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-surface-hi">Profile</button>}
+          <button type="button" role="menuitem" onClick={async () => { setOpen(false); await clearSession(); router.replace("/login"); }} className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-surface-hi">Log out</button>
         </div>
       )}
     </div>

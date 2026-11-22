@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { UserPanel } from "./UserPanel";
+import { UnreadBadge } from "@/components/messages/UnreadBadge";
 import { AddAssetDialog } from "@/features/assets/AddAssetDialog";
 import { AssetRowActions } from "@/features/assets/AssetRowActions";
 import { ASSET_CATEGORY_ORDER, ADD_ASSET_ROLES, getAssetCatalogEntry, type AssetCategory, type Role } from "@square/shared";
@@ -160,8 +161,10 @@ export function AppSidebar() {
                             >
                               {getAssetCatalogEntry(a.catalogKey)?.name}
                             </span>
-                            {unread && <span aria-label={`${unreadCount} unread`} className="ml-auto rounded-full bg-blue-strong px-1.5 py-0.5 text-[10px] font-bold leading-none text-bg">{unreadCount > 99 ? "99+" : unreadCount}</span>}
-                            {locked && <LockKeyhole className="h-3.5 w-3.5 shrink-0 text-muted" aria-label="Read-only" />}
+                            <span className="ml-auto flex shrink-0 items-center gap-1">
+                              {unread && <UnreadBadge unread={unreadCount} mentions={a.mentions || 0} ringClassName="ring-bg-2" />}
+                              {locked && <LockKeyhole className="h-3.5 w-3.5 shrink-0 text-muted" aria-label="Read-only" />}
+                            </span>
                           </Link>
                         </AssetRowActions>
                       );
