@@ -37,13 +37,73 @@ Indexes: `(message_id, emoji, created_at)` and `(user_id, message_id)`.
 reads use these counts rather than grouping raw reaction rows. A nightly reconcile recomputes counts
 from `chat.reactions`.
 
+Mentions are stored once per mentioned user and message:
+
+```sql
+chat.mentions(
+  user_id text NOT NULL,
+  asset_id text NOT NULL,
+  message_id text NOT NULL,
+  seq bigint NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  seen_at timestamptz NULL,
+  PRIMARY KEY (user_id, message_id)
+)
+```
+
+Indexes: `(user_id, asset_id, seen_at)` and the partial index
+`(user_id, asset_id) WHERE seen_at IS NULL`. A message can create at most five mention rows.
+The Redis hash `ment:{userId}` stores `assetId -> unseen count` as the fast path; rebuild it from
+`chat.mentions` after loss or inconsistency.
+
 ### 6.7 Direct messages
 
 `dm.reactions` and `dm.reaction_counts` have the same columns, keys, indexes, and transactional
 maintenance as their `chat` counterparts, keyed by the direct-message message id. Direct-message
 reactions are visible only to the conversation participants.
 
+`dm.mentions` has the same columns, primary key, and indexes as `chat.mentions`, with
+`conversation_id` in place of `asset_id`. The `ment:{userId}` Redis hash also stores DM conversation
+unseen counts; rebuild these entries from `dm.mentions`.
+
 ## 8 Domain Rules
+
+### 8.1 Unread summaries
+
+Unread summaries return `{unread, mentions}` per asset and DM conversation; `unread` is the total
+unread message count and `mentions` is the subset that mentions the current user. The UI shows the
+unread number only when `mentions` is zero; when all unread messages are mentions, it shows `@`
+alone for one mention or `@` with the mention count for multiple mentions; when both kinds exist,
+it shows `@` with the total unread number.
+
+Opening a chat does not mark mentions seen. The client reports mentions seen when they are visible
+or the user jumps to them. When leaving an asset or DM, the client marks all mentions for that visit
+seen with `POST .../mentions/seen { all: true }`; this request is safe to send with `sendBeacon` or
+`fetch` using `keepalive`.
+
+### 8.12 Mention parsing
+
+- Parse `@username` tokens outside code spans, using the same username character rules (letters,
+  emoji, and hyphens). Preserve the message text as sent.
+- Resolve community mentions only against members who can read the asset, and DM mentions only
+  against the other conversation participant. Ignore self-mentions, unknown names, and names the
+  caller cannot mention because of visibility or blocking.
+- Store at most five distinct mentions per message. Ignore the sixth and any later mentions; do not
+  fail the message request.
+- Insert mention rows in the same transaction as the message and write
+  `mention.created {userId, assetId, messageId, seq}` to the outbox.
+- On message edit, create rows and notifications only for newly added mentions.
+
+### 8.13 Mention autocomplete
+
+`GET /assets/:id/mentionable?q=&limit=&cursor=` returns batch-hydrated user cards for members who
+can read the asset. A mods-only asset returns only owners and moderators. Exclude the caller and
+anyone who blocked or is blocked by the caller. With an empty query, rank the last 200 speakers from
+the Redis zset `act:{assetId}` first, then list everyone else alphabetically. With a query, rank
+username prefix matches before trigram contains matches. Use keyset pagination on `(rank, id)`.
+Keep response time within a 150 ms budget and rate-limit to 120 requests per minute.
+
+`GET /dm/conversations/:id/mentionable` returns only the other conversation participant.
 
 ### 8.16 Reactions
 
@@ -84,14 +144,17 @@ reactions are visible only to the conversation participants.
 | Threat | Mitigation |
 |---|---|
 | Reaction spam and count inflation | Unique key, per-message and per-user limits, rate limits, trust levels, transactional count updates, nightly reconciliation |
+| Mention spam and harassment | Maximum five mentions per message, rate limits, blocks respected in autocomplete and parsing, and trust-level limits (trust level 0 can mention at most two people per message) |
 
 ## 13 Events
 
 | Event | Producer | Consumers |
 |---|---|---|
+| `mention.created` | chat or dm | inbox notifications and realtime live counters |
 | `reaction.updated` | chat or dm | authorized realtime room viewers |
 | `reaction.toggled` | chat or dm | audit and badges only |
 
+The inbox notification kind for a mention is `mention`.
 `reaction.updated` carries the resulting count and is room-scoped. `reaction.toggled` is not sent to
 room clients.
 
@@ -99,6 +162,8 @@ room clients.
 
 | Operation | Limit |
 |---|---:|
+| Mentionable reads, per user | 120/minute |
+| Mention-seen writes, per user | 60/minute |
 | Reaction writes, per user | 60/minute |
 | Reaction write burst | 5/3 seconds |
 | Reaction writes for trust level 0 | 20/minute |
@@ -106,10 +171,9 @@ room clients.
 
 ## 15 API
 
-Reaction routes are added to the existing API surface; the endpoint inventory increases by nine
-routes (five community-chat routes, three applicable DM routes, and one realtime stream). There is
-no `endpoints.json` in the repository; this section is the authorization-matrix source for these
-routes.
+Reaction and mention routes are added to the existing API surface; the endpoint inventory increases
+by sixteen routes (nine reaction routes and seven mention routes). There is no `endpoints.json` in
+the repository; this section is the authorization-matrix source for these routes.
 
 ### 15.7 Community chat
 
@@ -120,6 +184,9 @@ routes.
 | GET | `/messages/:id/reactions/:emoji/users?cursor=` | `A:read` | Paginated who-reacted list |
 | DELETE | `/messages/:id/reactions/:emoji` | `C:mod` | Clear this emoji and audit |
 | DELETE | `/messages/:id/reactions` | `C:mod` | Clear all reactions and audit |
+| GET | `/assets/:id/mentions?unread=true` | `A:read` | `[{ messageId, seq, createdAt }]` for unseen mentions |
+| POST | `/assets/:id/mentions/seen` | `C:member` | `{ messageIds: string[] }` or `{ all: true }` |
+| GET | `/assets/:id/mentionable?q=&limit=&cursor=` | `A:post` | Paginated members who can be mentioned |
 
 ### 15.8 Direct messages
 
@@ -128,6 +195,9 @@ routes.
 | PUT | `/dm/messages/:id/reactions/:emoji` | Participant, unblocked | Idempotently add my reaction |
 | DELETE | `/dm/messages/:id/reactions/:emoji/me` | Participant, unblocked | Remove my reaction |
 | GET | `/dm/messages/:id/reactions/:emoji/users?cursor=` | Participant, unblocked | Paginated who-reacted list |
+| GET | `/dm/conversations/:id/mentions?unread=true` | Participant | `[{ messageId, seq, createdAt }]` for unseen mentions |
+| POST | `/dm/conversations/:id/mentions/seen` | Participant | `{ messageIds: string[] }` or `{ all: true }` |
+| GET | `/dm/conversations/:id/mentionable?q=&limit=&cursor=` | Participant | Return the other conversation participant |
 
 DMs do not have moderator-clear routes.
 
@@ -138,6 +208,12 @@ DMs do not have moderator-clear routes.
 | GET (SSE) | `/reactions/stream?scope=asset&roomId=:id` | `A:read` | Initial resync and updates for authorized asset viewers |
 | GET (SSE) | `/reactions/stream?scope=dm&roomId=:id` | Participant, unblocked | Initial resync and updates for the two participants |
 
+### 15.16 Unread summaries
+
+| Method | Path | Access | Behavior |
+|---|---|---|---|
+| GET | `/me/unread` | Authenticated | `{ dm: { unread, mentions }, assets: [{ assetId, unread, mentions }] }` |
+
 ## 17 Database and Delivery Plan
 
 Database schema and migrations live in `backend/db/migrations/`.
@@ -145,8 +221,9 @@ Seed data lives in `backend/db/seeds/`.
 
 ### Phase 3: Chat, DMs, and realtime
 
-The Phase 3 implementation includes community and DM reaction tables, APIs, access checks,
-transactional counts, outbox events, and authorized realtime delivery.
+The Phase 3 implementation includes community and DM reaction and mention tables, APIs, access
+checks, transactional counts and mention rows, outbox events, mention counters and seen endpoints,
+mentionable member lookup, and authorized realtime delivery.
 
 **Exit criteria**
 
@@ -156,16 +233,28 @@ transactional counts, outbox events, and authorized realtime delivery.
 - Deleted messages reject reaction operations.
 - Who-reacted pagination is stable, excludes blocked users, and returns hydrated user cards.
 - Realtime updates reach only viewers of the subscribed room; reconnect resync restores counts.
+- Mention parsing handles code spans, emails, duplicates, unknown names, blocked users, and
+  non-readable users; the sixth mention is ignored.
+- Editing a message creates rows and notifications only for new mentions.
+- Mentions are not marked seen on open; leaving an asset or DM marks all mentions for that visit
+  seen, and visible or jumped-to mentions are marked seen.
+- Mention counters match mention rows after concurrent messages.
+- Mentionable lookup excludes blocked users and respects mods-only asset visibility.
 - The authorization matrix has a test row for every endpoint in Sections 15.7 and 15.8.
 
 **Phase 3 Kilo prompt**
 
-Implement the reaction schema, indexes, transactional count maintenance, nightly reconciliation,
-emoji allowlist validation, endpoints, permissions, rate limits, and room-authorized realtime event
-described in Section 8.16. Add tests for idempotent add/remove; count consistency after 50 parallel
-toggle requests; the 21st distinct emoji and per-user limits; read-only and non-member rejection;
-blocked DM rejection; tombstoned-message rejection; who-reacted pagination; realtime delivery only to
-room viewers; reconnect resync; and an authorization-matrix row for every new endpoint.
+Implement the reaction and mention schemas, indexes, transactional count and mention-row
+maintenance, nightly reconciliation, emoji allowlist validation, mention parsing and autocomplete,
+unread counters and seen endpoints, permissions, rate limits, and room-authorized realtime events
+described in Sections 8.12, 8.13, and 8.16. Add tests for idempotent reaction add/remove; count
+consistency after 50 parallel toggle requests; the 21st distinct emoji and per-user limits;
+read-only and non-member rejection; blocked DM rejection; tombstoned-message rejection;
+who-reacted pagination; mention parsing edge cases (code spans, emails, duplicates, unknown names,
+blocked users, and non-readable users); the ignored sixth mention; edits adding only new mentions;
+leave-marks-all-seen semantics; counters matching mention rows after concurrent messages;
+mentionable exclusion of blocked users and mods-only visibility; realtime delivery only to room
+viewers; reconnect resync; and an authorization-matrix row for every new endpoint.
 
 ## 18 Infrastructure
 
