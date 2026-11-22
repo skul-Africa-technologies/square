@@ -19,4 +19,15 @@ The real client (`frontend/lib/api/real.ts`) sends `credentials: "include"` for 
 
 ## Change Log
 
-No contract changes yet. Initial monorepo structure.
+### Shared reaction, mention, and unread contracts
+
+- Added strict shared Zod schemas for reaction requests, user pages and SSE events; mention
+  records, seen requests and mentionable-member pages; and unread summaries.
+- The associated shared TypeScript types are inferred from the Zod schemas. The mock API and real
+  API client validate these shapes, and the gateway reaction controller validates its route/query
+  inputs and response/event shapes using the same schemas.
+- Reaction write endpoints continue to return HTTP 204; the frontend client exposes the existing
+  `{ ok: true }` method result after the successful response. No route or persistence contract was
+  changed.
+- This is a partial contract migration. Other frontend API methods still rely on TypeScript-only
+  types, and most do not yet have real backend handlers. They remain explicit parity gaps.

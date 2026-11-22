@@ -16,7 +16,16 @@ import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import type { AuthenticatedUser } from "@square/kernel";
 import { ApiException, DatabaseService } from "@square/kernel";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import type { ReactionScope } from "@square/shared";
+import {
+  reactionMessageIdParamsSchema,
+  reactionMessageParamsSchema,
+  reactionResyncEventSchema,
+  reactionRoomParamsSchema,
+  reactionScopeSchema,
+  reactionUpdatedEventSchema,
+  reactionUsersPageSchema,
+  reactionUsersQuerySchema,
+} from "@square/shared";
 import { ReactionsService } from "./reactions.service";
 
 type RequestWithUser = FastifyRequest & { user?: AuthenticatedUser };
@@ -47,7 +56,8 @@ export class ReactionsController {
     @Headers("idempotency-key") clientId: string | undefined,
     @Req() request: FastifyRequest,
   ): Promise<void> {
-    await this.reactions.toggle("asset", messageId, emoji, authenticatedUser(request), true, clientId);
+    const params = reactionMessageParamsSchema.parse({ messageId, emoji });
+    await this.reactions.toggle("asset", params.messageId, params.emoji, authenticatedUser(request), true, clientId);
   }
 
   @Delete("messages/:id/reactions/:emoji/me")
@@ -60,7 +70,8 @@ export class ReactionsController {
     @Headers("idempotency-key") clientId: string | undefined,
     @Req() request: FastifyRequest,
   ): Promise<void> {
-    await this.reactions.toggle("asset", messageId, emoji, authenticatedUser(request), false, clientId);
+    const params = reactionMessageParamsSchema.parse({ messageId, emoji });
+    await this.reactions.toggle("asset", params.messageId, params.emoji, authenticatedUser(request), false, clientId);
   }
 
   @Get("messages/:id/reactions/:emoji/users")
@@ -71,7 +82,11 @@ export class ReactionsController {
     @Query("cursor") cursor: string | undefined,
     @Req() request: FastifyRequest,
   ) {
-    return this.reactions.listUsers("asset", messageId, emoji, authenticatedUser(request), cursor);
+    const params = reactionMessageParamsSchema.parse({ messageId, emoji });
+    const query = reactionUsersQuerySchema.parse({ cursor });
+    return reactionUsersPageSchema.parse(
+      await this.reactions.listUsers("asset", params.messageId, params.emoji, authenticatedUser(request), query.cursor),
+    );
   }
 
   @Delete("messages/:id/reactions/:emoji")
@@ -82,7 +97,8 @@ export class ReactionsController {
     @Param("emoji") emoji: string,
     @Req() request: FastifyRequest,
   ): Promise<void> {
-    await this.reactions.clearAssetMessage(messageId, authenticatedUser(request), emoji);
+    const params = reactionMessageParamsSchema.parse({ messageId, emoji });
+    await this.reactions.clearAssetMessage(params.messageId, authenticatedUser(request), params.emoji);
   }
 
   @Delete("messages/:id/reactions")
@@ -92,7 +108,8 @@ export class ReactionsController {
     @Param("id") messageId: string,
     @Req() request: FastifyRequest,
   ): Promise<void> {
-    await this.reactions.clearAssetMessage(messageId, authenticatedUser(request));
+    const params = reactionMessageIdParamsSchema.parse({ messageId });
+    await this.reactions.clearAssetMessage(params.messageId, authenticatedUser(request));
   }
 
   @Put("dm/messages/:id/reactions/:emoji")
@@ -104,7 +121,8 @@ export class ReactionsController {
     @Headers("idempotency-key") clientId: string | undefined,
     @Req() request: FastifyRequest,
   ): Promise<void> {
-    await this.reactions.toggle("dm", messageId, emoji, authenticatedUser(request), true, clientId);
+    const params = reactionMessageParamsSchema.parse({ messageId, emoji });
+    await this.reactions.toggle("dm", params.messageId, params.emoji, authenticatedUser(request), true, clientId);
   }
 
   @Delete("dm/messages/:id/reactions/:emoji/me")
@@ -116,7 +134,8 @@ export class ReactionsController {
     @Headers("idempotency-key") clientId: string | undefined,
     @Req() request: FastifyRequest,
   ): Promise<void> {
-    await this.reactions.toggle("dm", messageId, emoji, authenticatedUser(request), false, clientId);
+    const params = reactionMessageParamsSchema.parse({ messageId, emoji });
+    await this.reactions.toggle("dm", params.messageId, params.emoji, authenticatedUser(request), false, clientId);
   }
 
   @Get("dm/messages/:id/reactions/:emoji/users")
@@ -127,7 +146,11 @@ export class ReactionsController {
     @Query("cursor") cursor: string | undefined,
     @Req() request: FastifyRequest,
   ) {
-    return this.reactions.listUsers("dm", messageId, emoji, authenticatedUser(request), cursor);
+    const params = reactionMessageParamsSchema.parse({ messageId, emoji });
+    const query = reactionUsersQuerySchema.parse({ cursor });
+    return reactionUsersPageSchema.parse(
+      await this.reactions.listUsers("dm", params.messageId, params.emoji, authenticatedUser(request), query.cursor),
+    );
   }
 
   @Get("reactions/stream")
@@ -143,8 +166,9 @@ export class ReactionsController {
     if (scopeValue !== "asset" && scopeValue !== "dm") {
       throw new ApiException(400, "validation_failed", "Invalid reaction room scope", "scope");
     }
-    const scope = scopeValue as ReactionScope;
-    if (!roomId || roomId.length > 128) throw new ApiException(400, "validation_failed", "Invalid room id", "roomId");
+    const scope = reactionScopeSchema.parse(scopeValue);
+    const { roomId: validatedRoomId } = reactionRoomParamsSchema.parse({ roomId });
+    roomId = validatedRoomId;
     await this.reactions.assertCanViewRoom(scope, roomId, user.id);
     const client = await this.database.pool.connect();
     let closed = false;
@@ -174,7 +198,8 @@ export class ReactionsController {
         const data = row?.payload?.data;
         if (row?.type !== "reaction.updated" || data?.scope !== scope || data.roomId !== roomId) return;
         await this.reactions.assertCanViewRoom(scope, roomId, user.id);
-        writeEvent("reaction.updated", row.id, { ...data, type: "reaction.updated" });
+        const event = reactionUpdatedEventSchema.parse({ ...data, type: "reaction.updated" });
+        writeEvent(event.type, row.id, event);
       } catch {
         this.logger.warn("Closing reaction stream after an event delivery failure");
         reply.raw.end();
@@ -194,7 +219,7 @@ export class ReactionsController {
       await client.query("LISTEN kernel_reaction_outbox");
       client.on("notification", onNotification);
       await this.reactions.assertCanViewRoom(scope, roomId, user.id);
-      const resync = await this.reactions.roomResync(scope, roomId, user.id);
+      const resync = reactionResyncEventSchema.parse(await this.reactions.roomResync(scope, roomId, user.id));
       reply.hijack();
       reply.raw.writeHead(200, {
         "Content-Type": "text/event-stream; charset=utf-8",
@@ -203,7 +228,7 @@ export class ReactionsController {
         "X-Accel-Buffering": "no",
       });
       reply.raw.flushHeaders();
-      writeEvent("reaction.resync", `resync-${Date.now()}`, resync);
+      writeEvent(resync.type, `resync-${Date.now()}`, resync);
       ready = true;
       for (const eventId of pendingIds.splice(0)) void deliver(eventId);
       heartbeat = setInterval(() => { if (!closed) reply.raw.write(": keep-alive\n\n"); }, 20_000);

@@ -1,8 +1,22 @@
-import type { ApiError, MentionScope, ReactionScope, ReactionStreamEvent } from "@square/shared";
+import type { ApiError, MentionScope, ReactionScope } from "@square/shared";
 import type { ApiClient, UploadSignRequest } from "./types";
 import { ClientApiError } from "./errors";
 import { appConfig } from "../config";
 import { CSRF_HEADER, getCsrfToken } from "../csrf";
+import {
+  apiOkResponseSchema,
+  mentionRecordSchema,
+  mentionScopeSchema,
+  mentionSeenRequestSchema,
+  mentionableMembersPageSchema,
+  mentionableQuerySchema,
+  reactionPathSchema,
+  reactionRequestSchema,
+  reactionStreamEventSchema,
+  reactionUsersPageSchema,
+  reactionUsersQuerySchema,
+  unreadSummarySchema,
+} from "@square/shared";
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const method = (init?.method || "GET").toUpperCase();
@@ -129,20 +143,24 @@ export const realApi: ApiClient = {
   // PROPOSED: not in backend doc
   deleteMessage: (conversationId, messageId) => req(`/me/conversations/${conversationId}/messages/${messageId}`, { method: "DELETE" }),
   // PROPOSED: not in backend doc
-  setMessageReaction: async (scope: ReactionScope, _roomId: string, messageId: string, emoji: string, add: boolean, clientId: string) => {
-    const root = scope === "dm" ? "/dm/messages" : "/messages";
-    await req(`${root}/${encodeURIComponent(messageId)}/reactions/${encodeURIComponent(emoji)}${add ? "" : "/me"}`, {
-      method: add ? "PUT" : "DELETE",
-      headers: { "Idempotency-Key": clientId },
+  setMessageReaction: async (scope: ReactionScope, roomId: string, messageId: string, emoji: string, add: boolean, clientId: string) => {
+    const request = reactionRequestSchema.parse({ scope, roomId, messageId, emoji, add, clientId });
+    const root = request.scope === "dm" ? "/dm/messages" : "/messages";
+    await req(`${root}/${encodeURIComponent(request.messageId)}/reactions/${encodeURIComponent(request.emoji)}${request.add ? "" : "/me"}`, {
+      method: request.add ? "PUT" : "DELETE",
+      headers: { "Idempotency-Key": request.clientId },
     });
-    return { ok: true as const };
+    return apiOkResponseSchema.parse({ ok: true });
   },
   // PROPOSED: not in backend doc
-  listReactionUsers: (scope, _roomId, messageId, emoji, cursor) => {
-    const root = scope === "dm" ? "/dm/messages" : "/messages";
+  listReactionUsers: async (scope, roomId, messageId, emoji, cursor) => {
+    const request = reactionPathSchema.parse({ scope, roomId, messageId, emoji });
+    const query = reactionUsersQuerySchema.parse({ cursor });
+    const root = request.scope === "dm" ? "/dm/messages" : "/messages";
     const params = new URLSearchParams();
-    if (cursor) params.set("cursor", cursor);
-    return req(`${root}/${encodeURIComponent(messageId)}/reactions/${encodeURIComponent(emoji)}/users${params.size ? `?${params}` : ""}`);
+    if (query.cursor) params.set("cursor", query.cursor);
+    const response: unknown = await req(`${root}/${encodeURIComponent(request.messageId)}/reactions/${encodeURIComponent(request.emoji)}/users${params.size ? `?${params}` : ""}`);
+    return reactionUsersPageSchema.parse(response);
   },
   // PROPOSED: not in backend doc
   subscribeReactionEvents: (scope, roomId, listener) => {
@@ -150,7 +168,8 @@ export const realApi: ApiClient = {
     const source = new EventSource(`${appConfig.apiUrl}/reactions/stream?${params}`, { withCredentials: true });
     const onReaction = (message: MessageEvent<string>) => {
       try {
-        listener(JSON.parse(message.data) as ReactionStreamEvent);
+        const event: unknown = JSON.parse(message.data);
+        listener(reactionStreamEventSchema.parse(event));
       } catch (error) {
         console.error("Could not parse reaction.updated event", error);
       }
@@ -160,29 +179,38 @@ export const realApi: ApiClient = {
     return () => source.close();
   },
   // PROPOSED: not in backend doc
-  listMentions: (scope: MentionScope, roomId: string) => {
-    const root = scope === "dm" ? `/dm/conversations/${encodeURIComponent(roomId)}` : `/assets/${encodeURIComponent(roomId)}`;
-    return req(`${root}/mentions?unread=true`);
+  listMentions: async (scope: MentionScope, roomId: string) => {
+    const validScope = mentionScopeSchema.parse(scope);
+    const root = validScope === "dm" ? `/dm/conversations/${encodeURIComponent(roomId)}` : `/assets/${encodeURIComponent(roomId)}`;
+    const response: unknown = await req(`${root}/mentions?unread=true`);
+    return mentionRecordSchema.array().parse(response);
   },
   // PROPOSED: not in backend doc
-  markMentionsSeen: (scope: MentionScope, roomId: string, data, options) => {
-    const root = scope === "dm" ? `/dm/conversations/${encodeURIComponent(roomId)}` : `/assets/${encodeURIComponent(roomId)}`;
-    return req(`${root}/mentions/seen`, { method: "POST", body: JSON.stringify(data), keepalive: options?.keepalive });
+  markMentionsSeen: async (scope: MentionScope, roomId: string, data, options) => {
+    const validScope = mentionScopeSchema.parse(scope);
+    const request = mentionSeenRequestSchema.parse(data);
+    const root = validScope === "dm" ? `/dm/conversations/${encodeURIComponent(roomId)}` : `/assets/${encodeURIComponent(roomId)}`;
+    const response: unknown = await req(`${root}/mentions/seen`, { method: "POST", body: JSON.stringify(request), keepalive: options?.keepalive });
+    return apiOkResponseSchema.parse(response);
   },
   // PROPOSED: not in backend doc
-  mentionableMembers: (scope: MentionScope, roomId: string, params) => {
-    const root = scope === "dm" ? `/dm/conversations/${encodeURIComponent(roomId)}` : `/assets/${encodeURIComponent(roomId)}`;
-    const query = new URLSearchParams();
-    if (params?.q) query.set("q", params.q);
-    if (params?.cursor) query.set("cursor", params.cursor);
-    if (params?.limit) query.set("limit", String(params.limit));
-    return req(`${root}/mentionable${query.size ? `?${query}` : ""}`);
+  mentionableMembers: async (scope: MentionScope, roomId: string, params) => {
+    const validScope = mentionScopeSchema.parse(scope);
+    const query = mentionableQuerySchema.parse(params || {});
+    const root = validScope === "dm" ? `/dm/conversations/${encodeURIComponent(roomId)}` : `/assets/${encodeURIComponent(roomId)}`;
+    const searchParams = new URLSearchParams();
+    if (query.q) searchParams.set("q", query.q);
+    if (query.cursor) searchParams.set("cursor", query.cursor);
+    if (query.limit) searchParams.set("limit", String(query.limit));
+    const response: unknown = await req(`${root}/mentionable${searchParams.size ? `?${searchParams}` : ""}`);
+    return mentionableMembersPageSchema.parse(response);
   },
   // PROPOSED: not in backend doc
   markRead: (conversationId) => req(`/me/conversations/${conversationId}/read`, { method: "POST" }),
   // PROPOSED: not in backend doc
   unreadCount: async () => {
-    const summary = await req<{ dm: { unread: number; mentions: number }; assets: { unread: number; mentions: number }[] }>("/me/unread");
+    const rawSummary: unknown = await req("/me/unread");
+    const summary = unreadSummarySchema.parse(rawSummary);
     return {
       unread: summary.dm.unread + summary.assets.reduce((total, asset) => total + asset.unread, 0),
       mentions: summary.dm.mentions + summary.assets.reduce((total, asset) => total + asset.mentions, 0),

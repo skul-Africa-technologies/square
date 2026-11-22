@@ -1,3 +1,17 @@
+import type { z } from "zod";
+import type {
+  mentionRecordSchema,
+  mentionScopeSchema,
+  mentionableMemberSchema,
+  reactionResyncEventSchema,
+  reactionScopeSchema,
+  reactionStreamEventSchema,
+  reactionSummarySchema,
+  reactionUpdatedEventSchema,
+  reactionUserSchema,
+  unreadSummarySchema,
+} from "./schemas";
+
 export type Role = "owner" | "moderator" | "member";
 export type AssetKind = "chat" | "feed" | "board" | "list" | "form";
 export type AssetCategory = "Information" | "Community" | "Resources" | "Build";
@@ -142,37 +156,16 @@ export interface ReplyPreview {
   deleted?: boolean;
 }
 
-export type ReactionScope = "asset" | "dm";
-export type MentionScope = "asset" | "dm";
-export interface MentionRecord { messageId: string; seq: number; createdAt: string }
-export interface MentionableMember {
-  id: string;
-  username: string;
-  avatarUrl?: string;
-  schoolName?: string;
-  role?: Role;
-  presence?: PresenceStatus;
-}
-export interface ReactionSummary { emoji: string; count: number; me: boolean }
-export interface ReactionUser { id: string; username: string; avatarUrl?: string; me: boolean }
-export interface ReactionUpdatedEvent {
-  type: "reaction.updated";
-  scope: ReactionScope;
-  roomId: string;
-  messageId: string;
-  emoji: string;
-  count: number;
-  op: "add" | "remove";
-  userId: string;
-  clientId?: string;
-}
-export interface ReactionResyncEvent {
-  type: "reaction.resync";
-  scope: ReactionScope;
-  roomId: string;
-  messages: Array<{ messageId: string; reactions: ReactionSummary[] }>;
-}
-export type ReactionStreamEvent = ReactionUpdatedEvent | ReactionResyncEvent;
+export type ReactionScope = z.infer<typeof reactionScopeSchema>;
+export type MentionScope = z.infer<typeof mentionScopeSchema>;
+export type MentionRecord = z.infer<typeof mentionRecordSchema>;
+export type MentionableMember = z.infer<typeof mentionableMemberSchema>;
+export type ReactionSummary = z.infer<typeof reactionSummarySchema>;
+export type ReactionUser = z.infer<typeof reactionUserSchema>;
+export type ReactionUpdatedEvent = z.infer<typeof reactionUpdatedEventSchema>;
+export type ReactionResyncEvent = z.infer<typeof reactionResyncEventSchema>;
+export type ReactionStreamEvent = z.infer<typeof reactionStreamEventSchema>;
+export type UnreadSummary = z.infer<typeof unreadSummarySchema>;
 
 export interface Post {
   id: string;

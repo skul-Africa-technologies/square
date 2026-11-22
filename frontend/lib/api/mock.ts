@@ -2,6 +2,19 @@ import type { ApiClient, Profile, UploadSignRequest, UploadSignResponse } from "
 import { ClientApiError } from "./errors";
 import { ADD_ASSET_ROLES, ASSET_CATALOG, ASSET_CATEGORY_ORDER, DEFAULT_ASSETS, getAssetCatalogEntry } from "@square/shared";
 import {
+  apiOkResponseSchema,
+  mentionRecordSchema,
+  mentionSeenRequestSchema,
+  mentionableMembersPageSchema,
+  mentionableQuerySchema,
+  reactionPathSchema,
+  reactionRequestSchema,
+  reactionUpdatedEventSchema,
+  reactionUsersQuerySchema,
+  reactionUsersPageSchema,
+  unreadCountsSchema,
+} from "@square/shared";
+import {
   MAX_DISTINCT_REACTIONS_PER_MESSAGE,
   MAX_REACTIONS_PER_USER_PER_MESSAGE,
   QUICK_REACTIONS,
@@ -124,7 +137,8 @@ function getReactionMessage(scope: ReactionScope, roomId: string, messageId: str
     : dms.find(message => message.id === messageId && message.conversationId === roomId);
 }
 function emitReactionEvent(event: ReactionUpdatedEvent) {
-  reactionListeners.get(reactionRoomKey(event.scope, event.roomId))?.listeners.forEach(listener => listener(event));
+  const validatedEvent = reactionUpdatedEventSchema.parse(event);
+  reactionListeners.get(reactionRoomKey(event.scope, event.roomId))?.listeners.forEach(listener => listener(validatedEvent));
 }
 function updateReactionCount(message: Post | DirectMessage, emoji: string, count: number) {
   const reactions = message.reactions || [];
@@ -614,39 +628,41 @@ export const mockApi: ApiClient = {
     await delay(60);
     if (scope === "asset" && !assetById(roomId)) throw new ClientApiError({ code: "NOT_FOUND", message: "Asset not found" });
     if (scope === "dm" && !conversationsState.some(conversation => conversation.id === roomId)) throw new ClientApiError({ code: "NOT_FOUND", message: "Conversation not found" });
-    return unseenMentions(scope, roomId).map(({ messageId, seq, createdAt }) => ({ messageId, seq, createdAt }));
+    return unseenMentions(scope, roomId).map(({ messageId, seq, createdAt }) => mentionRecordSchema.parse({ messageId, seq, createdAt }));
   },
   // PROPOSED: not in backend doc
   async markMentionsSeen(scope, roomId, data) {
+    const request = mentionSeenRequestSchema.parse(data);
     await delay(40);
-    const ids = data.all ? unseenMentions(scope, roomId).map(mention => mention.messageId) : data.messageIds || [];
+    const ids = "all" in request ? unseenMentions(scope, roomId).map(mention => mention.messageId) : request.messageIds;
     for (const mention of mockMentions) {
       if (mention.scope === scope && mention.roomId === roomId && mention.userId === currentUser.id && ids.includes(mention.messageId)) {
         seenMockMentions.add(mentionKey(scope, roomId, mention.messageId, mention.userId));
       }
     }
-    return { ok: true };
+    return apiOkResponseSchema.parse({ ok: true });
   },
   // PROPOSED: not in backend doc
   async mentionableMembers(scope, roomId, params) {
+    const query = mentionableQuerySchema.parse(params || {});
     await delay(80);
     const candidates = mentionableCandidates(scope, roomId);
-    const query = (params?.q || "").replace(/^#/, "").trim().toLowerCase();
+    const normalizedQuery = (query.q || "").replace(/^#/, "").trim().toLowerCase();
     const candidateRank = new Map(candidates.map((member, index) => [member.id, index]));
     const ranked = candidates
       .filter(member => member.id !== currentUser.id)
       .filter(member => !blocked.some(entry => entry.id === member.id || entry.username === member.username))
-      .filter(member => !query || member.username.toLowerCase().includes(query))
-      .map(member => ({ member, prefix: !query || member.username.toLowerCase().startsWith(query) }))
+      .filter(member => !normalizedQuery || member.username.toLowerCase().includes(normalizedQuery))
+      .map(member => ({ member, prefix: !normalizedQuery || member.username.toLowerCase().startsWith(normalizedQuery) }))
       .sort((a, b) => Number(b.prefix) - Number(a.prefix) || (
-        query
+        normalizedQuery
           ? a.member.username.localeCompare(b.member.username)
           : (candidateRank.get(a.member.id) ?? 0) - (candidateRank.get(b.member.id) ?? 0)
       ));
-    const offset = Math.max(0, Number.parseInt(params?.cursor || "0", 10) || 0);
-    const limit = Math.min(50, Math.max(1, params?.limit || 20));
+    const offset = Math.max(0, Number.parseInt(query.cursor || "0", 10) || 0);
+    const limit = query.limit || 20;
     const page = ranked.slice(offset, offset + limit).map(entry => entry.member);
-    return { items: page, nextCursor: offset + page.length < ranked.length ? String(offset + page.length) : null };
+    return mentionableMembersPageSchema.parse({ items: page, nextCursor: offset + page.length < ranked.length ? String(offset + page.length) : null });
   },
 
   async listPosts(assetId, opts) {
@@ -813,18 +829,19 @@ export const mockApi: ApiClient = {
   async deleteMessage(conversationId, messageId) { await delay(80); dms = dms.map(m => m.id === messageId && m.conversationId === conversationId ? { ...m, deleted: true, text: "", reactions: [] } : m); return { ok: true }; },
   // PROPOSED: not in backend doc
   async setMessageReaction(scope, roomId, messageId, emoji, add, clientId) {
+    const request = reactionRequestSchema.parse({ scope, roomId, messageId, emoji, add, clientId });
     await delay(70);
-    if (!isAllowedReactionEmoji(emoji)) throw new ClientApiError({ code: "EMOJI_NOT_ALLOWED", message: "This emoji is not allowed" });
-    const message = getReactionMessage(scope, roomId, messageId);
+    if (!isAllowedReactionEmoji(request.emoji)) throw new ClientApiError({ code: "EMOJI_NOT_ALLOWED", message: "This emoji is not allowed" });
+    const message = getReactionMessage(request.scope, request.roomId, request.messageId);
     if (!message || message.deleted) throw new ClientApiError({ code: "NOT_FOUND", message: "Message not found" });
-    if (scope === "asset") {
-      const asset = assetById(roomId);
+    if (request.scope === "asset") {
+      const asset = assetById(request.roomId);
       const role = asset ? roleIn(asset.communityId) : null;
       if (!asset || !canRead(asset, role) || !canPost(asset, role)) {
         throw new ClientApiError({ code: "ASSET_FORBIDDEN", message: "You cannot react in this asset" });
       }
     } else {
-      const conversation = conversationsState.find(item => item.id === roomId);
+      const conversation = conversationsState.find(item => item.id === request.roomId);
       const blockedPeer = conversation && blocked.some(user => user.username === conversation.participant.username);
       if (!conversation || conversation.blocked || blockedPeer) {
         throw new ClientApiError({ code: "DM_BLOCKED", message: "You can't message this user" });
@@ -832,27 +849,28 @@ export const mockApi: ApiClient = {
     }
 
     const currentReactions = message.reactions || [];
-    const existing = currentReactions.find(reaction => reaction.emoji === emoji);
+    const existing = currentReactions.find(reaction => reaction.emoji === request.emoji);
     const mineCount = currentReactions.filter(reaction => reaction.me).length;
-    if (add) {
-      if (existing?.me) return { ok: true };
+    if (request.add) {
+      if (existing?.me) return apiOkResponseSchema.parse({ ok: true });
       if (mineCount >= MAX_REACTIONS_PER_USER_PER_MESSAGE || (!existing && currentReactions.length >= MAX_DISTINCT_REACTIONS_PER_MESSAGE)) {
         throw new ClientApiError({ code: "REACTION_LIMIT_REACHED", message: "Reaction limit reached" });
       }
-      message.reactions = addReactionSummary(currentReactions, emoji, currentUser.id, currentUser.id);
+      message.reactions = addReactionSummary(currentReactions, request.emoji, currentUser.id, currentUser.id);
     } else {
-      message.reactions = removeReactionSummary(currentReactions, emoji);
+      message.reactions = removeReactionSummary(currentReactions, request.emoji);
     }
-    void clientId;
-    return { ok: true };
+    return apiOkResponseSchema.parse({ ok: true });
   },
   // PROPOSED: not in backend doc
   async listReactionUsers(scope, roomId, messageId, emoji, cursor) {
+    const request = reactionPathSchema.parse({ scope, roomId, messageId, emoji });
+    const query = reactionUsersQuerySchema.parse({ cursor });
     await delay(50);
-    const message = getReactionMessage(scope, roomId, messageId);
+    const message = getReactionMessage(request.scope, request.roomId, request.messageId);
     if (!message || message.deleted) throw new ClientApiError({ code: "NOT_FOUND", message: "Message not found" });
-    const summary = message.reactions?.find(reaction => reaction.emoji === emoji);
-    if (!summary) return paginate([]);
+    const summary = message.reactions?.find(reaction => reaction.emoji === request.emoji);
+    if (!summary) return reactionUsersPageSchema.parse(paginate([]));
     const candidates: ReactionUser[] = [];
     if (summary.me) candidates.push({ id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl, me: true });
     const otherCount = Math.max(0, summary.count - Number(summary.me));
@@ -863,9 +881,9 @@ export const mockApi: ApiClient = {
         ? { id: user.id, username: user.username, avatarUrl: user.avatarUrl, me: false }
         : { id: `mock-user-${index}`, username: `member-${index + 1}`, me: false });
     }
-    const offset = Math.max(0, Number(cursor || 0) || 0);
+    const offset = Math.max(0, Number(query.cursor || 0) || 0);
     const page = candidates.slice(offset, offset + 20);
-    return paginate(page, offset + page.length < candidates.length ? String(offset + page.length) : null);
+    return reactionUsersPageSchema.parse(paginate(page, offset + page.length < candidates.length ? String(offset + page.length) : null));
   },
   // PROPOSED: not in backend doc
   subscribeReactionEvents(scope, roomId, listener) {
@@ -897,10 +915,10 @@ export const mockApi: ApiClient = {
     await delay(50);
     const assetSummaries = assets.filter(asset => roleIn(asset.communityId) && canRead(asset, roleIn(asset.communityId))).map(summarizeAsset);
     const dmSummaries = conversationsState.map(summarizeConversation);
-    return {
+    return unreadCountsSchema.parse({
       unread: assetSummaries.reduce((total, asset) => total + (asset.unreadCount || 0), 0) + dmSummaries.reduce((total, conversation) => total + conversation.unreadCount, 0),
       mentions: assetSummaries.reduce((total, asset) => total + (asset.mentions || 0), 0) + dmSummaries.reduce((total, conversation) => total + (conversation.mentions || 0), 0),
-    };
+    });
   },
 
   // PROPOSED: not in backend doc

@@ -16,8 +16,10 @@ parity Playwright spec passes against both mock mode and the real local backend.
   Appendix E ordering/phase labels must be reconciled when the v1.1 file is present in the workspace.
 - The only current app-level mock switch is `NEXT_PUBLIC_USE_MOCK`; feature-specific
   `USE_MOCK_*` switches were not found. The real client is selected globally, not per feature.
-- `shared/src/schemas.ts` currently exports username, email, code, and DOB schemas only. There are
-  no shared endpoint request/response schemas used by both mock handlers and real controllers.
+- `shared/src/schemas.ts` started with username, email, code, and DOB schemas. The first contract
+  migration now adds reaction, mention, mentionable-member, and unread Zod schemas; corresponding
+  mock/client/controller boundaries use them. Most other API areas still have TypeScript-only
+  contracts, and no real handlers exist for them.
 - Only gateway health/config/dev and reaction controllers were found. Service package folders
   other than the gateway are package/readme/index stubs. The database currently has kernel and
   reaction migrations, but no auth, profile, community, asset-default, mention, unread, notification,
@@ -43,7 +45,7 @@ strict Zod contract is used by the mock and real handler/controller and the shap
 | Mods-only visibility and membership rules | Community asset sidebar and asset routes | `getCommunity`, `listCommunityAssets`; catalog permission fields | Asset authorization endpoints: **missing** | no | Global | missing | v1.1 Appendix E label unavailable |
 | Chat/feed: list, send, reply, edit, delete, pins, solved, search | `/c/[community]/[asset]` | `listPosts`, `createPost`, `markAssetRead`; UI also exposes requested edit/pin/solved/search behavior without complete typed calls | Chat/posts API: **missing** | no | Global | missing (mentions/reactions specs cover only a subset) | v1.1 Appendix E label unavailable |
 | Unread banner and mark-read | Community asset view | `markAssetRead`; asset `unreadCount` | Asset read/unread API: **missing** | no | Global | missing | v1.1 Appendix E label unavailable |
-| Reactions: add/remove, limits, who-reacted, moderator clear, realtime | Community/DM message rows and reaction picker | `setMessageReaction`, `listReactionUsers`, `subscribeReactionEvents`; count summaries and resync events | Gateway reaction routes and service exist; **partial** (no shared endpoint Zod contracts or dual-mode parity spec) | no | Global | `reactions.spec.ts` exists but is not a dual-mode parity spec | Phase 3 per checked-in blueprint |
+| Reactions: add/remove, limits, who-reacted, moderator clear, realtime | Community/DM message rows and reaction picker | `setMessageReaction`, `listReactionUsers`, `subscribeReactionEvents`; count summaries and resync events | Gateway reaction routes and service exist; **partial** (shared schemas are applied, but mock resync parity and dual-mode spec are missing) | no | Global | `reactions.spec.ts` exists but is not a dual-mode parity spec | Phase 3 per checked-in blueprint |
 | Mentions: parse, badge states, jump and seen semantics | Community/DM chats, asset/DM lists | `listMentions`, `markMentionsSeen`, `mentionableMembers`; mock supports seed data and pagination | Mention endpoints, tables, outbox and counters: **missing** | no | Global | `mentions.spec.ts` exists but has not passed both modes | Phase 3 per checked-in blueprint |
 | Mention autocomplete and audience filtering | Community/DM composers | `mentionableMembers(scope, roomId, {q,cursor,limit})` | Mentionable endpoints: **missing** | no | Global | missing dual-mode parity | Phase 3 per checked-in blueprint |
 | DMs: start, messages, block state, mute/archive/hide | `/dm`, `/dm/[conversationId]`, mobile Messages | `listConversations`, `getOrCreateConversation`, `getConversation`, `listMessages`, `sendMessage`, `deleteMessage`, `markRead`, `setConversationMuted`, `hideConversation` | DM API: **missing** (only reaction routes reference DM messages) | no | Global | missing | v1.1 Appendix E label unavailable |
