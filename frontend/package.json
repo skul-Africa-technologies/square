@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test": "echo \"frontend: no unit tests (e2e via pnpm run test:e2e)\"",
     "test:e2e": "NEXT_DIST_DIR=.next-e2e next build && NEXT_DIST_DIR=.next-e2e next start -p 3100",
     "analyze": "ANALYZE=true next build"
   },

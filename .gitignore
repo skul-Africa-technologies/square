@@ -15,5 +15,6 @@ playwright-report/
 test-results/
 
 # design source (large)
+docs/design/
 "Square – UI Design.html"
 Square – UI Design.html
