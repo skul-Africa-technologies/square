@@ -43,13 +43,6 @@ function relativeTime(iso: string): string {
 function domainOf(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
 }
-function isBirthdayToday(dob?: string): boolean {
-  if (!dob) return false;
-  const today = new Date();
-  const d = new Date(dob);
-  return d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
-}
-
 function isImageUrl(v?: string | null): v is string {
   return !!v && (v.startsWith("/") || v.startsWith("http") || v.startsWith("data:") || v.startsWith("blob:"));
 }
@@ -324,7 +317,7 @@ function HeaderCard({ data, relations, canMessage, joinedStr, interests, moreInt
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-3 mb-1">
               <h1 className={clsx("font-heading text-lg md:text-[28px] font-semibold leading-tight truncate", usernameColor)}>{formatUsername(data.username)}</h1>
-              {data.showBirthday !== false && isBirthdayToday(data.dob) && <span className="text-[20px] md:text-[24px]" aria-label="Birthday today">🎂</span>}
+              {data.birthdayToday && <span className="text-[20px] md:text-[24px]" aria-label="Birthday today">🎂</span>}
             </div>
             <div className="flex flex-wrap gap-2 mt-1">
               {(data.badgePins || data.badgeIds || []).slice(0, 5).map((bid: string) => {
@@ -538,7 +531,7 @@ function DetailsCard({ data }: { data: Profile }) {
   rows.push({ label: "Joined", value: fullDate(data.joinedAt) });
   if (data.location) rows.push({ label: "Location", value: data.location });
   if ((data.languages || []).length > 0) rows.push({ label: "Languages", value: (data.languages as string[]).join(", ") });
-  if (data.showBirthday !== false && isBirthdayToday(data.dob)) rows.push({ label: "Birthday", value: "Celebrating today 🎂" });
+  if (data.birthdayToday) rows.push({ label: "Birthday", value: "Celebrating today 🎂" });
   return (
     <section className="rounded-xl border bg-surface p-6">
       <h2 className="font-heading font-semibold mb-3">Details</h2>

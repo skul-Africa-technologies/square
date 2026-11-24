@@ -12,11 +12,10 @@ import { establishMockSession } from "@/lib/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { validateUsername, toDisplayUsername } from "@square/shared";
-import type { School } from "@square/shared";
+import type { AuthUser, AuthVerifyCodeResponse, School } from "@square/shared";
 import { appConfig } from "@/lib/config";
 import { copy } from "@/lib/copy";
 import { ClientApiError } from "@/lib/api/errors";
-import type { User } from "@square/shared";
 
 type Mode = "login" | "signup";
 type Step = "email" | "code" | "no-account" | "setup";
@@ -109,16 +108,14 @@ export function LoginFlow({ mode = "login", initialStep = "email" }: { mode?: Mo
     saveFlow(next);
   };
 
-  const finishSignIn = useCallback(async (user?: User, accountExistsToast = false) => {
+  const finishSignIn = useCallback(async (user?: AuthUser, accountExistsToast = false) => {
     if (appConfig.useMock) {
       if (!user) throw new Error("Mock authentication response did not include a user");
       await establishMockSession(user.id);
     }
     saveFlow(null);
     let destination = "/home";
-    if (!user?.schoolId || !user.dob) {
-      destination = "/settings/profile?banner=profile-incomplete";
-    } else if (accountExistsToast) {
+    if (accountExistsToast) {
       destination = "/home?toast=account-exists";
     } else if (mode === "login") {
       try {
@@ -274,7 +271,7 @@ function CodeStep({ mode, email, onChangeEmail, onVerified }: {
   mode: Mode;
   email: string;
   onChangeEmail: () => void;
-  onVerified: (result: { isNewUser: boolean; user?: User; signupTicket?: string }) => void | Promise<void>;
+  onVerified: (result: AuthVerifyCodeResponse) => void | Promise<void>;
 }) {
   const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
   const [error, setError] = useState<string | null>(null);

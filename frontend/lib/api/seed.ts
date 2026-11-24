@@ -13,7 +13,8 @@ const todayMonthDay = `${String(today.getMonth() + 1).padStart(2, '0')}-${String
 
 const grad = (a: string, b: string) => `linear-gradient(135deg, ${a}, ${b})`;
 
-export const users: User[] = [
+type SeedUser = Omit<User, "birthdayToday"> & { dob?: string; birthdayToday?: boolean };
+const userSeeds: SeedUser[] = [
   { id: "u1", username: "amaka-eze", displayName: "Amaka Eze", schoolId: "fut-minna", schoolName: "FUT Minna", verifiedStudent: true, joinedAt: "2026-01-10", skills: ["Frontend", "Design", "Web3"], badgeIds: ["verified", "shipped"], presence: "online", dob: `2000-${todayMonthDay}`, showBirthday: true, joinedCommunitySlugs: ["web3-club", "design-lab", "ai-circle"], status: "Building campus products.", department: "Computer Science", level: "300", bannerUrl: grad("#1d2a10", "#0b0d0b"), links: [{ label: "GitHub", url: "https://github.com/amaka-eze" }, { label: "X", url: "https://x.com/amaka-eze" }], location: "Minna, Nigeria", languages: ["English", "Hausa"] },
   { id: "u2", username: "tunde-ade", displayName: "Tunde Ade", schoolId: "fut-minna", schoolName: "FUT Minna", verifiedStudent: true, joinedAt: "2026-02-02", skills: ["Backend", "AI"], badgeIds: ["verified"], presence: "online", dob: "1999-03-15", showBirthday: true, joinedCommunitySlugs: ["web3-club", "design-lab", "ai-circle", "campus-builders", "robotics"], status: "Open to collabs.", department: "Computer Science", level: "400", bannerUrl: grad("#152219", "#0b0d0b"), links: [{ label: "GitHub", url: "https://github.com/tunde-ade" }], location: "Minna, Nigeria", languages: ["English", "Yoruba"] },
   { id: "u3", username: "kemi-obi", displayName: "Kemi Obi", schoolId: "unilag", schoolName: "University of Lagos", verifiedStudent: true, joinedAt: "2026-02-20", skills: ["Solidity", "Web3"], badgeIds: ["verified"], presence: "offline", dob: "2001-07-22", showBirthday: false, joinedCommunitySlugs: ["web3-club", "founders-hub"], status: undefined, department: "Electrical Engineering", level: "200", bannerUrl: grad("#12251b", "#0b0d0b"), links: [], location: "Lagos, Nigeria", languages: ["English", "Yoruba"] },
@@ -25,6 +26,11 @@ export const users: User[] = [
   { id: "u9", username: "abcdefghij-klmnopqrstuv", schoolId: "fut-minna", schoolName: "FUT Minna", verifiedStudent: true, joinedAt: "2026-05-01", skills: [], badgeIds: [], presence: "online", dob: "2000-01-01", showBirthday: false, joinedCommunitySlugs: [], status: undefined, department: "General Studies", level: "100", bannerUrl: undefined, links: [], location: "Minna, Nigeria", languages: ["English"] },
   { id: "u10", username: "long-school-student", schoolId: "fut-minna", schoolName: "A Very Long Indeed School Name That Exceeds Reasonable Length For Testing Truncation Behavior", verifiedStudent: true, joinedAt: "2026-05-02", skills: ["Design"], badgeIds: [], presence: "online", dob: "2000-02-02", showBirthday: false, joinedCommunitySlugs: [], status: undefined, department: "Design", level: "100", bannerUrl: undefined, links: [], location: "Minna, Nigeria", languages: ["English"] },
 ];
+
+export const users: User[] = userSeeds.map(({ dob, ...user }) => ({
+  ...user,
+  birthdayToday: !!user.showBirthday && dob?.slice(5) === todayMonthDay,
+}));
 
 export const communities: Community[] = [
   { id: "wc", slug: "web3-club", name: "Web3 Club", blurb: "Onchain builders and learners on campus.", memberCount: 4120, category: "Web3", categories: ["Web3", "Code"], schoolName: "FUT Minna", avatar: "WC", joined: true, role: "member", onlineCount: 34, bannerUrl: grad("#1d2a10", "#0b0d0b") },
@@ -74,8 +80,6 @@ const extras: Record<string, string[]> = {
   fh: ["introductions", "opportunities"],
   ds: ["off-topic"],
   pc: ["showcase"],
-  gc: ["tournaments", "game-dev", "lfg"],
-  mc: ["productions", "theory", "collabs"],
 };
 
 export const assets: Asset[] = communities.flatMap(c => {

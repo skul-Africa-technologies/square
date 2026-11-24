@@ -18,7 +18,15 @@ import { addReactionSummary, applyReactionCount, config, removeReactionSummary, 
 import { Skeleton } from "@/components/ui/skeleton";
 import clsx from "clsx";
 
-const KIND_ICON: Record<AssetKind, string> = { chat: "💬", feed: "📣", board: "🗂", list: "📋", form: "📝" };
+const KIND_ICON: Record<AssetKind, string> = {
+  chat: "💬",
+  feed: "📣",
+  rules: "📜",
+  events: "📅",
+  board: "🗂",
+  list: "📋",
+  campaigns: "🎯",
+};
 
 export function CommunityAssetView({ community, asset }: { community: string; asset: string }) {
   const qc = useQueryClient();

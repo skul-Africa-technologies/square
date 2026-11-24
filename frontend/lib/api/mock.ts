@@ -2,6 +2,13 @@ import type { ApiClient, Profile, UploadSignRequest, UploadSignResponse } from "
 import { ClientApiError } from "./errors";
 import { ADD_ASSET_ROLES, ASSET_CATALOG, ASSET_CATEGORY_ORDER, DEFAULT_ASSETS, getAssetCatalogEntry } from "@square/shared";
 import {
+  authRequestCodeRequestSchema,
+  authRequestCodeResponseSchema,
+  authSignupRequestSchema,
+  authSignupResponseSchema,
+  authUserSchema,
+  authVerifyCodeRequestSchema,
+  authVerifyCodeResponseSchema,
   apiOkResponseSchema,
   mentionRecordSchema,
   mentionSeenRequestSchema,
@@ -12,6 +19,10 @@ import {
   reactionUpdatedEventSchema,
   reactionUsersQuerySchema,
   reactionUsersPageSchema,
+  schoolSchema,
+  userSchema,
+  usernameAvailableQuerySchema,
+  usernameAvailableResponseSchema,
   unreadCountsSchema,
 } from "@square/shared";
 import {
@@ -37,7 +48,7 @@ let currentUser: User = { ...users[0] };
 let conversationsState: Conversation[] = JSON.parse(JSON.stringify(seedConversations)) as Conversation[];
 let dms: DirectMessage[] = JSON.parse(JSON.stringify(seedDMs)) as DirectMessage[];
 let blocked: BlockedUser[] = [...seedBlocked];
-const reactionListeners = new Map<string, { listeners: Set<(event: ReactionUpdatedEvent) => void>; timer: ReturnType<typeof setInterval>; tick: number }>();
+const reactionListeners = new Map<string, { listeners: Set<(event: ReactionUpdatedEvent) => void>; timer?: ReturnType<typeof setInterval>; tick: number }>();
 type MockMention = MentionRecord & { scope: MentionScope; roomId: string; userId: string };
 let mentionSequence = 0;
 const mockMentions: MockMention[] = [
@@ -54,12 +65,25 @@ const MOCK_USERS_KEY = "square.mock-users.v1";
 const MOCK_TICKETS_KEY = "square.mock-signup-tickets.v1";
 const MOCK_LAST_USER_KEY = "square.mock-session-user.v1";
 const initialAccounts = [
-  { email: "amaka@example.com", user: users[0] },
-  { email: "tunde@example.com", user: users[1] },
-  { email: "kemi@example.com", user: users[2] },
+  { email: "amaka@example.com", user: users[0], profileComplete: true },
+  { email: "tunde@example.com", user: users[1], profileComplete: true },
+  { email: "kemi@example.com", user: users[2], profileComplete: true },
 ];
-type MockAccount = { email: string; user: User };
+type MockAccount = { email: string; user: User; profileComplete: boolean };
 type SignupTicket = { email: string; expiresAt: number };
+
+function sanitizedUserData(user: User): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(user).filter(([key]) => key !== "dob" && key !== "email"));
+}
+
+function toPublicUser(user: User): User {
+  return userSchema.parse(sanitizedUserData(user));
+}
+
+function toAuthUser(user: User) {
+  const account = mockAccounts.find((entry) => entry.user.id === user.id);
+  return authUserSchema.parse({ ...sanitizedUserData(user), profileComplete: account?.profileComplete ?? false });
+}
 
 function readAccounts(): MockAccount[] {
   if (typeof window === "undefined") return initialAccounts;
@@ -72,7 +96,15 @@ function readAccounts(): MockAccount[] {
     const parsed: unknown = JSON.parse(stored);
     if (Array.isArray(parsed) && parsed.every((entry) => entry && typeof entry.email === "string" && entry.user?.id)) {
       const byEmail = new Map(initialAccounts.map((account) => [account.email, account]));
-      for (const account of parsed as MockAccount[]) byEmail.set(account.email.toLowerCase(), account);
+      for (const stored of parsed as Array<Partial<MockAccount>>) {
+        const email = stored.email!.toLowerCase();
+        const seeded = initialAccounts.find((account) => account.email === email && account.user.id === stored.user!.id);
+        byEmail.set(email, {
+          email,
+          user: stored.user!,
+          profileComplete: typeof stored.profileComplete === "boolean" ? stored.profileComplete : seeded?.profileComplete ?? false,
+        });
+      }
       const merged = [...byEmail.values()];
       window.localStorage.setItem(MOCK_USERS_KEY, JSON.stringify(merged));
       return merged;
@@ -103,13 +135,13 @@ function saveTickets(tickets: Record<string, SignupTicket>) {
 
 let mockAccounts = readAccounts();
 for (const account of mockAccounts) {
-  if (!users.some((user) => user.id === account.user.id)) users.push(account.user);
+  if (!users.some((user) => user.id === account.user.id)) users.push(toPublicUser(account.user));
 }
 if (typeof window !== "undefined") {
   try {
     const activeId = window.localStorage.getItem(MOCK_LAST_USER_KEY);
     const active = mockAccounts.find((account) => account.user.id === activeId);
-    if (active) currentUser = active.user;
+    if (active) currentUser = toPublicUser(active.user);
   } catch { /* Keep the seeded user when storage is unavailable. */ }
 }
 
@@ -149,31 +181,6 @@ function updateReactionCount(message: Post | DirectMessage, emoji: string, count
       : [...reactions, { emoji, count, me: false }]
     : reactions.filter(reaction => reaction.emoji !== emoji);
 }
-function simulateReaction(scope: ReactionScope, roomId: string, tick: number) {
-  const messages = scope === "asset"
-    ? posts.filter(message => message.assetId === roomId && !message.deleted)
-    : dms.filter(message => message.conversationId === roomId && !message.deleted);
-  if (!messages.length) return;
-  const message = messages[tick % messages.length];
-  const emoji = QUICK_REACTIONS[tick % QUICK_REACTIONS.length];
-  const current = message.reactions?.find(reaction => reaction.emoji === emoji);
-  const removing = !!current && current.count > 1 && tick % 3 === 0;
-  const count = Math.max(0, (current?.count || 0) + (removing ? -1 : 1));
-  if (!current && (message.reactions?.length || 0) >= MAX_DISTINCT_REACTIONS_PER_MESSAGE) return;
-  updateReactionCount(message, emoji, count);
-  emitReactionEvent({
-    type: "reaction.updated",
-    scope,
-    roomId,
-    messageId: message.id,
-    emoji,
-    count,
-    op: removing ? "remove" : "add",
-    userId: users[(tick % (users.length - 1)) + 1].id,
-    clientId: `mock-${tick}`,
-  });
-}
-
 function paginate<T>(itemsIn: T[], nextCursor: string | null = null) { return { items: itemsIn, nextCursor }; }
 function afterFilter<T extends { createdAt?: string; id: string }>(itemsIn: T[], after?: string): T[] {
   if (!after) return itemsIn;
@@ -327,7 +334,7 @@ function resolveMentionIds(scope: MentionScope, roomId: string, text: string): s
 function todayBirthdays(): DiscoverBirthday[] {
   const today = new Date();
   const todayStr = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const bdayUsers = users.filter(u => u.dob && u.dob.slice(5) === todayStr && u.showBirthday);
+  const bdayUsers = users.filter(u => u.birthdayToday && u.showBirthday);
   return bdayUsers.map(u => ({ id: u.id, username: u.username, displayName: u.displayName, avatarUrl: u.avatarUrl, isCurrentUser: u.id === currentUser.id }));
 }
 
@@ -386,45 +393,51 @@ function interestCommunities(): DiscoverCommunity[] {
 }
 
 export const mockApi: ApiClient = {
-  async requestCode() { await delay(); return { ok: true }; },
+  async requestCode(email) {
+    authRequestCodeRequestSchema.parse({ email });
+    await delay();
+    return authRequestCodeResponseSchema.parse({ ok: true });
+  },
   async verifyCode(email, code) {
     await delay();
     if (code === "000000") throw new ClientApiError({ code: "CODE_EXPIRED", message: "Code expired", field: "code" });
     if (code === "999999") throw new ClientApiError({ code: "TOO_MANY_ATTEMPTS", message: "Too many attempts", field: "code" });
     if (!/^\d{6}$/.test(code)) throw new ClientApiError({ code: "INVALID", message: "Wrong code", field: "code" });
-    const account = mockAccounts.find((entry) => entry.email.toLowerCase() === email.trim().toLowerCase());
+    const request = authVerifyCodeRequestSchema.parse({ email, code });
+    const account = mockAccounts.find((entry) => entry.email.toLowerCase() === request.email.trim().toLowerCase());
     if (account) {
-      currentUser = account.user;
+      currentUser = toPublicUser(account.user);
       try { window.localStorage.setItem(MOCK_LAST_USER_KEY, currentUser.id); } catch { /* Session cookie remains authoritative. */ }
-      return { isNewUser: false, user: account.user };
+      return authVerifyCodeResponseSchema.parse({ isNewUser: false, user: authUserSchema.parse({ ...sanitizedUserData(account.user), profileComplete: account.profileComplete }) });
     }
     const signupTicket = `mock_${crypto.randomUUID()}`;
     const tickets = readTickets();
-    tickets[signupTicket] = { email: email.trim().toLowerCase(), expiresAt: Date.now() + 15 * 60 * 1000 };
+    tickets[signupTicket] = { email: request.email.trim().toLowerCase(), expiresAt: Date.now() + 15 * 60 * 1000 };
     saveTickets(tickets);
-    return { isNewUser: true, signupTicket };
+    return authVerifyCodeResponseSchema.parse({ isNewUser: true, signupTicket });
   },
   async signup(data) {
+    const request = authSignupRequestSchema.parse(data);
     await delay();
     const tickets = readTickets();
-    const ticket = tickets[data.signupTicket];
+    const ticket = tickets[request.signupTicket];
     if (!ticket || ticket.expiresAt <= Date.now()) {
-      delete tickets[data.signupTicket];
+      delete tickets[request.signupTicket];
       saveTickets(tickets);
       throw new ClientApiError({ code: "TICKET_EXPIRED", message: "Signup ticket expired" });
     }
     if (mockAccounts.some((account) => account.email === ticket.email)) {
       throw new ClientApiError({ code: "ACCOUNT_EXISTS", message: "Account already exists" });
     }
-    const normalized = data.username.replace(/^#/, "").toLowerCase();
+    const normalized = request.username.replace(/^#/, "").toLowerCase();
     if (!normalized || mockAccounts.some((account) => account.user.username.toLowerCase() === normalized) || reservedTaken.has(`#${normalized}`)) {
       throw new ClientApiError({ code: "USERNAME_TAKEN", message: "Username is unavailable", field: "username" });
     }
-    const school = schools.find((entry) => entry.id === data.schoolId);
-    if (!school || !data.dateOfBirth || new Date(data.dateOfBirth).toString() === "Invalid Date") {
+    const school = schools.find((entry) => entry.id === request.schoolId);
+    if (!school || !request.dateOfBirth || new Date(request.dateOfBirth).toString() === "Invalid Date") {
       throw new ClientApiError({ code: "INVALID_SIGNUP", message: "Signup details are invalid" });
     }
-    const birthDate = new Date(`${data.dateOfBirth}T00:00:00`);
+    const birthDate = new Date(`${request.dateOfBirth}T00:00:00`);
     const ageLimit = new Date();
     ageLimit.setFullYear(ageLimit.getFullYear() - 16);
     if (birthDate > ageLimit || birthDate > new Date()) {
@@ -435,40 +448,45 @@ export const mockApi: ApiClient = {
       username: normalized,
       schoolId: school.id,
       schoolName: school.name,
-      dob: data.dateOfBirth,
       verifiedStudent: true,
       joinedAt: new Date().toISOString(),
       badgeIds: ["verified"],
       skills: [],
       presence: "online",
     };
-    mockAccounts = [...mockAccounts, { email: ticket.email, user: created }];
+    const account: MockAccount = { email: ticket.email, user: created, profileComplete: true };
+    mockAccounts = [...mockAccounts, account];
     saveAccounts(mockAccounts);
     users.push(created);
     currentUser = created;
     try { window.localStorage.setItem(MOCK_LAST_USER_KEY, created.id); } catch { /* Session cookie remains authoritative. */ }
-    delete tickets[data.signupTicket];
+    delete tickets[request.signupTicket];
     saveTickets(tickets);
-    return { user: created };
+    return authSignupResponseSchema.parse({ user: toAuthUser(created) });
   },
   async usernameAvailable(username) {
     await delay(180);
     const normalized = username.replace(/^#/, "").toLowerCase();
-    return { available: !reservedTaken.has(normalized) && !reservedTaken.has(`#${normalized}`) && !mockAccounts.some((account) => account.user.username.toLowerCase() === normalized) };
+    usernameAvailableQuerySchema.parse({ u: normalized });
+    return usernameAvailableResponseSchema.parse({ available: !reservedTaken.has(normalized) && !reservedTaken.has(`#${normalized}`) && !mockAccounts.some((account) => account.user.username.toLowerCase() === normalized) });
   },
-  async listSchools(query) { await delay(100); const q = (query || "").toLowerCase(); return schools.filter(s => s.name.toLowerCase().includes(q)); },
+  async listSchools(query) {
+    await delay(100);
+    const q = (query || "").toLowerCase();
+    return schools.filter(s => s.name.toLowerCase().includes(q)).map(school => schoolSchema.parse(school));
+  },
   async me() {
     await delay(100);
     if (typeof window !== "undefined") {
       try {
         const activeId = window.localStorage.getItem(MOCK_LAST_USER_KEY);
         const active = mockAccounts.find((account) => account.user.id === activeId);
-        if (active) currentUser = active.user;
+        if (active) currentUser = toPublicUser(active.user);
       } catch { /* Keep the current in-memory user. */ }
     }
-    return currentUser;
+    return toPublicUser(currentUser);
   },
-  async updateMe(data) { await delay(120); currentUser = { ...currentUser, ...data }; return currentUser; },
+  async updateMe(data) { await delay(120); currentUser = userSchema.parse({ ...toPublicUser(currentUser), ...data }); return currentUser; },
 
   // PROPOSED: not in backend doc
   async createCommunity(data) {
@@ -890,10 +908,11 @@ export const mockApi: ApiClient = {
     const key = reactionRoomKey(scope, roomId);
     let subscription = reactionListeners.get(key);
     if (!subscription) {
-      const created = { listeners: new Set<(event: ReactionUpdatedEvent) => void>(), tick: 0, timer: setInterval(() => {
-        created.tick += 1;
-        simulateReaction(scope, roomId, created.tick);
-      }, 5000) };
+      const created = {
+        listeners: new Set<(event: ReactionUpdatedEvent) => void>(),
+        tick: 0,
+        timer: undefined as ReturnType<typeof setInterval> | undefined,
+      };
       subscription = created;
       reactionListeners.set(key, subscription);
     }

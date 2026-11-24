@@ -18,8 +18,8 @@ export const ASSET_CATEGORY_ORDER: AssetCategory[] = ["Information", "Community"
 /** The four assets every community is created with. They cannot be deleted. */
 export const DEFAULT_ASSETS: AssetCatalogEntry[] = [
   { key: "announcements", name: "announcements", description: "Official updates from the owners and moderators.", kind: "feed", category: "Information", permissions: perms(ALL, MODS), unique: true, isDefault: true },
-  { key: "guidelines", name: "guidelines", description: "The rules and expectations for this community.", kind: "feed", category: "Information", permissions: perms(ALL, MODS), unique: true, isDefault: true },
-  { key: "events", name: "events", description: "Meetups, workshops, and dates to remember.", kind: "list", category: "Information", permissions: perms(ALL, MODS), unique: true, isDefault: true },
+  { key: "guidelines", name: "guidelines", description: "The rules and expectations for this community.", kind: "rules", category: "Information", permissions: perms(ALL, MODS), unique: true, isDefault: true },
+  { key: "events", name: "events", description: "Meetups, workshops, and dates to remember.", kind: "events", category: "Information", permissions: perms(ALL, MODS), unique: true, isDefault: true },
   { key: "general", name: "general", description: "The main conversation for everyone in the community.", kind: "chat", category: "Community", permissions: perms(ALL), unique: true, isDefault: true },
 ];
 
@@ -33,15 +33,9 @@ export const ASSET_CATALOG: AssetCatalogEntry[] = [
   { key: "opportunities", name: "opportunities", description: "Internships, grants and jobs with deadlines.", kind: "list", category: "Resources", permissions: perms(ALL), unique: true },
   { key: "feedback", name: "feedback", description: "Get feedback on work in progress.", kind: "feed", category: "Community", permissions: perms(ALL), unique: true },
   { key: "projects", name: "projects", description: "Ideas, builds and launches with teams.", kind: "board", category: "Build", permissions: perms(ALL), unique: true },
-  { key: "campaigns", name: "campaigns", description: "Community campaigns with tasks and a leaderboard.", kind: "board", category: "Build", permissions: perms(MODS), unique: true },
+  { key: "campaigns", name: "campaigns", description: "Community campaigns with tasks and a leaderboard.", kind: "campaigns", category: "Build", permissions: perms(MODS), unique: true },
   { key: "hackathons", name: "hackathons", description: "Run and track hackathon projects.", kind: "board", category: "Build", permissions: perms(MODS), unique: true },
   { key: "mods-only", name: "mods-only", description: "Private space for owners and moderators.", kind: "chat", category: "Community", permissions: perms(MODS), unique: true, hiddenFromMembers: true },
-  { key: "tournaments", name: "tournaments", description: "Esports tournaments and brackets.", kind: "list", category: "Community", permissions: perms(ALL), unique: true },
-  { key: "game-dev", name: "game-dev", description: "Game development discussions and showcases.", kind: "chat", category: "Build", permissions: perms(ALL), unique: true },
-  { key: "lfg", name: "lfg", description: "Looking for group / teammates.", kind: "chat", category: "Community", permissions: perms(ALL), unique: true },
-  { key: "productions", name: "productions", description: "Music productions and releases.", kind: "feed", category: "Resources", permissions: perms(ALL), unique: true },
-  { key: "theory", name: "theory", description: "Music theory discussions.", kind: "chat", category: "Community", permissions: perms(ALL), unique: true },
-  { key: "collabs", name: "collabs", description: "Find collaborators for music projects.", kind: "chat", category: "Community", permissions: perms(ALL), unique: true },
 ];
 
 export const FULL_CATALOG: AssetCatalogEntry[] = [...DEFAULT_ASSETS, ...ASSET_CATALOG];

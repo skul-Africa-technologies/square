@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { USERNAME_RULES, validateUsername } from "./username";
+import { validateUsername } from "./username";
 
 export const usernameSchema = z.string().superRefine((v, ctx) => {
   const r = validateUsername(v);
@@ -12,6 +12,52 @@ export const dobSchema = z.string().min(1, "Date of birth is required");
 
 const idSchema = z.string().min(1).max(128);
 const cursorSchema = z.string().min(1).max(2048);
+
+export const userSchema = z.object({
+  id: idSchema,
+  username: z.string().min(1).max(64),
+  displayName: z.string().max(100).optional(),
+  schoolId: idSchema.optional(),
+  schoolName: z.string().max(200).optional(),
+  avatarUrl: z.string().url().optional(),
+  bannerUrl: z.string().max(2048).optional(),
+  verifiedStudent: z.boolean(),
+  joinedAt: z.string().min(1),
+  bio: z.string().max(500).optional(),
+  skills: z.array(z.string().max(64)).optional(),
+  badgeIds: z.array(idSchema).optional(),
+  presence: z.enum(["online", "offline", "hidden"]).optional(),
+  birthdayToday: z.boolean().optional(),
+  showBirthday: z.boolean().optional(),
+  joinedCommunitySlugs: z.array(z.string().max(100)).optional(),
+  status: z.string().max(160).optional(),
+  department: z.string().max(120).optional(),
+  level: z.string().max(40).optional(),
+  links: z.array(z.object({ label: z.string().max(60), url: z.string().url() }).strict()).optional(),
+  location: z.string().max(120).optional(),
+  languages: z.array(z.string().max(60)).optional(),
+}).strict();
+export const authUserSchema = userSchema.extend({ profileComplete: z.boolean() }).strict();
+export const authRequestCodeRequestSchema = z.object({ email: emailSchema }).strict();
+export const authRequestCodeResponseSchema = z.object({ ok: z.literal(true) }).strict();
+export const authVerifyCodeRequestSchema = z.object({
+  email: emailSchema,
+  code: codeSchema,
+}).strict();
+export const authVerifyCodeResponseSchema = z.discriminatedUnion("isNewUser", [
+  z.object({ isNewUser: z.literal(false), user: authUserSchema }).strict(),
+  z.object({ isNewUser: z.literal(true), signupTicket: z.string().min(1).max(4096) }).strict(),
+]);
+export const authSignupRequestSchema = z.object({
+  signupTicket: z.string().min(1).max(4096),
+  username: usernameSchema,
+  schoolId: idSchema,
+  dateOfBirth: dobSchema,
+}).strict();
+export const authSignupResponseSchema = z.object({ user: authUserSchema }).strict();
+export const usernameAvailableQuerySchema = z.object({ u: usernameSchema }).strict();
+export const usernameAvailableResponseSchema = z.object({ available: z.boolean() }).strict();
+export const schoolSchema = z.object({ id: idSchema, name: z.string().min(1).max(200) }).strict();
 
 export const reactionScopeSchema = z.enum(["asset", "dm"]);
 export const reactionRoomParamsSchema = z.object({

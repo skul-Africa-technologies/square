@@ -4,6 +4,12 @@ import { ClientApiError } from "./errors";
 import { appConfig } from "../config";
 import { CSRF_HEADER, getCsrfToken } from "../csrf";
 import {
+  authRequestCodeRequestSchema,
+  authRequestCodeResponseSchema,
+  authSignupRequestSchema,
+  authSignupResponseSchema,
+  authVerifyCodeRequestSchema,
+  authVerifyCodeResponseSchema,
   apiOkResponseSchema,
   mentionRecordSchema,
   mentionScopeSchema,
@@ -15,6 +21,10 @@ import {
   reactionStreamEventSchema,
   reactionUsersPageSchema,
   reactionUsersQuerySchema,
+  schoolSchema,
+  userSchema,
+  usernameAvailableQuerySchema,
+  usernameAvailableResponseSchema,
   unreadSummarySchema,
 } from "@square/shared";
 
@@ -42,13 +52,32 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const realApi: ApiClient = {
-  requestCode: (email) => req("/auth/request-code", { method: "POST", body: JSON.stringify({ email }) }),
-  verifyCode: (email, code) => req("/auth/verify-code", { method: "POST", body: JSON.stringify({ email, code }) }),
-  signup: (data) => req("/auth/signup", { method: "POST", body: JSON.stringify(data) }),
-  usernameAvailable: (username) => req(`/users/username-available?username=${encodeURIComponent(username)}`),
-  listSchools: (query) => req(`/schools${query ? `?q=${encodeURIComponent(query)}` : ""}`),
-  me: () => req("/me"),
-  updateMe: (data) => req("/me", { method: "PATCH", body: JSON.stringify(data) }),
+  requestCode: async (email) => {
+    const request = authRequestCodeRequestSchema.parse({ email });
+    const response: unknown = await req("/auth/request-code", { method: "POST", body: JSON.stringify(request) });
+    return authRequestCodeResponseSchema.parse(response);
+  },
+  verifyCode: async (email, code) => {
+    const request = authVerifyCodeRequestSchema.parse({ email, code });
+    const response: unknown = await req("/auth/verify-code", { method: "POST", body: JSON.stringify(request) });
+    return authVerifyCodeResponseSchema.parse(response);
+  },
+  signup: async (data) => {
+    const request = authSignupRequestSchema.parse(data);
+    const response: unknown = await req("/auth/signup", { method: "POST", body: JSON.stringify(request) });
+    return authSignupResponseSchema.parse(response);
+  },
+  usernameAvailable: async (username) => {
+    const query = usernameAvailableQuerySchema.parse({ u: username.replace(/^#/, "") });
+    const response: unknown = await req(`/users/username-available?u=${encodeURIComponent(query.u)}`);
+    return usernameAvailableResponseSchema.parse(response);
+  },
+  listSchools: async (query) => {
+    const response: unknown = await req(`/schools${query ? `?q=${encodeURIComponent(query)}` : ""}`);
+    return schoolSchema.array().parse(response);
+  },
+  me: async () => userSchema.parse(await req("/me")),
+  updateMe: async (data) => userSchema.parse(await req("/me", { method: "PATCH", body: JSON.stringify(data) })),
 
   // PROPOSED: not in backend doc
   createCommunity: (data) => req("/communities", { method: "POST", body: JSON.stringify(data) }),

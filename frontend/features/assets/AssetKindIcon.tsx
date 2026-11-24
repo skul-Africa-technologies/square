@@ -15,9 +15,11 @@ const catalogIcons: Record<string, LucideIcon> = {
 const kindIcons: Record<AssetKind, LucideIcon> = {
   chat: Hash,
   feed: MessageSquareText,
+  rules: ShieldCheck,
+  events: CalendarDays,
   board: Columns3,
   list: List,
-  form: List,
+  campaigns: Trophy,
 };
 
 export function AssetKindIcon({ asset, className = "h-4 w-4" }: { asset: Pick<Asset, "catalogKey" | "kind">; className?: string }) {

@@ -262,11 +262,11 @@ Trust level is stored on the user, cached in the access token claims (`tl`), rec
 
 The frontend has two entry screens, `/login` and `/signup`, that call the same three endpoints. The screen changes only the wording and what happens after the code is verified. The backend never receives which screen was used.
 
-1. `POST /v1/auth/request-code {email}` → always `202` with the same body whether or not the email exists (no enumeration). Generic timing (always do the same work).
+1. `POST /v1/auth/request-code {email}` → always `202 {ok:true}` whether or not the email exists (no enumeration). Generic timing (always do the same work).
 2. `POST /v1/auth/verify-code {email, code}`:
-   - existing account → sets session cookies, returns `{ isNewUser:false, user }`.
+   - existing account → sets session cookies, returns `{ isNewUser:false, user }`. This auth response's user card includes a server-computed `profileComplete` boolean, but never email or DOB.
    - new email → returns `{ isNewUser:true, signupTicket }` (JWT, scope `signup`, 15 min, single use). No account is created and nobody is logged in.
-3. `POST /v1/auth/signup {signupTicket, username, schoolId, dateOfBirth}` → creates the user, sets session cookies. Emits `user.created`.
+3. `POST /v1/auth/signup {signupTicket, username, schoolId, dateOfBirth}` → creates the user, sets session cookies, returns `{user}` with `profileComplete:true` (never email or DOB). Emits `user.created`.
 
 Behavior by screen (decided by the frontend from `isNewUser`):
 - **Log in + existing account:** signed in, go to Home (or the safe relative `next` path). The setup page is never shown.
@@ -276,6 +276,7 @@ Behavior by screen (decided by the frontend from `isNewUser`):
 - An account exists only after `POST /auth/signup` succeeds. Abandoning setup creates nothing; the user repeats the flow.
 - Whether an email has an account is revealed only after the code is proven, never by `request-code`, response time or error text.
 - Guards never decide from "profile looks incomplete". If a legacy account lacks required fields, the user is sent to `/settings/profile` with a banner, never to the signup setup.
+- `profileComplete` is computed by the auth service from required stored profile fields. It is only an auth response routing hint for legacy accounts, not a substitute for authorization and not a signal that exposes which field is missing.
 
 ### 5.2 Email code
 - 6 digits from `crypto.randomInt`, never `Math.random`.
@@ -907,9 +908,9 @@ Base `/v1`. The gateway routes by prefix. Legend for the Access column:
 
 | Method | Path | Access | Notes |
 |---|---|---|---|
-| POST | `/auth/request-code` | P | `{email}` → 202 always |
-| POST | `/auth/verify-code` | P | `{email, code}` → session, or `{isNewUser:true, signupTicket}` |
-| POST | `/auth/signup` | P (ticket) | `{signupTicket, username, schoolId, dateOfBirth}` |
+| POST | `/auth/request-code` | P | `{email}` → `202 {ok:true}` always |
+| POST | `/auth/verify-code` | P | `{email, code}` → existing account: session and `{isNewUser:false, user}`; new email: `{isNewUser:true, signupTicket}` |
+| POST | `/auth/signup` | P (ticket) | `{signupTicket, username, schoolId, dateOfBirth}` → session and `{user}` |
 | POST | `/auth/refresh` | P (refresh cookie) | Rotates the refresh token |
 | POST | `/auth/logout` | U | Revokes this session |
 | POST | `/auth/logout-all` | U | Revokes all sessions |
@@ -918,7 +919,7 @@ Base `/v1`. The gateway routes by prefix. Legend for the Access column:
 | POST | `/me/verify-student` | U | `{schoolEmail}` sends a code |
 | POST | `/me/verify-student/confirm` | U | `{code}` marks verified |
 
-Both the `/login` and `/signup` screens use exactly these endpoints (Section 5.1).
+Both the `/login` and `/signup` screens use exactly these endpoints (Section 5.1). Auth response user cards include only the server-computed `profileComplete` routing hint in addition to public user fields; email and DOB are never returned.
 
 ### 15.3 Users (`users`)
 

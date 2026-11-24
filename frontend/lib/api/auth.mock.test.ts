@@ -12,8 +12,11 @@ describe("mock authentication contract", () => {
   it("determines account status only after a valid code", async () => {
     const existing = await mockApi.verifyCode("amaka@example.com", "123456");
     const newAccount = await mockApi.verifyCode("not-registered@example.com", "123456");
-    expect(existing).toMatchObject({ isNewUser: false, user: { username: "amaka-eze" } });
-    expect(newAccount.isNewUser).toBe(true);
+    if (existing.isNewUser) throw new Error("Registered email was treated as a new account");
+    expect(existing.user).toMatchObject({ username: "amaka-eze", profileComplete: true });
+    expect(existing.user).not.toHaveProperty("dob");
+    expect(existing.user).not.toHaveProperty("email");
+    if (!newAccount.isNewUser) throw new Error("Unregistered email unexpectedly signed in");
     expect(newAccount.signupTicket).toEqual(expect.any(String));
   });
 });

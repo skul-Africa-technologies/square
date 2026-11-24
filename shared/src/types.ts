@@ -1,5 +1,10 @@
 import type { z } from "zod";
 import type {
+  authRequestCodeResponseSchema,
+  authSignupRequestSchema,
+  authSignupResponseSchema,
+  authUserSchema,
+  authVerifyCodeResponseSchema,
   mentionRecordSchema,
   mentionScopeSchema,
   mentionableMemberSchema,
@@ -9,49 +14,19 @@ import type {
   reactionSummarySchema,
   reactionUpdatedEventSchema,
   reactionUserSchema,
+  schoolSchema,
+  userSchema,
   unreadSummarySchema,
 } from "./schemas";
 
 export type Role = "owner" | "moderator" | "member";
-export type AssetKind = "chat" | "feed" | "board" | "list" | "form";
+export type AssetKind = "chat" | "feed" | "rules" | "events" | "list" | "board" | "campaigns";
 export type AssetCategory = "Information" | "Community" | "Resources" | "Build";
 export type PresenceStatus = "online" | "offline" | "hidden";
 
-export interface School { id: string; name: string }
-export interface User {
-  id: string;
-  username: string; // stored without #
-  displayName?: string;
-  schoolId?: string;
-  schoolName?: string;
-  dob?: string; // private, never shown publicly
-  avatarUrl?: string;
-  bannerUrl?: string;
-  verifiedStudent: boolean;
-  joinedAt: string;
-  bio?: string;
-  skills?: string[]; // interest chips
-  badgeIds?: string[];
-  presence?: PresenceStatus;
-  // PROPOSED: not in backend doc
-  birthdayToday?: boolean;
-  // PROPOSED: not in backend doc
-  showBirthday?: boolean;
-  // PROPOSED: not in backend doc
-  joinedCommunitySlugs?: string[];
-  // PROPOSED: not in backend doc
-  status?: string;
-  // PROPOSED: not in backend doc
-  department?: string;
-  // PROPOSED: not in backend doc
-  level?: string;
-  // PROPOSED: not in backend doc
-  links?: { label: string; url: string }[];
-  // PROPOSED: not in backend doc
-  location?: string;
-  // PROPOSED: not in backend doc
-  languages?: string[];
-}
+export type School = z.infer<typeof schoolSchema>;
+export type User = z.infer<typeof userSchema>;
+export type AuthUser = z.infer<typeof authUserSchema>;
 
 export interface Community {
   id: string;
@@ -314,15 +289,10 @@ export interface BlockedUser { id: string; username: string }
 export interface ApiError { code: string; message: string; field?: string }
 export interface Paginated<T> { items: T[]; nextCursor?: string | null }
 
-export interface AuthRequestCodeResponse { ok: true; retryAfter?: number }
-export interface AuthVerifyCodeResponse {
-  isNewUser: boolean;
-  user?: User;
-  signupTicket?: string;
-  retryAfter?: number;
-}
-export interface AuthSignupRequest { signupTicket: string; username: string; schoolId: string; dateOfBirth: string }
-export interface AuthSignupResponse { user: User }
+export type AuthRequestCodeResponse = z.infer<typeof authRequestCodeResponseSchema>;
+export type AuthVerifyCodeResponse = z.infer<typeof authVerifyCodeResponseSchema>;
+export type AuthSignupRequest = z.infer<typeof authSignupRequestSchema>;
+export type AuthSignupResponse = z.infer<typeof authSignupResponseSchema>;
 
 // PROPOSED: not in backend doc
 export interface DiscoverSection {
