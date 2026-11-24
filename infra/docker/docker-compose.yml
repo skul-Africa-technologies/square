@@ -4,7 +4,7 @@ services:
       context: ../..
       dockerfile: backend/gateway/Dockerfile
     environment:
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-development}
       PORT: 4000
       SERVICES: all
       DATABASE_URL: postgresql://square:square@postgres:5432/square
@@ -14,12 +14,33 @@ services:
       JWT_AUDIENCE: square-api
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
       JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+      AUTH_CODE_PEPPER: ${AUTH_CODE_PEPPER:-}
+      AUTH_TEST_MODE: ${AUTH_TEST_MODE:-false}
     ports:
-      - "4000:4000"
+      - "${GATEWAY_HOST_PORT:-4000}:4000"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/readyz').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: backend/gateway/Dockerfile
+    command: ["pnpm", "start:worker"]
+    profiles: ["launch"]
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://square:square@postgres:5432/square
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      gateway:
         condition: service_healthy
 
   postgres:
@@ -29,7 +50,7 @@ services:
       POSTGRES_USER: square
       POSTGRES_PASSWORD: square
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -41,7 +62,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "${REDIS_HOST_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

@@ -1,4 +1,4 @@
-CREATE SCHEMA IF NOT EXISTS auth;
+CREATE SCHEMA IF NOT EXISTS identity;
 CREATE SCHEMA IF NOT EXISTS users;
 CREATE SCHEMA IF NOT EXISTS communities;
 CREATE SCHEMA IF NOT EXISTS assets;
@@ -14,15 +14,15 @@ CREATE SCHEMA IF NOT EXISTS search;
 CREATE SCHEMA IF NOT EXISTS notifications;
 CREATE SCHEMA IF NOT EXISTS moderation;
 
-CREATE TABLE IF NOT EXISTS auth.accounts (
+CREATE TABLE IF NOT EXISTS identity.accounts (
   id text PRIMARY KEY,
   email text NOT NULL UNIQUE,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS auth.sessions (
+CREATE TABLE IF NOT EXISTS identity.sessions (
   id text PRIMARY KEY,
-  account_id text NOT NULL REFERENCES auth.accounts(id) ON DELETE CASCADE,
+  account_id text NOT NULL REFERENCES identity.accounts(id) ON DELETE CASCADE,
   refresh_hash text NOT NULL,
   family_id text NOT NULL,
   revoked_at timestamptz,

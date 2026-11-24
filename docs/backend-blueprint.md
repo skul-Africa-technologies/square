@@ -294,10 +294,10 @@ Behavior by screen (decided by the frontend from `isNewUser`):
 - Sessions list: user can see devices (hashed UA, coarse location) and revoke one or all. A `v` (session version) claim in the token lets `logout-all` invalidate instantly via a Redis denylist keyed by `sid`.
 - Internal calls between services: signed **service tokens** (EdDSA, `aud` = target service, 60 s) plus a signed `x-user` context header created by the gateway. Services never accept public traffic.
 
-### 5.4 Student verification
-- `schools.email_domains` holds the allowed domains (for example `st.futminna.edu.ng`). If the signup email's domain matches the chosen school, `is_verified_student=true`, `verified_at=now()` immediately.
-- Otherwise the user is unverified (trust level 0) and can verify later by adding a school email (a second code flow: `POST /v1/me/verify-student`).
-- Emits `user.verified`, which awards the "Verified student" badge.
+### 5.4 Education status
+- Signup lets the user select `student` or `alumni` using their regular email address. Persist this self-reported value as `education_status`; it does not set `is_verified_student`, change trust level or award a verification badge.
+- Institutions are selected from the searchable `users.schools` directory. Names and aliases are indexed for suggestions; the initial records are not an exhaustive registry.
+- Any future student-verification process must be separate, institution-approved and explicitly designed before it can grant verified status or badges.
 
 ### 5.5 Username rules (shared in `shared`)
 - Stored without `#`, lowercase, NFC-normalized. Displayed with exactly one `#`.
@@ -321,11 +321,11 @@ General rules for every table: `id uuid` UUIDv7 default, `created_at timestamptz
 - Redis only: `ac:{emailHash}` (code state), `rl:*` (rate limits), `sid:deny:{sid}` (revoked sessions)
 
 ### 6.2 `users`
-- `users(id, username citext unique, username_skeleton citext unique, school_id, department, level smallint, bio varchar(160), status varchar(80), location, languages text[], interests text[], skills text[], links jsonb, avatar_url, banner_url, date_of_birth date, birthday_md smallint, birthday_opt_in bool default false, appear_offline bool default false, show_communities bool default true, dm_privacy text default 'shared', timezone text default 'Africa/Lagos', is_verified_student bool, verified_at, trust_level smallint default 0, featured_project_id, badge_pins uuid[], stats jsonb, locale, created_at, updated_at, deleted_at)`
+- `users(id, username citext unique, username_skeleton citext unique, school_id, education_status text, department, level smallint, bio varchar(160), status varchar(80), location, languages text[], interests text[], skills text[], links jsonb, avatar_url, banner_url, date_of_birth date, birthday_md smallint, birthday_opt_in bool default false, appear_offline bool default false, show_communities bool default true, dm_privacy text default 'shared', timezone text default 'Africa/Lagos', is_verified_student bool, verified_at, trust_level smallint default 0, featured_project_id, badge_pins uuid[], stats jsonb, locale, created_at, updated_at, deleted_at)`
   - `date_of_birth` is private: never selected by any public query, never returned. Column-level `SELECT` revoked from every role except `users` and the export job.
   - `birthday_md = month*100 + day`, partial index `WHERE birthday_opt_in AND deleted_at IS NULL`.
   - `stats` holds counters `{communities, badges, projects}` kept up to date by events.
-- `schools(id, name, short, city, email_domains text[])`
+- `schools(id, name, institution_type, ownership)` and `school_aliases(school_id, alias, normalized_alias)`; trigram indexes support name/alias suggestions. `education_status` is self-reported and separate from verification.
 - `interest_tags(slug pk, label, category)`
 - `blocks(blocker_id, blocked_id, created_at, pk(blocker_id, blocked_id))` · idx `(blocked_id)`
 - `dismissed_suggestions(user_id, target_id, created_at, pk)`
@@ -910,14 +910,12 @@ Base `/v1`. The gateway routes by prefix. Legend for the Access column:
 |---|---|---|---|
 | POST | `/auth/request-code` | P | `{email}` → `202 {ok:true}` always |
 | POST | `/auth/verify-code` | P | `{email, code}` → existing account: session and `{isNewUser:false, user}`; new email: `{isNewUser:true, signupTicket}` |
-| POST | `/auth/signup` | P (ticket) | `{signupTicket, username, schoolId, dateOfBirth}` → session and `{user}` |
+| POST | `/auth/signup` | P (ticket) | `{signupTicket, username, schoolId, educationStatus, dateOfBirth}` → session and `{user}` |
 | POST | `/auth/refresh` | P (refresh cookie) | Rotates the refresh token |
 | POST | `/auth/logout` | U | Revokes this session |
 | POST | `/auth/logout-all` | U | Revokes all sessions |
 | GET | `/auth/sessions` | U | Devices list |
 | DELETE | `/auth/sessions/:id` | Self | Revoke one device |
-| POST | `/me/verify-student` | U | `{schoolEmail}` sends a code |
-| POST | `/me/verify-student/confirm` | U | `{code}` marks verified |
 
 Both the `/login` and `/signup` screens use exactly these endpoints (Section 5.1). Auth response user cards include only the server-computed `profileComplete` routing hint in addition to public user fields; email and DOB are never returned.
 
@@ -1299,7 +1297,7 @@ Exit criteria: docker compose up runs the gateway plus a dummy service; /readyz 
 PHASE 1: Identity (Section 17, Phase 1). Services: auth, users, media, badges (skeleton). Sections to follow: 5 (auth and sessions, username rules), 6.1 to 6.3 and 6.16, 8.9 (badge engine skeleton), 10 (uploads), 15.2, 15.3, 15.4, 15.18.
 
 Deliver:
-- auth: request-code, verify-code, signup, refresh, logout, logout-all, sessions list/revoke, verify-student. Email code state in Redis (HMAC-hashed, 10 min, 5 attempts, 60 s resend, per email and per IP caps), uniform responses and timing, email sending through a queue with the provider behind an interface (Resend adapter plus a console adapter for local), EdDSA access tokens (10 min), opaque refresh tokens with rotation and family reuse detection, __Host- cookies, CSRF double-submit, session denylist in Redis.
+- auth: request-code, verify-code, signup with self-reported student/alumni status, refresh, logout, logout-all, sessions list/revoke. Email code state in Redis (HMAC-hashed, 10 min, 5 attempts, 60 s resend, per email and per IP caps), uniform responses and timing, email sending through a queue with the provider behind an interface (Resend adapter plus a console adapter for local), EdDSA access tokens (10 min), opaque refresh tokens with rotation and family reuse detection, __Host- cookies, CSRF double-submit, session denylist in Redis. Self-reported education status does not grant student verification.
 - users: signup creation with age gate from the DOB, username validation (regex, reserved, profanity, skeleton uniqueness), availability endpoint with the Redis negative cache, schools and interests seeds, me, me/settings, profile read (public fields only, never DOB), profile edit, blocks, export and deletion request stubs, internal batch endpoint, usr:{id} cache maintenance, stats counters via events, birthday_md derivation and the opt-in flag.
 - media: uploads/sign (Cloudinary signature with preset, folder, format and size limits per kind), uploads/complete (verify signature and public_id prefix), delete, cleanup job for orphans, upload.ready event consumed by users to set avatar/banner.
 - badges: tables, seed definitions, consumer that awards "Verified student" and "Early member" idempotently, GET endpoints, pins.
@@ -1561,7 +1559,7 @@ One row per frontend feature. "Phase" is the phase that delivers the backend. Ev
 |---|---|---|---|---|
 | 1 | Login (`/login`): email, code, Home for existing accounts, "No account yet" screen, remembered email | request-code, verify-code, refresh, logout | auth | 1 |
 | 2 | Signup (`/signup`) and setup page (`/signup/setup`): username live check, school search, date of birth with age gate | request-code, verify-code, signup, username-available, schools | auth, users | 1 |
-| 3 | Student verification, sessions and devices (settings) | verify-student, sessions | auth | 1 |
+| 3 | Education status, sessions and devices (settings) | signup education status, sessions | auth | 1 |
 | 4 | App bootstrap: community strip, unread, DM badge, config | `/me/bootstrap`, `/me/communities`, `/me/unread`, `/config` | gateway | 2, 3 |
 | 5 | Home / Discover dashboard: greeting hero, top communities, people you may know (dismiss), celebrating today (wish), events, because you like, new from your school | `/home`, `/discover/*`, `/users/:username/wish` | discover | 5 |
 | 6 | Explore (`/explore`): directory, filters, search | `/explore/communities`, `/explore/categories` | discover | 5 |

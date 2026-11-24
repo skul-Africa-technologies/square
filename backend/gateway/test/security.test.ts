@@ -20,7 +20,7 @@ describe("gateway security guards", () => {
       getAllAndOverride: (key: string, targets: unknown[]) =>
         targets[0] === publicHandler && key === "square:public" ? true : undefined,
     } as unknown as Reflector;
-    const guard = new JwtAuthGuard(config, reflector);
+    const guard = new JwtAuthGuard(config, reflector, { client: { get: async () => null } } as never);
 
     await expect(guard.canActivate(contextFor({ headers: {} }, publicHandler))).resolves.toBe(true);
     await expect(guard.canActivate(contextFor({ headers: {} }))).rejects.toMatchObject({
@@ -35,7 +35,7 @@ describe("gateway security guards", () => {
       method: "POST",
       headers: {
         origin: "http://localhost:3000",
-        cookie: "__Host-sq_access=token; sq_csrf=0123456789abcdef",
+        cookie: "__Host-sq_access=token; __Host-sq_csrf=0123456789abcdef",
         "x-square-csrf": "0123456789abcdef",
       },
     };

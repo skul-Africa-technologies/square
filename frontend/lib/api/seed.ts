@@ -2,11 +2,18 @@ import type { Asset, AssetItem, Activity, Badge, BlockedUser, Campaign, Communit
 import { DEFAULT_ASSETS, ASSET_CATALOG } from "@square/shared";
 
 export const schools: School[] = [
-  { id: "fut-minna", name: "FUT Minna" },
-  { id: "unilag", name: "University of Lagos" },
-  { id: "oau", name: "Obafemi Awolowo University" },
-  { id: "ui", name: "University of Ibadan" },
+  { id: "fut-minna", name: "FUT Minna", institutionType: "university", ownership: "federal" },
+  { id: "unilag", name: "University of Lagos", institutionType: "university", ownership: "federal" },
+  { id: "oau", name: "Obafemi Awolowo University", institutionType: "university", ownership: "federal" },
+  { id: "ui", name: "University of Ibadan", institutionType: "university", ownership: "federal" },
 ];
+
+export const schoolAliases: Record<string, string[]> = {
+  "fut-minna": ["Federal University of Technology Minna", "Federal University of Technology, Minna", "FUTMINNA"],
+  unilag: ["UNILAG", "University of Lagos, Akoka"],
+  oau: ["OAU", "Obafemi Awolowo University, Ile-Ife"],
+  ui: ["UI", "University of Ibadan, Ibadan"],
+};
 
 const today = new Date();
 const todayMonthDay = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -29,6 +36,9 @@ const userSeeds: SeedUser[] = [
 
 export const users: User[] = userSeeds.map(({ dob, ...user }) => ({
   ...user,
+  verifiedStudent: false,
+  educationStatus: user.educationStatus ?? "student",
+  badgeIds: user.badgeIds?.filter((badgeId) => badgeId !== "verified"),
   birthdayToday: !!user.showBirthday && dob?.slice(5) === todayMonthDay,
 }));
 

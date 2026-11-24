@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type {
   authRequestCodeResponseSchema,
+  authSessionSchema,
   authSignupRequestSchema,
   authSignupResponseSchema,
   authUserSchema,
@@ -290,6 +291,7 @@ export interface ApiError { code: string; message: string; field?: string }
 export interface Paginated<T> { items: T[]; nextCursor?: string | null }
 
 export type AuthRequestCodeResponse = z.infer<typeof authRequestCodeResponseSchema>;
+export type AuthSession = z.infer<typeof authSessionSchema>;
 export type AuthVerifyCodeResponse = z.infer<typeof authVerifyCodeResponseSchema>;
 export type AuthSignupRequest = z.infer<typeof authSignupRequestSchema>;
 export type AuthSignupResponse = z.infer<typeof authSignupResponseSchema>;

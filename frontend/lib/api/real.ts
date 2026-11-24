@@ -6,11 +6,12 @@ import { CSRF_HEADER, getCsrfToken } from "../csrf";
 import {
   authRequestCodeRequestSchema,
   authRequestCodeResponseSchema,
+  authSessionSchema,
   authSignupRequestSchema,
   authSignupResponseSchema,
+  apiOkResponseSchema,
   authVerifyCodeRequestSchema,
   authVerifyCodeResponseSchema,
-  apiOkResponseSchema,
   mentionRecordSchema,
   mentionScopeSchema,
   mentionSeenRequestSchema,
@@ -22,31 +23,92 @@ import {
   reactionUsersPageSchema,
   reactionUsersQuerySchema,
   schoolSchema,
+  schoolSearchQuerySchema,
   userSchema,
   usernameAvailableQuerySchema,
   usernameAvailableResponseSchema,
   unreadSummarySchema,
 } from "@square/shared";
 
-async function req<T>(path: string, init?: RequestInit): Promise<T> {
+let refreshInFlight: Promise<boolean> | undefined;
+
+function requestHeaders(init?: RequestInit) {
   const method = (init?.method || "GET").toUpperCase();
   const headers = new Headers(init?.headers);
-  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  if (init?.body != null && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
     const csrf = getCsrfToken();
     if (csrf) headers.set(CSRF_HEADER, csrf);
   }
-  const res = await fetch(`${appConfig.apiUrl}${path}`, {
+  return { method, headers };
+}
+
+function performRequest(path: string, init?: RequestInit) {
+  const { method, headers } = requestHeaders(init);
+  return fetch(`${appConfig.apiUrl}${path}`, {
     ...init,
     method,
     headers,
     credentials: "include",
     cache: "no-store",
   });
+}
+
+function shouldRefresh(path: string) {
+  return ![
+    "/auth/request-code",
+    "/auth/verify-code",
+    "/auth/signup",
+    "/auth/refresh",
+  ].some(authPath => path === authPath || path.startsWith(`${authPath}/`));
+}
+
+function apiErrorFromResponse(data: unknown): ApiError {
+  const envelope = data && typeof data === "object" && "error" in data
+    ? data.error
+    : data;
+  if (
+    envelope &&
+    typeof envelope === "object" &&
+    "code" in envelope &&
+    typeof envelope.code === "string" &&
+    "message" in envelope &&
+    typeof envelope.message === "string"
+  ) {
+    return {
+      code: envelope.code,
+      message: envelope.message,
+      ...("field" in envelope && typeof envelope.field === "string" ? { field: envelope.field } : {}),
+    };
+  }
+  return { code: "ERROR", message: "Request failed" };
+}
+
+async function refreshSession() {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      const response = await performRequest("/auth/refresh", { method: "POST" });
+      if (response.status === 401 || response.status === 403) return false;
+      if (!response.ok) {
+        const data = (await response.json().catch(() => ({}))) as unknown;
+        throw new ClientApiError(apiErrorFromResponse(data));
+      }
+      return true;
+    })().finally(() => {
+      refreshInFlight = undefined;
+    });
+  }
+  return refreshInFlight;
+}
+
+async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  let res = await performRequest(path, init);
+  if (res.status === 401 && shouldRefresh(path) && await refreshSession()) {
+    res = await performRequest(path, init);
+  }
   const data = (await res.json().catch(() => ({}))) as unknown;
   if (!res.ok) {
-    const err = (data && typeof data === "object" ? data : { code: "ERROR", message: "Request failed" }) as ApiError;
-    throw new ClientApiError(err);
+    throw new ClientApiError(apiErrorFromResponse(data));
   }
   return data as T;
 }
@@ -67,13 +129,26 @@ export const realApi: ApiClient = {
     const response: unknown = await req("/auth/signup", { method: "POST", body: JSON.stringify(request) });
     return authSignupResponseSchema.parse(response);
   },
+  listSessions: async () => authSessionSchema.array().parse(await req("/auth/sessions")),
+  revokeSession: async (id) => {
+    await req(`/auth/sessions/${encodeURIComponent(id)}`, { method: "DELETE" });
+  },
+  logout: async () => {
+    await req("/auth/logout", { method: "POST" });
+  },
+  logoutAll: async () => {
+    await req("/auth/logout-all", { method: "POST" });
+  },
   usernameAvailable: async (username) => {
     const query = usernameAvailableQuerySchema.parse({ u: username.replace(/^#/, "") });
     const response: unknown = await req(`/users/username-available?u=${encodeURIComponent(query.u)}`);
     return usernameAvailableResponseSchema.parse(response);
   },
   listSchools: async (query) => {
-    const response: unknown = await req(`/schools${query ? `?q=${encodeURIComponent(query)}` : ""}`);
+    const search = query?.trim();
+    if (!search || search.length < 2) return [];
+    const parsed = schoolSearchQuerySchema.parse({ q: search });
+    const response: unknown = await req(`/schools?q=${encodeURIComponent(parsed.q)}`);
     return schoolSchema.array().parse(response);
   },
   me: async () => userSchema.parse(await req("/me")),
@@ -86,7 +161,7 @@ export const realApi: ApiClient = {
   // PROPOSED: not in backend doc
   joinCommunity: (id) => req(`/communities/${id}/join`, { method: "POST" }),
   // PROPOSED: not in backend doc
-  leaveCommunity: (id) => req(`/communities/${id}/join`, { method: "DELETE" }),
+  leaveCommunity: (id) => req(`/communities/${encodeURIComponent(id)}/membership`, { method: "DELETE" }),
   // PROPOSED: not in backend doc
   listCommunityMembers: (id) => req(`/communities/${id}/members`),
   // PROPOSED: not in backend doc
@@ -98,6 +173,7 @@ export const realApi: ApiClient = {
     if (params?.category) qs.set("category", params.category);
     if (params?.sort) qs.set("sort", params.sort);
     if (params?.school) qs.set("school", params.school);
+    if (params?.cursor) qs.set("cursor", params.cursor);
     const q = qs.toString();
     return req(`/explore/communities${q ? `?${q}` : ""}`);
   },
@@ -145,7 +221,7 @@ export const realApi: ApiClient = {
   // PROPOSED: not in backend doc
   joinCampaign: (id) => req(`/campaigns/${id}/join`, { method: "POST" }),
   // PROPOSED: not in backend doc
-  completeCampaignTask: (campaignId, taskId) => req(`/campaigns/${campaignId}/tasks/${taskId}/complete`, { method: "POST" }),
+  completeCampaignTask: (_campaignId, taskId) => req(`/tasks/${encodeURIComponent(taskId)}/complete`, { method: "POST" }),
   // PROPOSED: not in backend doc
   listBadges: () => req(`/badges`),
   // PROPOSED: not in backend doc
@@ -274,5 +350,11 @@ export const realApi: ApiClient = {
   // PROPOSED: not in backend doc
   dismissPerson: (id) => req(`/discover/people/${id}/dismiss`, { method: "POST" }),
   // PROPOSED: not in backend doc
-  updatePrivacy: (data) => req("/me/privacy", { method: "PATCH", body: JSON.stringify(data) }),
+  updatePrivacy: async (data) => {
+    await req("/me/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ birthdayOptIn: data.showBirthday }),
+    });
+    return { ok: true };
+  },
 };

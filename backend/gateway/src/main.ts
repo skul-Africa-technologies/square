@@ -8,12 +8,13 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { RequestMethod } from "@nestjs/common";
 import compress from "@fastify/compress";
 import helmet from "@fastify/helmet";
-import { ApiException, ApiExceptionFilter, parseBackendConfig } from "@square/kernel";
+import { ApiException, ApiExceptionFilter, parseBackendConfig, validateJwtKeyPair } from "@square/kernel";
 import { collectDefaultMetrics, Counter, Histogram, register as metricsRegistry } from "prom-client";
 
 async function bootstrap(): Promise<void> {
   loadDotEnv({ path: resolve(__dirname, "../../../.env"), quiet: true });
   const config = parseBackendConfig(process.env);
+  await validateJwtKeyPair(config);
   const { AppModule } = await import("./app.module");
 
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -72,6 +73,10 @@ async function bootstrap(): Promise<void> {
   });
   fastify.addHook("preValidation", async (request) => {
     if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+      const hasBody =
+        (request.headers["content-length"] !== undefined && Number(request.headers["content-length"]) > 0) ||
+        request.headers["transfer-encoding"] !== undefined;
+      if (!hasBody) return;
       const contentType = request.headers["content-type"]?.split(";")[0]?.trim().toLowerCase();
       if (contentType !== "application/json") {
         throw new ApiException(415, "unsupported_media_type", "Requests must use application/json");

@@ -8,7 +8,7 @@ async function migrate(): Promise<void> {
   loadDotEnv({ path: resolve(__dirname, "../../../.env"), quiet: true });
   const config = parseBackendConfig(process.env);
   const pool = new Pool({
-    connectionString: config.DATABASE_URL,
+    connectionString: config.DIRECT_URL ?? config.DATABASE_URL,
     max: 1,
     connectionTimeoutMillis: 5_000,
     application_name: "square-migrations",

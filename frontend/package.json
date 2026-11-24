@@ -13,8 +13,8 @@
     "start:prod": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run lib/api/*.test.ts",
-    "test:e2e": "NEXT_DIST_DIR=.next-e2e next build && NEXT_DIST_DIR=.next-e2e next start -p 3100",
+    "test": "PARITY_TARGET=mock NEXT_PUBLIC_USE_MOCK=true NEXT_PUBLIC_API_URL= vitest run lib/api/*.test.ts",
+    "test:e2e": "NEXT_DIST_DIR=.next-e2e next build && NEXT_DIST_DIR=.next-e2e next start -p ${PORT:-3100}",
     "analyze": "ANALYZE=true next build"
   },
   "dependencies": {

@@ -42,7 +42,26 @@ The real client (`frontend/lib/api/real.ts`) sends `credentials: "include"` for 
 - Mock responses sanitize user records against the shared schemas. DOB remains private to seed
   generation, with only the non-sensitive `birthdayToday` indicator exposed.
 - The real client now uses the blueprint's `u` username query parameter and validates auth, user,
-  and school responses. Real auth handlers do not exist yet, so backend parity remains missing.
+  and school responses. Gateway auth handlers cover code request/verification, signup and session
+  management. The gateway returns errors as `{error:{code,message,field,requestId}}`; the real API
+  client unwraps that envelope before exposing a `ClientApiError`.
+- Invalid login codes use `code_invalid`; five failed attempts use HTTP 429 and
+  `too_many_attempts`. The mock mirrors those error codes and the attempt threshold.
+- Signup age and invalid-ticket errors now use the gateway's lowercase snake_case codes
+  (`age_not_allowed`, `signup_ticket_invalid`) in the mock as well. The frontend auth screen
+  continues to normalize codes for display and recognizes the legacy ticket code during transition.
+- The shared `frontend/lib/api/parity.test.ts` suite now exercises login and signup through the
+  selected API client against both the mock and the real gateway. It is an initial API-level suite,
+  not full end-to-end feature coverage.
+- `AUTH_TEST_MODE=true` selects OTP `123456` only when `NODE_ENV=test`; backend configuration
+  rejects the flag in every other environment. The Compose test runner generates ephemeral JWT
+  keys and does not use `.env` files.
+- The real client omits `Content-Type` when a mutating request has no body. The gateway now requires
+  JSON content type only when a request carries a body, allowing bodyless session revoke/logout
+  calls without a parser error.
+- The gateway now serves authenticated `GET /me/unread` using existing chat/DM read cursors and
+  unseen mention records. The API client maps the blueprint summary to the frontend's aggregate
+  `{unread,mentions}` result. No migration was added.
 
 ### Differences confirmed against blueprint v1.1 (not yet resolved)
 
@@ -51,9 +70,9 @@ until an individual frontend contract is shown to be clearly better and both sid
 
 | Area | Frontend contract | Blueprint v1.1 contract | Status |
 |---|---|---|---|
-| Verify code | Discriminated response; existing-user `user` includes safe `profileComplete` | Discriminated response; safe auth user includes `profileComplete` | Shape aligned; real handler missing |
-| Username availability | `GET /users/username-available?u=` | `GET /users/username-available?u=` | Query aligned; real handler missing |
-| Bootstrap/unread | No `/me/bootstrap` client call; `/me/unread` is reduced to aggregate totals | `/me/bootstrap`; unread returns DM and per-asset summaries | Unresolved shape difference |
+| Verify code | Discriminated response; existing-user `user` includes safe `profileComplete` | Discriminated response; safe auth user includes `profileComplete` | Shape aligned; dual-mode API tests pass, full feature coverage remains |
+| Username availability | `GET /users/username-available?u=` | `GET /users/username-available?u=` | Query aligned; dual-mode API tests pass |
+| Bootstrap/unread | No `/me/bootstrap` client call; `/me/unread` is reduced to aggregate totals | `/me/bootstrap`; unread returns DM and per-asset summaries | `/me/unread` now exists; no `/me/bootstrap` call in typed client; aggregate mapping tested |
 | Community leave/members | `DELETE /communities/:id/join`; grouped `CommunityMembers` response | `DELETE /communities/:slug/membership`; searchable member list | Unresolved path and shape differences |
 | Asset read/permissions | `POST /assets/:id/read` omits `seq`; permissions use `/assets/:id/permissions` | Read requires `{seq}`; permissions belong to `PATCH /assets/:id` | Unresolved shape/path differences |
 | Chat messages | `GET/POST /assets/:id/posts`, `Post` fields (`content`, `replyPreview`) | `GET/POST /assets/:id/messages`, message fields (`body`, `clientMsgId`) | Unresolved path and shape differences |

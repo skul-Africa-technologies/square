@@ -47,10 +47,10 @@ function saveFlow(flow: FlowState | null) {
 
 function errorMessage(error: unknown): string {
   const code = error instanceof ClientApiError ? error.code.toUpperCase() : "";
-  if (code === "CODE_EXPIRED" || code === "INVALID_CODE" || code === "INVALID") return "That code is wrong or expired. Try again.";
+  if (code === "CODE_EXPIRED" || code === "CODE_INVALID" || code === "INVALID_CODE" || code === "INVALID") return "That code is wrong or expired. Try again.";
   if (code === "TOO_MANY_ATTEMPTS") return "Too many attempts. Request a new code.";
   if (code === "RESEND_TOO_SOON" || code === "RATE_LIMITED") return "Please wait before requesting another code.";
-  if (code === "TICKET_EXPIRED") return "Start again to verify your email.";
+  if (code === "TICKET_EXPIRED" || code === "SIGNUP_TICKET_INVALID") return "Start again to verify your email.";
   if (code === "USERNAME_TAKEN") return "That username is already taken.";
   if (code === "INVALID_USERNAME") return "Choose a valid username.";
   if (code === "AGE_NOT_ALLOWED" || code === "INVALID_SIGNUP") return "You can't create an account with those details.";
@@ -368,7 +368,9 @@ function SetupStep({ ticket, onDone, onExpired }: { ticket: string; onDone: (use
   const [schoolId, setSchoolId] = useState("");
   const [schoolQuery, setSchoolQuery] = useState("");
   const [schools, setSchools] = useState<School[]>([]);
+  const [schoolsLoading, setSchoolsLoading] = useState(false);
   const [showSchools, setShowSchools] = useState(false);
+  const [educationStatus, setEducationStatus] = useState<"student" | "alumni">("student");
   const [dob, setDob] = useState("");
   const [availability, setAvailability] = useState<"idle" | "checking" | "free" | "taken" | "invalid" | "error">("idle");
   const [availabilityMessage, setAvailabilityMessage] = useState("");
@@ -388,11 +390,28 @@ function SetupStep({ ticket, onDone, onExpired }: { ticket: string; onDone: (use
   }, [onExpired, ticketCheck?.ticketExpiresAt]);
 
   useEffect(() => {
+    const search = schoolQuery.trim();
+    if (search.length < 2) {
+      setSchools([]);
+      setSchoolsLoading(false);
+      return;
+    }
+
     let active = true;
-    api.listSchools(schoolQuery).then((result) => { if (active) setSchools(result); }).catch(() => {
-      if (active) setError("Schools couldn't be loaded. Please try again.");
-    });
-    return () => { active = false; };
+    setSchoolsLoading(true);
+    const timer = window.setTimeout(() => {
+      api.listSchools(search).then((result) => {
+        if (active) setSchools(result);
+      }).catch(() => {
+        if (active) setError("Institutions couldn't be loaded. Please try again.");
+      }).finally(() => {
+        if (active) setSchoolsLoading(false);
+      });
+    }, 200);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
   }, [schoolQuery]);
 
   useEffect(() => {
@@ -420,15 +439,21 @@ function SetupStep({ ticket, onDone, onExpired }: { ticket: string; onDone: (use
     const valid = validateUsername(username);
     if (!valid.ok) { setError(valid.reason); return; }
     if (availability !== "free") { setError(availability === "taken" ? "That username is already taken." : "Choose an available username."); return; }
-    if (!schoolId) { setError("Select your school."); return; }
+    if (!schoolId) { setError("Select an institution from the search suggestions."); return; }
     if (!dob || !isAllowedAge(dob)) { setError("You can't create an account with those details."); return; }
     setLoading(true);
     try {
-      const result = await api.signup({ signupTicket: ticket, username: valid.stored, schoolId, dateOfBirth: dob });
+      const result = await api.signup({
+        signupTicket: ticket,
+        username: valid.stored,
+        schoolId,
+        educationStatus,
+        dateOfBirth: dob,
+      });
       completed.current = true;
       await onDone(result.user.id);
     } catch (reason) {
-      if (reason instanceof ClientApiError && reason.code.toUpperCase() === "TICKET_EXPIRED") onExpired();
+      if (reason instanceof ClientApiError && ["TICKET_EXPIRED", "SIGNUP_TICKET_INVALID"].includes(reason.code.toUpperCase())) onExpired();
       else setError(errorMessage(reason));
     } finally { setLoading(false); }
   }
@@ -448,14 +473,32 @@ function SetupStep({ ticket, onDone, onExpired }: { ticket: string; onDone: (use
         <p className={`mt-1 min-h-4 text-xs ${availability === "free" ? "text-lime" : availability === "taken" || availability === "invalid" || availability === "error" ? "text-red-400" : "text-muted"}`} aria-live="polite">{availabilityMessage}</p>
       </div>
       <div className="relative">
-        <label htmlFor="auth-school" className="mb-1 block text-sm">School</label>
-        <Input id="auth-school" value={schoolQuery} onChange={(event) => { setSchoolQuery(event.target.value); setSchoolId(""); setShowSchools(true); }} onFocus={() => setShowSchools(true)} placeholder="Search your school" autoComplete="organization" role="combobox" aria-expanded={showSchools} aria-controls="school-options" />
+        <label htmlFor="auth-school" className="mb-1 block text-sm">School or institution</label>
+        <Input id="auth-school" value={schoolQuery} onChange={(event) => { setSchoolQuery(event.target.value); setSchoolId(""); setShowSchools(true); }} onFocus={() => setShowSchools(true)} placeholder="Type to search institutions" autoComplete="organization" role="combobox" aria-expanded={showSchools} aria-controls="school-options" />
         {showSchools && schools.length > 0 && (
           <div id="school-options" role="listbox" className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border bg-surface">
-            {schools.map((school) => <button type="button" role="option" aria-selected={school.id === schoolId} key={school.id} className="min-h-11 w-full px-3 py-2 text-left text-sm hover:bg-surface-hi" onClick={() => { setSchoolId(school.id); setSchoolQuery(school.name); setShowSchools(false); }}>{school.name}</button>)}
+            {schools.map((school) => <button type="button" role="option" aria-selected={school.id === schoolId} key={school.id} className="min-h-11 w-full px-3 py-2 text-left text-sm hover:bg-surface-hi" onClick={() => { setSchoolId(school.id); setSchoolQuery(school.name); setShowSchools(false); }}>
+              <span className="block">{school.name}</span>
+              <span className="block text-xs capitalize text-muted">{school.ownership} · {school.institutionType.replaceAll("_", " ")}</span>
+            </button>)}
           </div>
         )}
+        {showSchools && schoolQuery.trim().length >= 2 && !schoolsLoading && schools.length === 0 && (
+          <p className="mt-1 text-xs text-muted" role="status">No matching institutions found.</p>
+        )}
+        {schoolsLoading && <p className="mt-1 text-xs text-muted" role="status">Searching institutions…</p>}
       </div>
+      <fieldset className="space-y-2">
+        <legend className="mb-1 text-sm">Education status</legend>
+        <label className="flex min-h-10 items-center gap-2 text-sm">
+          <input type="radio" name="education-status" value="student" checked={educationStatus === "student"} onChange={() => setEducationStatus("student")} />
+          Current student
+        </label>
+        <label className="flex min-h-10 items-center gap-2 text-sm">
+          <input type="radio" name="education-status" value="alumni" checked={educationStatus === "alumni"} onChange={() => setEducationStatus("alumni")} />
+          Alumni
+        </label>
+      </fieldset>
       <div>
         <label htmlFor="auth-dob" className="mb-1 block text-sm">Date of birth <span className="text-muted">(private)</span></label>
         <Input id="auth-dob" type="date" value={dob} onChange={(event) => setDob(event.target.value)} />

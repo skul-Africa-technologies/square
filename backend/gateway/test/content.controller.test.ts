@@ -21,6 +21,24 @@ describe("ContentController", () => {
     });
   });
 
+  it("does not create posts when the user has no access to the asset", async () => {
+    await expect(controller().createPost("asset-1", {
+      user: { id: "user-1", sessionId: "session-1", trustLevel: 1, sessionVersion: 1 },
+    } as never, { body: "A valid post" })).rejects.toMatchObject({
+      status: 404,
+      code: "not_found",
+    });
+  });
+
+  it("accepts the frontend's proof-less task completion request", async () => {
+    await expect(controller().completeTask("task-1", {
+      user: { id: "user-1", sessionId: "session-1", trustLevel: 1, sessionVersion: 1 },
+    } as never, undefined)).rejects.toMatchObject({
+      status: 404,
+      code: "not_found",
+    });
+  });
+
   it("rejects events without title or start time", async () => {
     await expect(controller().createEvent("asset-1", {
       user: { id: "user-1", sessionId: "session-1", trustLevel: 1, sessionVersion: 1 },

@@ -33,6 +33,13 @@ test("existing login goes directly home without rendering setup", async ({ page 
   await expect(page.getByText("Set up your profile")).toHaveCount(0);
 });
 
+test("invalid verification codes show the backend-compatible error", async ({ page }) => {
+  await requestCode(page, "/login", "invalid-code@example.com");
+  const digits = page.locator('input[inputmode="numeric"]');
+  for (let index = 0; index < 6; index++) await digits.nth(index).fill("0");
+  await expect(page.locator('p[role="alert"]')).toHaveText("That code is wrong or expired. Try again.");
+});
+
 test("login with a new email continues through the verified ticket into signup", async ({ page }) => {
   await requestCode(page, "/login", "login-new@example.com");
   await enterValidCode(page);

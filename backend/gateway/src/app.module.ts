@@ -20,11 +20,12 @@ import { IdentityController } from "./identity.controller";
 import { PlatformController } from "./platform.controller";
 import { ConversationController } from "./conversation.controller";
 import { ContentController } from "./content.controller";
+import { ModerationController } from "./moderation.controller";
 
 const config = parseBackendConfig(process.env);
 
 @Module({
-  controllers: [HealthController, GatewayController, IdentityController, PlatformController, ConversationController, ContentController, ReactionsController],
+  controllers: [HealthController, GatewayController, IdentityController, PlatformController, ConversationController, ContentController, ModerationController, ReactionsController],
   providers: [
     { provide: BACKEND_CONFIG, useValue: config },
     { provide: DatabaseService, useFactory: () => new DatabaseService(config) },
@@ -43,8 +44,8 @@ const config = parseBackendConfig(process.env);
     },
     {
       provide: APP_GUARD,
-      useFactory: (reflector: Reflector) => new JwtAuthGuard(config, reflector),
-      inject: [Reflector],
+      useFactory: (reflector: Reflector, redis: RedisService) => new JwtAuthGuard(config, reflector, redis),
+      inject: [Reflector, RedisService],
     },
     { provide: APP_GUARD, useFactory: () => new CsrfGuard(config) },
     ApiExceptionFilter,

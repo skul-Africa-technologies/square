@@ -13,17 +13,20 @@ const boolFromEnv = (fallback: boolean) =>
     return value;
   }, z.boolean());
 
+const postgresUrl = (name: string) =>
+  z
+    .string()
+    .url()
+    .refine((value) => value.startsWith("postgres://") || value.startsWith("postgresql://"), {
+      message: `${name} must use the postgres or postgresql protocol`,
+    });
+
 const backendConfigSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   SERVICES: z.string().trim().min(1).default("all"),
-  DATABASE_URL: z
-    .string()
-    .url()
-    .refine((value) => value.startsWith("postgres://") || value.startsWith("postgresql://"), {
-      message: "DATABASE_URL must use the postgres or postgresql protocol",
-    })
-    .default("postgresql://square:square@127.0.0.1:5432/square"),
+  DATABASE_URL: postgresUrl("DATABASE_URL").default("postgresql://square:square@127.0.0.1:5432/square"),
+  DIRECT_URL: postgresUrl("DIRECT_URL").optional(),
   REDIS_URL: z
     .string()
     .url()
@@ -62,18 +65,30 @@ const backendConfigSchema = z.object({
   ),
   JWT_PRIVATE_KEY: z.preprocess(
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
-    z.string().min(1).optional(),
+    z
+      .string()
+      .refine((value) => value.includes("-----BEGIN PRIVATE KEY-----") && value.includes("-----END PRIVATE KEY-----"), {
+        message: "JWT_PRIVATE_KEY must be a PKCS#8 PEM private key",
+      })
+      .optional(),
+  ),
+  JWT_KEY_ID: z.string().trim().min(1).default("v1"),
+  AUTH_CODE_PEPPER: optionalNonEmpty,
+  COOKIE_DOMAIN: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().regex(/^\.[a-z0-9.-]+$/i, "COOKIE_DOMAIN must be a parent domain such as .example.com").optional(),
   ),
   METRICS_TOKEN: z.preprocess(
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
     z.string().min(32, "METRICS_TOKEN must contain at least 32 characters").optional(),
   ),
-  BREVO_API_KEY: optionalNonEmpty,
-  BREVO_SENDER_EMAIL: z.preprocess(
+  RESEND_API_KEY: optionalNonEmpty,
+  RESEND_SENDER_EMAIL: z.preprocess(
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
     z.email().optional(),
   ),
-  BREVO_SENDER_NAME: z.string().trim().min(1).default("Square"),
+  RESEND_SENDER_NAME: z.string().trim().min(1).default("Square"),
+  AUTH_TEST_MODE: boolFromEnv(false),
   CLOUDINARY_CLOUD_NAME: optionalNonEmpty,
   CLOUDINARY_API_KEY: optionalNonEmpty,
   CLOUDINARY_API_SECRET: optionalNonEmpty,
@@ -84,12 +99,20 @@ const backendConfigSchema = z.object({
   ENABLE_TYPING: boolFromEnv(false),
   ENABLE_PUSH: boolFromEnv(false),
 }).superRefine((config, context) => {
-  const brevoConfigured = Boolean(config.BREVO_API_KEY || config.BREVO_SENDER_EMAIL);
-  if (brevoConfigured && (!config.BREVO_API_KEY || !config.BREVO_SENDER_EMAIL)) {
+  if (config.AUTH_TEST_MODE && config.NODE_ENV !== "test") {
     context.addIssue({
       code: "custom",
-      path: ["BREVO_API_KEY"],
-      message: "BREVO_API_KEY and BREVO_SENDER_EMAIL must be configured together",
+      path: ["AUTH_TEST_MODE"],
+      message: "AUTH_TEST_MODE is only available when NODE_ENV=test",
+    });
+  }
+
+  const resendConfigured = Boolean(config.RESEND_API_KEY || config.RESEND_SENDER_EMAIL);
+  if (resendConfigured && (!config.RESEND_API_KEY || !config.RESEND_SENDER_EMAIL)) {
+    context.addIssue({
+      code: "custom",
+      path: ["RESEND_API_KEY"],
+      message: "RESEND_API_KEY and RESEND_SENDER_EMAIL must be configured together",
     });
   }
 
@@ -116,8 +139,35 @@ const backendConfigSchema = z.object({
     if (!config.METRICS_TOKEN) {
       context.addIssue({ code: "custom", path: ["METRICS_TOKEN"], message: "METRICS_TOKEN is required in production" });
     }
+    if (!config.JWT_PUBLIC_KEY || !config.JWT_PRIVATE_KEY) {
+      context.addIssue({
+        code: "custom",
+        path: ["JWT_PUBLIC_KEY"],
+        message: "JWT_PUBLIC_KEY and JWT_PRIVATE_KEY are required in production",
+      });
+    }
+    if (!config.AUTH_CODE_PEPPER || config.AUTH_CODE_PEPPER.length < 32) {
+      context.addIssue({
+        code: "custom",
+        path: ["AUTH_CODE_PEPPER"],
+        message: "AUTH_CODE_PEPPER must contain at least 32 characters in production",
+      });
+    }
+    if (!config.RESEND_API_KEY || !config.RESEND_SENDER_EMAIL) {
+      context.addIssue({
+        code: "custom",
+        path: ["RESEND_API_KEY"],
+        message: "Resend API key and sender email are required in production",
+      });
+    }
     if (!["require", "verify-ca", "verify-full"].includes(new URL(config.DATABASE_URL).searchParams.get("sslmode") ?? "")) {
       context.addIssue({ code: "custom", path: ["DATABASE_URL"], message: "Production DATABASE_URL must require SSL" });
+    }
+    if (
+      config.DIRECT_URL &&
+      !["require", "verify-ca", "verify-full"].includes(new URL(config.DIRECT_URL).searchParams.get("sslmode") ?? "")
+    ) {
+      context.addIssue({ code: "custom", path: ["DIRECT_URL"], message: "Production DIRECT_URL must require SSL" });
     }
     if (!config.REDIS_URL.startsWith("rediss://")) {
       context.addIssue({ code: "custom", path: ["REDIS_URL"], message: "Production REDIS_URL must use TLS (rediss)" });

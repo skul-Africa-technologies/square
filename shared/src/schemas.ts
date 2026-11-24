@@ -12,6 +12,16 @@ export const dobSchema = z.string().min(1, "Date of birth is required");
 
 const idSchema = z.string().min(1).max(128);
 const cursorSchema = z.string().min(1).max(2048);
+export const educationStatusSchema = z.enum(["student", "alumni"]);
+export const institutionTypeSchema = z.enum([
+  "university",
+  "polytechnic",
+  "college_of_education",
+  "monotechnic",
+  "specialized",
+  "other",
+]);
+export const institutionOwnershipSchema = z.enum(["federal", "state", "private", "unknown"]);
 
 export const userSchema = z.object({
   id: idSchema,
@@ -19,6 +29,7 @@ export const userSchema = z.object({
   displayName: z.string().max(100).optional(),
   schoolId: idSchema.optional(),
   schoolName: z.string().max(200).optional(),
+  educationStatus: educationStatusSchema.optional(),
   avatarUrl: z.string().url().optional(),
   bannerUrl: z.string().max(2048).optional(),
   verifiedStudent: z.boolean(),
@@ -52,12 +63,26 @@ export const authSignupRequestSchema = z.object({
   signupTicket: z.string().min(1).max(4096),
   username: usernameSchema,
   schoolId: idSchema,
+  educationStatus: educationStatusSchema,
   dateOfBirth: dobSchema,
 }).strict();
 export const authSignupResponseSchema = z.object({ user: authUserSchema }).strict();
+export const authSessionSchema = z.object({
+  id: idSchema,
+  createdAt: z.string().min(1),
+  lastUsedAt: z.string().min(1).nullable(),
+  expiresAt: z.string().min(1),
+  current: z.boolean(),
+}).strict();
 export const usernameAvailableQuerySchema = z.object({ u: usernameSchema }).strict();
 export const usernameAvailableResponseSchema = z.object({ available: z.boolean() }).strict();
-export const schoolSchema = z.object({ id: idSchema, name: z.string().min(1).max(200) }).strict();
+export const schoolSearchQuerySchema = z.object({ q: z.string().trim().min(2).max(100) }).strict();
+export const schoolSchema = z.object({
+  id: idSchema,
+  name: z.string().min(1).max(200),
+  institutionType: institutionTypeSchema,
+  ownership: institutionOwnershipSchema,
+}).strict();
 
 export const reactionScopeSchema = z.enum(["asset", "dm"]);
 export const reactionRoomParamsSchema = z.object({

@@ -4,12 +4,13 @@ import { ADD_ASSET_ROLES, ASSET_CATALOG, ASSET_CATEGORY_ORDER, DEFAULT_ASSETS, g
 import {
   authRequestCodeRequestSchema,
   authRequestCodeResponseSchema,
+  authSessionSchema,
   authSignupRequestSchema,
   authSignupResponseSchema,
+  apiOkResponseSchema,
   authUserSchema,
   authVerifyCodeRequestSchema,
   authVerifyCodeResponseSchema,
-  apiOkResponseSchema,
   mentionRecordSchema,
   mentionSeenRequestSchema,
   mentionableMembersPageSchema,
@@ -20,11 +21,13 @@ import {
   reactionUsersQuerySchema,
   reactionUsersPageSchema,
   schoolSchema,
+  schoolSearchQuerySchema,
   userSchema,
   usernameAvailableQuerySchema,
   usernameAvailableResponseSchema,
   unreadCountsSchema,
 } from "@square/shared";
+import { clearSession } from "../session";
 import {
   MAX_DISTINCT_REACTIONS_PER_MESSAGE,
   MAX_REACTIONS_PER_USER_PER_MESSAGE,
@@ -33,8 +36,8 @@ import {
   isAllowedReactionEmoji,
   removeReactionSummary,
 } from "@square/shared";
-import { activities as seedActivities, assets as seedAssets, badges, blockedUsers as seedBlocked, campaigns as seedCampaigns, communities as seedCommunities, conversations as seedConversations, directMessages as seedDMs, items as seedItems, memberships as seedMemberships, posts as seedPosts, projects as seedProjects, reservedTaken, schools, users } from "./seed";
-import type { Asset, AssetCatalogEntry, AssetCategoryGroup, AssetItem, AssetPermissions, BlockedUser, Campaign, Community, CommunityDetail, CommunityMember, CommunityMembers, Conversation, DirectMessage, DiscoverBirthday, DiscoverCommunity, DiscoverEvent, DiscoverPerson, DiscoverResponse, DiscoverStudent, ExploreCommunity, MentionRecord, MentionScope, MentionableMember, Post, PresenceStatus, Project, ReactionScope, ReactionSummary, ReactionUpdatedEvent, ReactionUser, Role, SearchResult, SearchResults, SearchSuggested, User } from "@square/shared";
+import { activities as seedActivities, assets as seedAssets, badges, blockedUsers as seedBlocked, campaigns as seedCampaigns, communities as seedCommunities, conversations as seedConversations, directMessages as seedDMs, items as seedItems, memberships as seedMemberships, posts as seedPosts, projects as seedProjects, reservedTaken, schoolAliases, schools, users } from "./seed";
+import type { Asset, AssetCatalogEntry, AssetCategoryGroup, AssetItem, AssetPermissions, AuthSession, BlockedUser, Campaign, Community, CommunityDetail, CommunityMember, CommunityMembers, Conversation, DirectMessage, DiscoverBirthday, DiscoverCommunity, DiscoverEvent, DiscoverPerson, DiscoverResponse, DiscoverStudent, ExploreCommunity, MentionRecord, MentionScope, MentionableMember, Post, PresenceStatus, Project, ReactionScope, ReactionSummary, ReactionUpdatedEvent, ReactionUser, Role, SearchResult, SearchResults, SearchSuggested, User } from "@square/shared";
 
 const delay = (ms = 200) => new Promise((r) => setTimeout(r, ms));
 let posts: Post[] = [...seedPosts];
@@ -48,6 +51,16 @@ let currentUser: User = { ...users[0] };
 let conversationsState: Conversation[] = JSON.parse(JSON.stringify(seedConversations)) as Conversation[];
 let dms: DirectMessage[] = JSON.parse(JSON.stringify(seedDMs)) as DirectMessage[];
 let blocked: BlockedUser[] = [...seedBlocked];
+const authAttempts = new Map<string, number>();
+const initialMockSessions = authSessionSchema.array().parse([{
+  id: "mock-session-current",
+  createdAt: new Date().toISOString(),
+  lastUsedAt: new Date().toISOString(),
+  expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  current: true,
+}]);
+const mockSessionsByUser = new Map<string, AuthSession[]>([[users[0].id, initialMockSessions]]);
+let mockAuthenticatedUserId: string | null = users[0].id;
 const reactionListeners = new Map<string, { listeners: Set<(event: ReactionUpdatedEvent) => void>; timer?: ReturnType<typeof setInterval>; tick: number }>();
 type MockMention = MentionRecord & { scope: MentionScope; roomId: string; userId: string };
 let mentionSequence = 0;
@@ -60,6 +73,28 @@ const mockMentions: MockMention[] = [
   }))),
 ];
 const seenMockMentions = new Set<string>();
+
+function requireMockSession(): string {
+  if (!mockAuthenticatedUserId) {
+    throw new ClientApiError({ code: "unauthenticated", message: "Sign in to continue" });
+  }
+  return mockAuthenticatedUserId;
+}
+
+function startMockSession(userId: string): void {
+  const sessions = mockSessionsByUser.get(userId) ?? [];
+  if (sessions.length === 0) {
+    const now = new Date();
+    mockSessionsByUser.set(userId, authSessionSchema.array().parse([{
+      id: `mock-session-${crypto.randomUUID()}`,
+      createdAt: now.toISOString(),
+      lastUsedAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      current: true,
+    }]));
+  }
+  mockAuthenticatedUserId = userId;
+}
 
 const MOCK_USERS_KEY = "square.mock-users.v1";
 const MOCK_TICKETS_KEY = "square.mock-signup-tickets.v1";
@@ -394,19 +429,27 @@ function interestCommunities(): DiscoverCommunity[] {
 
 export const mockApi: ApiClient = {
   async requestCode(email) {
-    authRequestCodeRequestSchema.parse({ email });
+    const request = authRequestCodeRequestSchema.parse({ email });
     await delay();
+    authAttempts.set(request.email.trim().toLowerCase(), 0);
     return authRequestCodeResponseSchema.parse({ ok: true });
   },
   async verifyCode(email, code) {
     await delay();
-    if (code === "000000") throw new ClientApiError({ code: "CODE_EXPIRED", message: "Code expired", field: "code" });
-    if (code === "999999") throw new ClientApiError({ code: "TOO_MANY_ATTEMPTS", message: "Too many attempts", field: "code" });
-    if (!/^\d{6}$/.test(code)) throw new ClientApiError({ code: "INVALID", message: "Wrong code", field: "code" });
     const request = authVerifyCodeRequestSchema.parse({ email, code });
+    const normalizedEmail = request.email.trim().toLowerCase();
+    if (code === "000000") {
+      const attempts = (authAttempts.get(normalizedEmail) || 0) + 1;
+      authAttempts.set(normalizedEmail, attempts);
+      if (attempts >= 5) {
+        throw new ClientApiError({ code: "too_many_attempts", message: "Too many attempts. Request a new code.", field: "code" });
+      }
+      throw new ClientApiError({ code: "code_invalid", message: "That code is invalid", field: "code" });
+    }
     const account = mockAccounts.find((entry) => entry.email.toLowerCase() === request.email.trim().toLowerCase());
     if (account) {
       currentUser = toPublicUser(account.user);
+      startMockSession(account.user.id);
       try { window.localStorage.setItem(MOCK_LAST_USER_KEY, currentUser.id); } catch { /* Session cookie remains authoritative. */ }
       return authVerifyCodeResponseSchema.parse({ isNewUser: false, user: authUserSchema.parse({ ...sanitizedUserData(account.user), profileComplete: account.profileComplete }) });
     }
@@ -424,7 +467,7 @@ export const mockApi: ApiClient = {
     if (!ticket || ticket.expiresAt <= Date.now()) {
       delete tickets[request.signupTicket];
       saveTickets(tickets);
-      throw new ClientApiError({ code: "TICKET_EXPIRED", message: "Signup ticket expired" });
+      throw new ClientApiError({ code: "signup_ticket_invalid", message: "Signup ticket is invalid" });
     }
     if (mockAccounts.some((account) => account.email === ticket.email)) {
       throw new ClientApiError({ code: "ACCOUNT_EXISTS", message: "Account already exists" });
@@ -441,16 +484,17 @@ export const mockApi: ApiClient = {
     const ageLimit = new Date();
     ageLimit.setFullYear(ageLimit.getFullYear() - 16);
     if (birthDate > ageLimit || birthDate > new Date()) {
-      throw new ClientApiError({ code: "AGE_NOT_ALLOWED", message: "Age requirements not met" });
+      throw new ClientApiError({ code: "age_not_allowed", message: "Age requirement not met" });
     }
     const created: User = {
       id: `u_${crypto.randomUUID()}`,
       username: normalized,
       schoolId: school.id,
       schoolName: school.name,
-      verifiedStudent: true,
+      educationStatus: request.educationStatus,
+      verifiedStudent: false,
       joinedAt: new Date().toISOString(),
-      badgeIds: ["verified"],
+      badgeIds: [],
       skills: [],
       presence: "online",
     };
@@ -459,10 +503,44 @@ export const mockApi: ApiClient = {
     saveAccounts(mockAccounts);
     users.push(created);
     currentUser = created;
+    startMockSession(created.id);
     try { window.localStorage.setItem(MOCK_LAST_USER_KEY, created.id); } catch { /* Session cookie remains authoritative. */ }
     delete tickets[request.signupTicket];
     saveTickets(tickets);
     return authSignupResponseSchema.parse({ user: toAuthUser(created) });
+  },
+  async listSessions() {
+    await delay();
+    const userId = requireMockSession();
+    return authSessionSchema.array().parse(mockSessionsByUser.get(userId) ?? []);
+  },
+  async revokeSession(id) {
+    await delay();
+    const userId = requireMockSession();
+    const sessions = mockSessionsByUser.get(userId) ?? [];
+    const session = sessions.find((entry) => entry.id === id);
+    if (!session) {
+      throw new ClientApiError({ code: "not_found", message: "Session not found" });
+    }
+    mockSessionsByUser.set(userId, sessions.filter((entry) => entry.id !== id));
+    if (session.current) {
+      mockAuthenticatedUserId = null;
+      if (typeof window !== "undefined") await clearSession();
+    }
+  },
+  async logout() {
+    await delay();
+    const userId = requireMockSession();
+    mockSessionsByUser.set(userId, (mockSessionsByUser.get(userId) ?? []).filter((session) => !session.current));
+    mockAuthenticatedUserId = null;
+    if (typeof window !== "undefined") await clearSession();
+  },
+  async logoutAll() {
+    await delay();
+    const userId = requireMockSession();
+    mockSessionsByUser.set(userId, []);
+    mockAuthenticatedUserId = null;
+    if (typeof window !== "undefined") await clearSession();
   },
   async usernameAvailable(username) {
     await delay(180);
@@ -472,11 +550,24 @@ export const mockApi: ApiClient = {
   },
   async listSchools(query) {
     await delay(100);
-    const q = (query || "").toLowerCase();
-    return schools.filter(s => s.name.toLowerCase().includes(q)).map(school => schoolSchema.parse(school));
+    const search = query?.trim();
+    if (!search || search.length < 2) return [];
+    const { q } = schoolSearchQuerySchema.parse({ q: search });
+    const normalized = q.toLowerCase();
+    return schools
+      .filter((school) =>
+        school.name.toLowerCase().includes(normalized) ||
+        school.id.toLowerCase().includes(normalized) ||
+        (schoolAliases[school.id] ?? []).some((alias) => alias.toLowerCase().includes(normalized)),
+      )
+      .map((school) => schoolSchema.parse(school));
   },
   async me() {
     await delay(100);
+    const userId = requireMockSession();
+    const authenticatedUser = mockAccounts.find(account => account.user.id === userId);
+    if (!authenticatedUser) throw new ClientApiError({ code: "unauthenticated", message: "Sign in to continue" });
+    currentUser = toPublicUser(authenticatedUser.user);
     if (typeof window !== "undefined") {
       try {
         const activeId = window.localStorage.getItem(MOCK_LAST_USER_KEY);
@@ -486,7 +577,13 @@ export const mockApi: ApiClient = {
     }
     return toPublicUser(currentUser);
   },
-  async updateMe(data) { await delay(120); currentUser = userSchema.parse({ ...toPublicUser(currentUser), ...data }); return currentUser; },
+  async updateMe(data) {
+    await delay(120);
+    const userId = requireMockSession();
+    if (userId !== currentUser.id) throw new ClientApiError({ code: "unauthenticated", message: "Sign in to continue" });
+    currentUser = userSchema.parse({ ...toPublicUser(currentUser), ...data });
+    return currentUser;
+  },
 
   // PROPOSED: not in backend doc
   async createCommunity(data) {
@@ -547,6 +644,8 @@ export const mockApi: ApiClient = {
   // PROPOSED: not in backend doc
   async myCommunities() {
     await delay(80);
+    const userId = requireMockSession();
+    if (userId !== currentUser.id) throw new ClientApiError({ code: "unauthenticated", message: "Sign in to continue" });
     return communitiesState
       .filter(c => roleIn(c.id))
       .map(c => {
@@ -932,6 +1031,8 @@ export const mockApi: ApiClient = {
   // PROPOSED: not in backend doc
   async unreadCount() {
     await delay(50);
+    const userId = requireMockSession();
+    if (userId !== currentUser.id) throw new ClientApiError({ code: "unauthenticated", message: "Sign in to continue" });
     const assetSummaries = assets.filter(asset => roleIn(asset.communityId) && canRead(asset, roleIn(asset.communityId))).map(summarizeAsset);
     const dmSummaries = conversationsState.map(summarizeConversation);
     return unreadCountsSchema.parse({

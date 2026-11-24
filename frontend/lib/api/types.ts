@@ -1,6 +1,6 @@
 import type {
   Asset, AssetCatalogEntry, AssetCategoryGroup, AssetItem, AssetPermissions, Activity, AuthRequestCodeResponse, AuthSignupRequest, AuthSignupResponse, AuthVerifyCodeResponse,
-  Badge, BlockedUser, Campaign, Community, CommunityDetail, CommunityMembers, Conversation, DirectMessage, DiscoverResponse, ExploreCommunity, MentionRecord, MentionScope, MentionableMember,
+  AuthSession, Badge, BlockedUser, Campaign, Community, CommunityDetail, CommunityMembers, Conversation, DirectMessage, DiscoverResponse, ExploreCommunity, MentionRecord, MentionScope, MentionableMember,
   Paginated, Post, PresenceStatus, Project, ReactionScope, ReactionStreamEvent, ReactionSummary, ReactionUser, ReplyPreview, School,
   SearchResults, SearchSuggested, User
 } from "@square/shared";
@@ -32,6 +32,10 @@ export interface ApiClient {
   requestCode(email: string): Promise<AuthRequestCodeResponse & { retryAfter?: number }>;
   verifyCode(email: string, code: string): Promise<AuthVerifyCodeResponse & { retryAfter?: number }>;
   signup(data: AuthSignupRequest): Promise<AuthSignupResponse>;
+  listSessions(): Promise<AuthSession[]>;
+  revokeSession(id: string): Promise<void>;
+  logout(): Promise<void>;
+  logoutAll(): Promise<void>;
   usernameAvailable(username: string): Promise<{ available: boolean }>;
   listSchools(query?: string): Promise<School[]>;
   me(): Promise<User>;
