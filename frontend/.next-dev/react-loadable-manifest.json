@@ -1,1 +1,14 @@
-{}
+{
+  "components/messages/MessageRow.tsx -> ./ReactionPicker": {
+    "id": "components/messages/MessageRow.tsx -> ./ReactionPicker",
+    "files": [
+      "static/chunks/_app-pages-browser_components_messages_ReactionPicker_tsx.js"
+    ]
+  },
+  "components/messages/ReactionPicker.tsx -> unicode-emoji-json/data-by-group.json": {
+    "id": "components/messages/ReactionPicker.tsx -> unicode-emoji-json/data-by-group.json",
+    "files": [
+      "static/chunks/_app-pages-browser_node_modules_pnpm_unicode-emoji-json_0_9_0_node_modules_unicode-emoji-json-b37ff4.js"
+    ]
+  }
+}

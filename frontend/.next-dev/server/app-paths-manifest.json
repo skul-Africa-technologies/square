@@ -1,3 +1,5 @@
 {
+  "/(app)/c/[community]/page": "app/(app)/c/[community]/page.js",
+  "/(app)/c/[community]/[asset]/page": "app/(app)/c/[community]/[asset]/page.js",
   "/(app)/home/page": "app/(app)/home/page.js"
 }
