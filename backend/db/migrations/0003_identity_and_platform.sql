@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS users.profiles (
   date_of_birth date
 );
 
+ALTER TABLE users.profiles ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+
 CREATE TABLE IF NOT EXISTS users.schools (
   id text PRIMARY KEY,
   name text NOT NULL UNIQUE
