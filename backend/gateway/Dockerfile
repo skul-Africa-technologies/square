@@ -12,4 +12,4 @@ ENV NODE_ENV=production
 EXPOSE 4000
 USER node
 
-CMD ["pnpm", "start:backend"]
+CMD ["sh", "-c", "pnpm --filter @square/gateway migrate && pnpm start:backend"]

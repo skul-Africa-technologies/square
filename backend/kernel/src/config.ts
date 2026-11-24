@@ -60,6 +60,10 @@ const backendConfigSchema = z.object({
       })
       .optional(),
   ),
+  JWT_PRIVATE_KEY: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().min(1).optional(),
+  ),
   METRICS_TOKEN: z.preprocess(
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
     z.string().min(32, "METRICS_TOKEN must contain at least 32 characters").optional(),

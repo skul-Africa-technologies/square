@@ -1,4 +1,27 @@
 services:
+  gateway:
+    build:
+      context: ../..
+      dockerfile: backend/gateway/Dockerfile
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      SERVICES: all
+      DATABASE_URL: postgresql://square:square@postgres:5432/square
+      REDIS_URL: redis://redis:6379
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      JWT_ISSUER: square
+      JWT_AUDIENCE: square-api
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   postgres:
     image: postgres:16-alpine
     environment:
