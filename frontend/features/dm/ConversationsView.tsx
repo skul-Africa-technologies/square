@@ -2,10 +2,9 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { getInitials } from "@square/shared";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty } from "@/components/ui/empty";
-import { UnreadBadge } from "@/components/messages/UnreadBadge";
+import { CountBadge, RobotAvatar } from "@/components/ui/redesign";
 
 export function ConversationsView({ compact }: { compact?: boolean }) {
   const { data, isLoading } = useQuery({ queryKey: ["conversations"], queryFn: () => api.listConversations(), staleTime: 10_000, refetchInterval: 20_000 }); // PROPOSED
@@ -18,7 +17,10 @@ export function ConversationsView({ compact }: { compact?: boolean }) {
       <div className="space-y-2">
         {items.map(c => (
           <Link key={c.id} href={`/dm/${c.id}`} prefetch={false} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border bg-surface p-3 hover:border-lime/40">
-            <div className="h-10 w-10 rounded-full bg-surface-hi flex items-center justify-center text-xs font-semibold">{getInitials(c.participant.username)}</div>
+            <span className="relative">
+              <RobotAvatar id={c.participant.id} pictureUrl={c.participant.avatarUrl} size={40} online={c.presence === "online"} />
+              {c.unreadCount > 0 && <CountBadge count={c.unreadCount} className="absolute -right-2 -top-1" />}
+            </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-sm truncate">#{c.participant.username}</span>
@@ -26,7 +28,6 @@ export function ConversationsView({ compact }: { compact?: boolean }) {
               </div>
               <p className="text-xs text-muted truncate">{c.blocked ? "You can't message this user" : c.lastMessage || "No messages yet"}</p>
             </div>
-            <UnreadBadge unread={c.unreadCount} mentions={c.mentions || 0} ringClassName="ring-surface" />
           </Link>
         ))}
       </div>

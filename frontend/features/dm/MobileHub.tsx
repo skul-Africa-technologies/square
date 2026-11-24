@@ -4,11 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { toDisplayUsername, getInitials } from "@square/shared";
+import { toDisplayUsername } from "@square/shared";
 import { relativeTime, useNow } from "@/lib/time";
-import { PresenceDot } from "@/components/shell/PresenceDot";
 import { CommandPalette } from "@/components/shell/CommandPalette";
-import { UnreadBadge } from "@/components/messages/UnreadBadge";
+import { CountBadge, RobotAvatar } from "@/components/ui/redesign";
 import clsx from "clsx";
 
 export function MobileHub() {
@@ -58,9 +57,8 @@ export function MobileHub() {
               {recent.map(c => (
                 <Link key={c.id} href={`/dm/${c.id}`} prefetch={false} className="w-[76px] shrink-0 text-center">
                   <span className="relative mx-auto block h-14 w-14">
-                    <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-hi text-sm font-semibold">{getInitials(c.participant.username)}</span>
-                    <PresenceDot status={c.presence} className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5" />
-                    <UnreadBadge unread={c.unreadCount} mentions={c.mentions || 0} size="mobile" className="absolute -right-2 top-0" ringClassName="ring-bg" />
+                    <RobotAvatar id={c.participant.id} pictureUrl={c.participant.avatarUrl} size={56} online={c.presence === "online"} />
+                    {c.unreadCount > 0 && <CountBadge count={c.unreadCount} className="absolute -right-2 -top-1" />}
                   </span>
                   <span className="mt-1 block truncate text-[11px] text-muted">{toDisplayUsername(c.participant.username)}</span>
                 </Link>
@@ -79,9 +77,8 @@ export function MobileHub() {
               return (
                 <Link key={c.id} href={`/dm/${c.id}`} prefetch={false} className={clsx("flex min-h-[56px] items-center gap-3 py-2", highlight && "rounded-lg bg-surface/60 px-2")}>
                   <span className="relative shrink-0">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-hi text-[11px] font-semibold">{getInitials(c.participant.username)}</span>
-                    <PresenceDot status={c.presence} className="absolute -bottom-0.5 -right-0.5" />
-                    {unread && <span aria-hidden="true" className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-blue-strong" />}
+                    <RobotAvatar id={c.participant.id} pictureUrl={c.participant.avatarUrl} size={40} online={c.presence === "online"} />
+                    {unread && <CountBadge count={c.unreadCount} className="absolute -right-2 -top-1" />}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline justify-between gap-2">
@@ -90,7 +87,6 @@ export function MobileHub() {
                     </span>
                     <span className={clsx("block truncate text-xs", unread ? "text-text/80" : "text-muted")}>{c.lastMessagePreview || c.lastMessage || "No messages yet"}</span>
                   </span>
-                  <UnreadBadge unread={c.unreadCount} mentions={c.mentions || 0} size="mobile" ringClassName="ring-bg" />
                 </Link>
               );
             })}
@@ -108,8 +104,7 @@ export function MobileHub() {
         )}
         <div className="flex items-center gap-2 rounded-full border bg-bg/95 p-1.5 pl-2 shadow-lg backdrop-blur">
           <span className="relative">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-hi text-xs font-semibold">{me ? getInitials(me.username) : "??"}</span>
-            <PresenceDot status="online" className="absolute -bottom-0.5 -right-0.5" />
+            {me ? <RobotAvatar id={me.id} pictureUrl={me.avatarUrl} size={32} online /> : <span className="block h-8 w-8 rounded-[12px] bg-surface" />}
           </span>
           <button type="button" onClick={() => setUserOpen(v => !v)} aria-expanded={userOpen} className="flex min-w-0 flex-1 items-center gap-1 text-left">
             <span className="truncate text-sm text-name-self">{me ? toDisplayUsername(me.username) : "…"}</span>

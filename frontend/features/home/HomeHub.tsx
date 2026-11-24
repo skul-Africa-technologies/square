@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatUsername, getInitials, plural, pluralWord } from "@square/shared";
 import { useNow } from "@/lib/time";
+import { AngleButton, HexBadge, RobotAvatar } from "@/components/ui/redesign";
 
 // ─── localStorage key ────────────────────────────────────────────────────────
 const DISMISSED_KEY = "square:dismissedPeople";
@@ -510,137 +511,50 @@ function CommunityCard({ community, joined, onJoin }: {
 }) {
   const router = useRouter();
   const href = `/c/${community.slug}`;
-    const initials = community.avatar && community.avatar.length <= 3
-      ? community.avatar
-      : getInitials(community.name);
+  const initials = community.avatar && community.avatar.length <= 3
+    ? community.avatar
+    : getInitials(community.name);
 
   return (
     <article
       role="listitem"
       style={{
         width: 248, flexShrink: 0, scrollSnapAlign: "start",
-        borderRadius: 14, border: "1px solid var(--border)",
-        background: "var(--surface)", overflow: "hidden",
-        display: "flex", flexDirection: "column",
-        transition: "border-color 0.15s, box-shadow 0.15s",
+        borderRadius: 14, border: "1px solid var(--line)",
+        background: "var(--panel)", overflow: "hidden",
+        display: "flex", alignItems: "center", gap: 10,
+        minHeight: 82, padding: "10px",
+        transition: "border-color 0.15s",
       }}
       onMouseEnter={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = "rgba(182,255,59,.4)";
-        (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 20px rgba(0,0,0,.3)";
-        (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+        (e.currentTarget as HTMLElement).style.borderColor = "var(--blue)";
       }}
       onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
-        (e.currentTarget as HTMLElement).style.boxShadow = "none";
-        (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+        (e.currentTarget as HTMLElement).style.borderColor = "var(--line)";
       }}
     >
-      {/* Banner 248×112 */}
-      <div
-        style={{
-          position: "relative", width: "100%", height: 112,
-          flexShrink: 0, overflow: "hidden",
-          ...bannerStyle(community.id, community.category),
-        }}
-        aria-hidden="true"
+      <HexBadge label={community.name} initials={initials} size={34} unread={0} />
+      <button
+        type="button"
+        onClick={() => router.push(href)}
+        className="min-w-0 flex-1 text-left"
+        aria-label={`Open ${community.name}`}
       >
-        {/* Category pill top-left */}
-        <span style={{
-          position: "absolute", top: 8, left: 8,
-          fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
-          padding: "2px 8px", borderRadius: 999,
-          background: "rgba(0,0,0,.55)", backdropFilter: "blur(4px)",
-          color: "var(--text)",
-        }}>
-          {community.category}
+        <span className="block truncate text-[14px] font-semibold text-[var(--text)]">{community.name}</span>
+        <span className="mt-1 block truncate text-[11px] text-[var(--muted)]">
+          {community.memberCount.toLocaleString()} members
+          {(community.onlineCount ?? 0) > 0 ? ` · ${community.onlineCount} online` : ""}
         </span>
-        {/* Faint watermark letter */}
-        <span style={{
-          position: "absolute", bottom: -8, right: 8,
-          fontSize: 72, fontWeight: 900, lineHeight: 1,
-          fontFamily: "var(--font-space-grotesk)",
-          color: "rgba(255,255,255,.06)", pointerEvents: "none", userSelect: "none",
-        }}>
-          {initials[0]}
-        </span>
-      </div>
-
-      {/* Avatar overlapping banner bottom edge */}
-      <div style={{ position: "relative", height: 24, flexShrink: 0 }}>
-        <div style={{
-          position: "absolute", top: -24, left: 12,
-          width: 48, height: 48, borderRadius: "50%",
-          border: "3px solid var(--surface)",
-          background: "var(--surface-hi)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontWeight: 700, fontSize: 14, fontFamily: "var(--font-space-grotesk)",
-          color: "var(--lime)", userSelect: "none",
-        }}>
-          {initials}
-        </div>
-      </div>
-
-      {/* Body */}
-      <div style={{ flex: 1, padding: "4px 12px 0", minWidth: 0 }}>
-        {/* Stretched link — card is one tab stop */}
-        <a
-          href={href}
-          onClick={e => { e.preventDefault(); router.push(href); }}
-          style={{ textDecoration: "none", outline: "none" }}
-          aria-label={`Open ${community.name}`}
-        >
-          <p style={{
-            fontSize: 15, fontWeight: 600, fontFamily: "var(--font-space-grotesk)",
-            color: "var(--text)", margin: 0, whiteSpace: "nowrap",
-            overflow: "hidden", textOverflow: "ellipsis",
-          }}>
-            {community.name}
-          </p>
-          <p style={{
-            fontSize: 13, color: "var(--muted)", margin: "4px 0 0",
-            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
-            overflow: "hidden", lineHeight: 1.4,
-          }}>
-            {community.blurb}
-          </p>
-        </a>
-      </div>
-
-      {/* Footer: members | online | Join */}
-      <div style={{
-        display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center",
-        gap: 8, padding: "10px 12px 12px", marginTop: 8,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-            {community.memberCount.toLocaleString()}
-          </span>
-          {(community.onlineCount ?? 0) > 0 && (
-            <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", display: "inline-block" }} aria-hidden="true" />
-              {community.onlineCount} online
-            </span>
-          )}
-        </div>
-        {/* Join button — separate focusable, z above the stretched link */}
-        <button
-          type="button"
-          onClick={e => { e.stopPropagation(); joined ? router.push(href) : onJoin(community.slug); }}
-          aria-label={joined ? `Open ${community.name}` : `Join ${community.name}`}
-          style={{
-            height: 32, width: 64, borderRadius: 8, flexShrink: 0, cursor: "pointer",
-            fontWeight: 600, fontSize: 13, fontFamily: "var(--font-inter)",
-            background: joined ? "transparent" : "var(--lime)",
-            color: joined ? "var(--lime)" : "var(--bg)",
-            border: joined ? "1px solid var(--lime)" : "none",
-            transition: "background 0.15s",
-            position: "relative", zIndex: 1,
-          }}
-        >
-          {joined ? "Joined" : "Join"}
-        </button>
-      </div>
+      </button>
+      <AngleButton
+        type="button"
+        small
+        secondary={joined}
+        onClick={() => joined ? router.push(href) : onJoin(community.slug)}
+        aria-label={joined ? `Open ${community.name}` : `Join ${community.name}`}
+      >
+        {joined ? "Joined" : "Join"}
+      </AngleButton>
     </article>
   );
 }
@@ -655,7 +569,7 @@ function TwoColZone({ people, birthdays, extraBirthdays, events, onDismiss }: {
       display: "grid",
       // container-query-like: left 1fr, right 340px. At narrow widths the right col
       // is hidden via the @media fallback below — handled by the className.
-      gridTemplateColumns: "1fr 340px",
+      gridTemplateColumns: "minmax(0, 1fr) minmax(300px, 340px)",
       gap: 24,
     }}
     className="two-col-zone"
@@ -663,7 +577,7 @@ function TwoColZone({ people, birthdays, extraBirthdays, events, onDismiss }: {
       {/* Left: people */}
       {people.length > 0 && (
         <section aria-labelledby="h-people" style={{
-          borderRadius: 14, border: "1px solid var(--border)", background: "var(--surface)",
+          borderRadius: 14, border: "1px solid var(--line)", background: "var(--panel)",
           overflow: "hidden", display: "flex", flexDirection: "column",
         }}>
           <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
@@ -687,9 +601,9 @@ function TwoColZone({ people, birthdays, extraBirthdays, events, onDismiss }: {
             borderRadius: 14, border: "1px solid var(--border)", background: "var(--surface)",
             overflow: "hidden",
           }}>
-            <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center" }}>
+            <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center" }}>
               <h2 id="h-birthdays" style={{ flex: 1, fontFamily: "var(--font-space-grotesk)", fontSize: 15, fontWeight: 600, margin: 0 }}>
-                Celebrating today 🎂
+                <span aria-hidden="true" style={{ marginRight: 7 }}>🎂</span>Celebrating today
               </h2>
             </div>
             <div role="list">
@@ -708,10 +622,10 @@ function TwoColZone({ people, birthdays, extraBirthdays, events, onDismiss }: {
         {/* Events */}
         {events.length > 0 && (
           <section aria-labelledby="h-events" style={{
-            borderRadius: 14, border: "1px solid var(--border)", background: "var(--surface)",
+            borderRadius: 14, border: "1px solid var(--line)", background: "var(--panel)",
             overflow: "hidden",
           }}>
-            <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center" }}>
+            <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center" }}>
               <h2 id="h-events" style={{ flex: 1, fontFamily: "var(--font-space-grotesk)", fontSize: 15, fontWeight: 600, margin: 0 }}>
                 Upcoming events
               </h2>
@@ -819,39 +733,24 @@ function PersonRow({ person, onDismiss, divider }: { person: PersonItem; onDismi
 
 // ─── Birthday row ─────────────────────────────────────────────────────────────
 function BirthdayRow({ person, divider }: { person: BirthdayItem; divider: boolean }) {
-  const initials = getInitials(person.username);
   const prefill  = encodeURIComponent(`Happy birthday ${formatUsername(person.username)}! 🎉`);
   return (
     <div
       role="listitem"
       style={{
-        display: "grid", gridTemplateColumns: "40px 1fr auto",
-        alignItems: "center", gap: 10, padding: "0 16px",
-        height: 52, minWidth: 0,
-        borderBottom: divider ? "1px solid var(--border)" : "none",
+        display: "grid", gridTemplateColumns: "40px minmax(0, 1fr) auto",
+        alignItems: "center", gap: 8, padding: "8px 12px",
+        minHeight: 56, minWidth: 0,
+        borderBottom: divider ? "1px solid var(--line)" : "none",
       }}
     >
-      {/* Avatar with ring */}
       <div style={{ position: "relative", width: 40, height: 40, flexShrink: 0 }}>
-        <div style={{
-          width: 40, height: 40, borderRadius: "50%",
-          border: "2px solid var(--lime)",
-          background: "var(--surface-hi)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          overflow: "hidden",
-        }}>
-          {person.avatarUrl
-            ? <img src={person.avatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            : <span style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-space-grotesk)", color: "var(--text)" }}>{initials}</span>
-          }
-        </div>
-        {/* cake badge */}
-        <span aria-label="birthday" style={{
-          position: "absolute", bottom: -2, right: -2,
-          width: 16, height: 16, borderRadius: "50%",
-          background: "var(--lime)", color: "var(--bg)",
-          fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center",
-          border: "1.5px solid var(--surface)",
+        <RobotAvatar id={person.id} pictureUrl={person.avatarUrl} size={40} />
+        <span aria-label="Birthday today" title="Birthday today" style={{
+          position: "absolute", right: -5, bottom: -5,
+          width: 19, height: 19, borderRadius: "50%",
+          background: "var(--raised)", border: "1.5px solid var(--panel)",
+          fontSize: 12, lineHeight: "16px", textAlign: "center",
         }}>🎂</span>
       </div>
 
@@ -864,18 +763,13 @@ function BirthdayRow({ person, divider }: { person: BirthdayItem; divider: boole
       </div>
 
       {/* Wish button */}
-      <a
+      <AngleButton
+        as="link"
         href={`/dm/${person.id}?prefill=${prefill}`}
+        secondary
+        small
         aria-label={`Wish ${formatUsername(person.username)} happy birthday`}
-        style={{
-          height: 28, padding: "0 10px", borderRadius: 8, cursor: "pointer",
-          border: "1px solid var(--border)", color: "var(--muted)",
-          background: "transparent", fontWeight: 600, fontSize: 12,
-          fontFamily: "var(--font-inter)", textDecoration: "none",
-          display: "flex", alignItems: "center", whiteSpace: "nowrap",
-          flexShrink: 0,
-        }}
-      >Wish</a>
+      >Wish</AngleButton>
     </div>
   );
 }
@@ -891,17 +785,17 @@ function EventRow({ event, divider }: { event: EventItem; divider: boolean }) {
       role="listitem"
       onClick={() => router.push(`/c/${event.communitySlug}/events`)}
       style={{
-        display: "grid", gridTemplateColumns: "44px 1fr",
-        alignItems: "center", gap: 10, padding: "0 16px",
-        height: 64, width: "100%", background: "none", border: "none",
+      display: "grid", gridTemplateColumns: "44px minmax(0, 1fr)",
+      alignItems: "center", gap: 8, padding: "8px 12px",
+      minHeight: 64, width: "100%", background: "var(--panel)", border: "none",
         cursor: "pointer", textAlign: "left", minWidth: 0,
-        borderBottom: divider ? "1px solid var(--border)" : "none",
+      borderBottom: divider ? "1px solid var(--line)" : "none",
       }}
     >
       {/* Date badge */}
       <div style={{
-        width: 44, height: 48, borderRadius: 8, flexShrink: 0,
-        background: "var(--surface-hi)",
+        width: 44, height: 48, borderRadius: 12, flexShrink: 0,
+        background: "var(--raised)",
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       }}>
         <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", lineHeight: 1 }}>
@@ -947,24 +841,15 @@ function InterestGrid({ communities, joinedSlugs, onJoin }: {
               display: "grid", gridTemplateColumns: "48px 1fr auto",
               alignItems: "center", gap: 10,
               height: 72, padding: "0 12px",
-              borderRadius: 12, border: "1px solid var(--border)",
-              background: "var(--surface)", minWidth: 0,
+              borderRadius: 12, border: "1px solid var(--line)",
+              background: "var(--panel)", minWidth: 0,
               cursor: "pointer", transition: "border-color 0.15s",
             }}
             onClick={() => router.push(`/c/${c.slug}`)}
-            onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = "rgba(182,255,59,.4)"}
-            onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = "var(--blue)"}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = "var(--line)"}
           >
-            {/* Avatar tile */}
-            <div style={{
-              width: 48, height: 48, borderRadius: 10, flexShrink: 0,
-              background: bannerStyle(c.id, c.category).background as string,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontWeight: 700, fontSize: 14, fontFamily: "var(--font-space-grotesk)",
-              color: "rgba(255,255,255,.8)", userSelect: "none",
-            }}>
-              {initials}
-            </div>
+            <HexBadge label={c.name} initials={initials} size={40} unread={0} />
 
             {/* Text */}
             <div style={{ minWidth: 0 }}>
@@ -977,18 +862,13 @@ function InterestGrid({ communities, joinedSlugs, onJoin }: {
             </div>
 
             {/* Join */}
-            <button
+            <AngleButton
               type="button"
               onClick={e => { e.stopPropagation(); joined ? router.push(`/c/${c.slug}`) : onJoin(c.slug); }}
               aria-label={joined ? `Open ${c.name}` : `Join ${c.name}`}
-              style={{
-                height: 32, padding: "0 14px", borderRadius: 8, flexShrink: 0, cursor: "pointer",
-                fontWeight: 600, fontSize: 13, fontFamily: "var(--font-inter)",
-                background: joined ? "transparent" : "var(--lime)",
-                color: joined ? "var(--lime)" : "var(--bg)",
-                border: joined ? "1px solid var(--lime)" : "none",
-              }}
-            >{joined ? "Joined" : "Join"}</button>
+              secondary={joined}
+              small
+            >{joined ? "Joined" : "Join"}</AngleButton>
           </div>
         );
       })}

@@ -10,6 +10,7 @@ import { DaySeparator, MessageRow, canGroup, dayLabel, type MessageItem } from "
 import { MentionInput } from "@/components/messages/MentionInput";
 import { useMentionJump } from "@/components/messages/useMentionJump";
 import { addReactionSummary, applyReactionCount, config, removeReactionSummary, type DirectMessage, type ReactionStreamEvent, type ReplyPreview } from "@square/shared";
+import { RobotAvatar } from "@/components/ui/redesign";
 
 export function ThreadView({ conversationId }: { conversationId: string }) {
   const qc = useQueryClient();
@@ -161,9 +162,12 @@ export function ThreadView({ conversationId }: { conversationId: string }) {
   return (
     <div className="flex flex-col h-full min-h-[70vh]">
       <header className="border-b px-4 py-3 flex items-center justify-between gap-3">
-        <div>
-          <div className="font-heading font-semibold">#{peer}</div>
-          <Link href={`/u/${peer}`} prefetch={false} className="text-xs text-muted hover:text-text">View profile</Link>
+        <div className="flex min-w-0 items-center gap-3">
+          {conv?.participant && <RobotAvatar id={conv.participant.id} pictureUrl={conv.participant.avatarUrl} size={40} online={conv.presence === "online"} />}
+          <div className="min-w-0">
+            <div className="truncate font-heading font-semibold">#{peer}</div>
+            <Link href={`/u/${peer}`} prefetch={false} className="text-xs text-muted hover:text-text">Online · View profile</Link>
+          </div>
         </div>
       </header>
       <div ref={listRef} onScroll={event => {

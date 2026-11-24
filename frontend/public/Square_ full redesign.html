@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Square: full redesign</title>
+<style>
+:root{--pg:#eef2ef;--tx:#17201b;--mu:#5b6a61;--bd:#c9d3cd;--ac:#38c0ff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--pg:#070a09;--tx:#e6ece8;--mu:#8a978f;--bd:#222c27}}
+:root[data-theme="dark"]{--pg:#070a09;--tx:#e6ece8;--mu:#8a978f;--bd:#222c27}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--pg);color:var(--tx);font:15px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+header{padding:22px 16px 0}
+h1{font-size:20px;font-weight:600;margin:0 0 4px}
+p{margin:0 0 14px;color:var(--mu);max-width:70ch}
+.tabs{display:flex;gap:6px;padding:0 16px;border-bottom:1px solid var(--bd);overflow-x:auto}
+.tab{border:0;background:none;color:var(--mu);font:inherit;font-weight:600;padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--tx);border-bottom-color:var(--ac)}
+.tab:focus-visible{outline:2px solid var(--ac);outline-offset:-2px}
+iframe{display:block;width:100%;border:0;min-height:600px}
+iframe[hidden]{display:none}
+</style></head><body>
+<header><h1>Square: full redesign</h1><p>Hex rail with unread rings, curved blue edge, robot avatars and angled-corner buttons, shown for the desktop app, the mobile screens and sign-up. Everything is clickable.</p></header>
+<div class="tabs" role="tablist"><button role="tab" class="tab" data-t="desktop" aria-selected="true">Desktop app</button><button role="tab" class="tab" data-t="mobile" aria-selected="false">Mobile screens</button><button role="tab" class="tab" data-t="signup" aria-selected="false">Sign-up setup</button></div>
+<iframe id="f-desktop" title="Desktop app" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1, viewport-fit=cover&quot;&gt;
+&lt;title&gt;Square: sidebar concept&lt;/title&gt;
+&lt;style&gt;
+:root{--pg:#eef2ef;--tx:#17201b;--mu:#5b6a61;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme=&quot;light&quot;]){--pg:#070a09;--tx:#e6ece8;--mu:#8a978f}}
+:root[data-theme=&quot;dark&quot;]{--pg:#070a09;--tx:#e6ece8;--mu:#8a978f}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--pg);color:var(--tx);font:15px/1.5 &quot;Segoe UI&quot;,system-ui,-apple-system,Roboto,sans-serif;padding:28px 16px 48px}
+h1{font-size:20px;font-weight:600;margin:0 0 4px}
+p.sub{margin:0 0 22px;color:var(--mu);max-width:62ch}
+h2{font-size:14px;font-weight:600;margin:28px 0 10px;color:var(--mu)}
+.scroll{overflow-x:auto;max-width:100%}
+.app{--bg:#0a0e0c;--panel:#0f1512;--line:#222c27;--g:#a6ff1a;--b:#38c0ff;--t:#e6ece8;--m:#7f8c85;background:var(--bg);color:var(--t);font-size:13px}
+.desk{display:grid;grid-template-columns:84px 250px 1fr;min-width:900px;height:560px;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+.rail{background:#080b09;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0;border-right:1px solid var(--line)}
+.rail .sep{width:34px;height:1px;background:var(--line);margin:4px 0}
+.rail .grow{flex:1}
+.hex{position:relative;width:52px;height:58px;border:0;background:none;padding:0;cursor:pointer;color:var(--g);transition:transform .15s}
+.hex:hover{transform:scale(1.08)}
+.hex:focus-visible{outline:2px solid var(--b);outline-offset:2px;border-radius:12px}
+.hex svg{width:100%;height:100%;display:block}
+.hex .tip{position:absolute;left:62px;top:50%;transform:translateY(-50%);background:#1b241f;color:var(--t);padding:4px 9px;border-radius:8px;font-size:12px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s;z-index:5}
+.hex:hover .tip,.hex:focus-visible .tip{opacity:1}
+.badge{position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;border-radius:9px;background:var(--b);color:#06222f;font-size:11px;font-weight:600;display:grid;place-items:center;padding:0 5px;border:2px solid #080b09}
+.panel{background:var(--panel);padding:14px 12px;display:flex;flex-direction:column;gap:10px;border-right:1px solid var(--line);overflow:hidden}
+.search{background:#0a0f0c;border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--m)}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav div{padding:8px 10px;border-radius:9px;color:var(--m)}
+.nav .on{background:#1a231e;color:var(--t)}
+.lbl{font-size:11px;color:var(--m);padding:6px 4px 0;letter-spacing:.02em}
+.dm{display:flex;gap:10px;align-items:center;padding:7px 6px;border-radius:10px}
+.dm:hover,.dm.hi{background:#151d19}
+.av{position:relative;width:40px;height:40px;flex:none}
+.av svg{width:100%;height:100%;display:block}
+.dot{position:absolute;right:-1px;bottom:-1px;width:11px;height:11px;border-radius:50%;background:var(--b);border:2px solid var(--panel)}
+.dot.off{background:#56615b}
+.dm .who{flex:1;min-width:0}
+.dm b{display:block;font-weight:600;font-size:13px}
+.dm span.m{color:var(--m);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.dm .n{background:var(--b);color:#06222f;border-radius:10px;min-width:20px;height:20px;font-size:11px;font-weight:600;display:grid;place-items:center;padding:0 6px}
+.me{margin-top:auto;display:flex;align-items:center;gap:10px;padding-top:10px;border-top:1px solid var(--line);color:var(--b)}
+.main{padding:18px 22px;overflow:hidden}
+.top{display:flex;justify-content:space-between;color:var(--m);margin-bottom:14px}
+.top b{color:var(--t);font-weight:600;font-size:15px;margin-right:8px}
+.hero{position:relative;height:250px;border-radius:18px;background:#0f1713;border:1px solid var(--line);padding:30px 34px;overflow:hidden}
+.hero h3{margin:0;font-size:28px;font-weight:500;color:#aab6af;line-height:1.25}
+.hero h3 em{font-style:normal;color:var(--b)}
+.hero p{color:var(--m);margin:10px 0 20px}
+.btn{display:inline-block;padding:11px 18px;border-radius:12px;font-weight:600;margin-right:8px;border:1px solid var(--line)}
+.btn.p{background:var(--g);color:#0a0e0c;border-color:var(--g)}
+.hero .big{position:absolute;right:30px;bottom:-6px;width:230px;height:230px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
+.card{border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;gap:10px;align-items:center;background:var(--panel)}
+.card .hx{width:40px;height:44px;flex:none}
+.card small{color:var(--m);display:block}
+.phone{width:360px;height:700px;border-radius:40px;border:9px solid #1d2420;display:grid;grid-template-rows:30px 1fr;overflow:hidden;margin:0 auto;max-width:100%}
+.sb{display:flex;justify-content:space-between;padding:10px 24px 0;font-size:12px;font-weight:600}
+.mb{display:grid;grid-template-columns:62px 1fr;min-height:0;background:#080b09}
+.mb .rail{padding:10px 0;gap:4px;border-right:0}
+.mb .hex{width:42px;height:47px}
+.mb .hex .tip{display:none}
+.mb .badge{min-width:16px;height:16px;font-size:10px}
+.mc{background:var(--panel);padding:14px 12px 10px;display:flex;flex-direction:column;gap:8px;overflow:hidden;border-top-left-radius:26px;border-top:1.5px solid #38c0ff;border-left:1.5px solid #38c0ff}
+.tabs{display:flex;gap:6px;align-items:center}
+.tabs span{padding:7px 14px;border-radius:10px;color:var(--m);font-weight:600}
+.tabs .on{background:var(--g);color:#0a0e0c}
+.recent{display:flex;gap:12px;padding:4px 2px}
+.recent .r{width:46px;text-align:center;font-size:10px;color:var(--m)}
+.recent .av{width:46px;height:46px;margin-bottom:2px}
+.recent .badge{border-color:var(--panel)}
+.note{color:var(--mu);font-size:13px;max-width:62ch;margin:12px auto 0}
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;h1&gt;Square: new sidebar concept&lt;/h1&gt;
+&lt;p class=&quot;sub&quot;&gt;Communities are hex badges with a blue unread ring. People are robot faces. Click any hex to make it active, and hover (or focus) one to see its name.&lt;/p&gt;
+
+&lt;h2&gt;Desktop&lt;/h2&gt;
+&lt;div class=&quot;scroll&quot;&gt;&lt;div class=&quot;app desk&quot; id=&quot;desk&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2&gt;Mobile&lt;/h2&gt;
+&lt;div class=&quot;app phone&quot; id=&quot;phone&quot;&gt;&lt;/div&gt;
+&lt;p class=&quot;note&quot;&gt;On mobile the hex rail stays on the left but narrows to 62px, so the layout matches your current screens while the shape and rings carry the new identity.&lt;/p&gt;
+
+&lt;script&gt;
+var COMM=[{k:&#x27;WC&#x27;,n:&#x27;Web3 Club&#x27;,u:12,r:.75},{k:&#x27;DL&#x27;,n:&#x27;Design Lab&#x27;,u:3,r:.25},{k:&#x27;AI&#x27;,n:&#x27;AI Builders&#x27;,u:0,r:0},{k:&#x27;GC&#x27;,n:&#x27;Game Circle&#x27;,u:0,r:0},{k:&#x27;MC&#x27;,n:&#x27;Maker Corner&#x27;,u:5,r:.45}];
+var DMS=[[&#x27;tunde-ade&#x27;,&#x27;See you at the lab by 5?&#x27;,&#x27;19m&#x27;,2,1],[&#x27;chioma-n&#x27;,&#x27;Thanks for the feedback!&#x27;,&#x27;1h&#x27;,0,1],[&#x27;zainab-b&#x27;,&#x27;Sending the draft tonight.&#x27;,&#x27;5h&#x27;,1,1],[&#x27;victory-gray&#x27;,&#x27;You can’t message this user&#x27;,&#x27;1d&#x27;,0,0],[&#x27;sam-okoro&#x27;,&#x27;The servo arrived, testing later.&#x27;,&#x27;1d&#x27;,0,0],[&#x27;david-k&#x27;,&#x27;Photos from the walk are up.&#x27;,&#x27;1w&#x27;,0,1]];
+var active=0;
+var PTS=&#x27;26,3 49,16 49,42 26,55 3,42 3,16&#x27;;
+function hexSvg(k,on,ring,extra){
+  var per=159,len=Math.round(per*ring);
+  return &#x27;&lt;svg viewBox=&quot;0 0 52 58&quot; aria-hidden=&quot;true&quot;&gt;&#x27;+
+   (ring&gt;0?&#x27;&lt;polygon points=&quot;&#x27;+PTS+&#x27;&quot; fill=&quot;none&quot; stroke=&quot;#38c0ff&quot; stroke-width=&quot;3&quot; stroke-linejoin=&quot;round&quot; stroke-dasharray=&quot;&#x27;+len+&#x27; &#x27;+per+&#x27;&quot; stroke-linecap=&quot;round&quot;/&gt;&#x27;:&#x27;&lt;polygon points=&quot;&#x27;+PTS+&#x27;&quot; fill=&quot;none&quot; stroke=&quot;#222c27&quot; stroke-width=&quot;1.5&quot;/&gt;&#x27;)+
+   &#x27;&lt;g transform=&quot;translate(26 29) scale(.76) translate(-26 -29)&quot;&gt;&lt;polygon points=&quot;&#x27;+PTS+&#x27;&quot; fill=&quot;&#x27;+(on?&#x27;#a6ff1a&#x27;:&#x27;#151d19&#x27;)+&#x27;&quot; stroke=&quot;&#x27;+(on?&#x27;#a6ff1a&#x27;:&#x27;#2c3832&#x27;)+&#x27;&quot; stroke-width=&quot;1.5&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;/g&gt;&#x27;+
+   &#x27;&lt;text x=&quot;26&quot; y=&quot;34&quot; text-anchor=&quot;middle&quot; font-size=&quot;12&quot; font-weight=&quot;700&quot; fill=&quot;&#x27;+(on?&#x27;#0a0e0c&#x27;:&#x27;#a6ff1a&#x27;)+&#x27;&quot;&gt;&#x27;+k+&#x27;&lt;/text&gt;&lt;/svg&gt;&#x27;;
+}
+function logo(){
+  return &#x27;&lt;button class=&quot;hex&quot; aria-label=&quot;Square home&quot;&gt;&lt;svg viewBox=&quot;0 0 52 58&quot; aria-hidden=&quot;true&quot;&gt;&lt;polygon points=&quot;&#x27;+PTS+&#x27;&quot; fill=&quot;#a6ff1a&quot; stroke-linejoin=&quot;round&quot; stroke=&quot;#a6ff1a&quot; stroke-width=&quot;2&quot;/&gt;&lt;path d=&quot;M33 20h-9a5 5 0 0 0 0 10h4a2 2 0 0 1 0 4H19M19 24&quot; fill=&quot;none&quot; stroke=&quot;#0a0e0c&quot; stroke-width=&quot;4&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;badge&quot;&gt;3&lt;/span&gt;&lt;/button&gt;&#x27;;
+}
+function rail(){
+  var h=logo()+&#x27;&lt;div class=&quot;sep&quot;&gt;&lt;/div&gt;&#x27;;
+  COMM.forEach(function(c,i){
+    h+=&#x27;&lt;button class=&quot;hex&quot; data-i=&quot;&#x27;+i+&#x27;&quot; aria-label=&quot;&#x27;+c.n+(c.u?&#x27;, &#x27;+c.u+&#x27; unread&#x27;:&#x27;&#x27;)+&#x27;&quot; aria-pressed=&quot;&#x27;+(i===active)+&#x27;&quot;&gt;&#x27;+hexSvg(c.k,i===active,c.r)+&#x27;&lt;span class=&quot;tip&quot;&gt;&#x27;+c.n+(c.u?&#x27; · &#x27;+c.u+&#x27; new&#x27;:&#x27;&#x27;)+&#x27;&lt;/span&gt;&lt;/button&gt;&#x27;;
+  });
+  h+=&#x27;&lt;button class=&quot;hex&quot; aria-label=&quot;Add community&quot;&gt;&lt;svg viewBox=&quot;0 0 52 58&quot; aria-hidden=&quot;true&quot;&gt;&lt;polygon points=&quot;&#x27;+PTS+&#x27;&quot; fill=&quot;none&quot; stroke=&quot;#3a463f&quot; stroke-dasharray=&quot;3 4&quot; stroke-width=&quot;1.5&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;path d=&quot;M26 22v14M19 29h14&quot; stroke=&quot;#a6ff1a&quot; stroke-width=&quot;2.5&quot; stroke-linecap=&quot;round&quot;/&gt;&lt;/svg&gt;&lt;/button&gt;&lt;div class=&quot;grow&quot;&gt;&lt;/div&gt;&#x27;;
+  h+=&#x27;&lt;button class=&quot;hex&quot; aria-label=&quot;Your profile&quot;&gt;&lt;svg viewBox=&quot;0 0 52 58&quot; aria-hidden=&quot;true&quot;&gt;&lt;polygon points=&quot;&#x27;+PTS+&#x27;&quot; fill=&quot;#151d19&quot; stroke=&quot;#2c3832&quot; stroke-width=&quot;1.5&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;text x=&quot;26&quot; y=&quot;34&quot; text-anchor=&quot;middle&quot; font-size=&quot;13&quot; font-weight=&quot;700&quot; fill=&quot;#e6ece8&quot;&gt;N&lt;/text&gt;&lt;/svg&gt;&lt;/button&gt;&#x27;;
+  return h;
+}
+function face(i,blue){
+  var c=blue?&#x27;#38c0ff&#x27;:&#x27;#a6ff1a&#x27;,e=&#x27;&#x27;,x=&#x27;&#x27;;
+  var s=i%6;
+  if(s===0)e=&#x27;&lt;path d=&quot;M15 19q2.5-4 5 0M21 19q2.5-4 5 0&quot; stroke=&quot;&#x27;+c+&#x27;&quot; stroke-width=&quot;1.8&quot; fill=&quot;none&quot; stroke-linecap=&quot;round&quot;/&gt;&#x27;;
+  if(s===1)e=&#x27;&lt;rect x=&quot;16&quot; y=&quot;15.5&quot; width=&quot;2.6&quot; height=&quot;6&quot; rx=&quot;1.3&quot; fill=&quot;&#x27;+c+&#x27;&quot;/&gt;&lt;rect x=&quot;22.4&quot; y=&quot;15.5&quot; width=&quot;2.6&quot; height=&quot;6&quot; rx=&quot;1.3&quot; fill=&quot;&#x27;+c+&#x27;&quot;/&gt;&#x27;;
+  if(s===2){e=&#x27;&lt;circle cx=&quot;17&quot; cy=&quot;18.5&quot; r=&quot;2&quot; fill=&quot;&#x27;+c+&#x27;&quot;/&gt;&lt;circle cx=&quot;24&quot; cy=&quot;18.5&quot; r=&quot;2&quot; fill=&quot;&#x27;+c+&#x27;&quot;/&gt;&#x27;;x=&#x27;&lt;path d=&quot;M9 14L8 4l8 5zM32 14l1-10-8 5z&quot; fill=&quot;#e8ecef&quot;/&gt;&#x27;;}
+  if(s===3){e=&#x27;&lt;path d=&quot;M15 15.5l4 3-4 3M26 15.5l-4 3 4 3&quot; stroke=&quot;&#x27;+c+&#x27;&quot; stroke-width=&quot;1.8&quot; fill=&quot;none&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;/&gt;&#x27;;x=&#x27;&lt;path d=&quot;M20.5 8V3&quot; stroke=&quot;#e8ecef&quot; stroke-width=&quot;1.5&quot;/&gt;&lt;circle cx=&quot;20.5&quot; cy=&quot;2.5&quot; r=&quot;1.8&quot; fill=&quot;&#x27;+c+&#x27;&quot;/&gt;&#x27;;}
+  if(s===4)e=&#x27;&lt;path d=&quot;M14 18.5h13&quot; stroke=&quot;&#x27;+c+&#x27;&quot; stroke-width=&quot;2.4&quot; stroke-linecap=&quot;round&quot;/&gt;&#x27;;
+  if(s===5)e=&#x27;&lt;path d=&quot;M15 19q2.5-4 5 0&quot; stroke=&quot;&#x27;+c+&#x27;&quot; stroke-width=&quot;1.8&quot; fill=&quot;none&quot; stroke-linecap=&quot;round&quot;/&gt;&lt;circle cx=&quot;24.5&quot; cy=&quot;18&quot; r=&quot;2.2&quot; fill=&quot;&#x27;+c+&#x27;&quot;/&gt;&#x27;;
+  return &#x27;&lt;svg viewBox=&quot;0 0 41 41&quot; aria-hidden=&quot;true&quot;&gt;&lt;rect width=&quot;41&quot; height=&quot;41&quot; rx=&quot;12&quot; fill=&quot;#18211c&quot;/&gt;&#x27;+x+&#x27;&lt;path d=&quot;M6 41c0-9 6-12 14.500-12s14.500 3 14.500 12z&quot; fill=&quot;#e8ecef&quot;/&gt;&lt;rect x=&quot;9&quot; y=&quot;7&quot; width=&quot;23&quot; height=&quot;21&quot; rx=&quot;9.500&quot; fill=&quot;#e8ecef&quot;/&gt;&lt;rect x=&quot;12&quot; y=&quot;12&quot; width=&quot;17&quot; height=&quot;12&quot; rx=&quot;6&quot; fill=&quot;#0a0e0c&quot;/&gt;&#x27;+e+&#x27;&lt;/svg&gt;&#x27;;
+}
+function dmRows(){
+  return DMS.map(function(d,i){
+    return &#x27;&lt;div class=&quot;dm&#x27;+(i===0?&#x27; hi&#x27;:&#x27;&#x27;)+&#x27;&quot;&gt;&lt;div class=&quot;av&quot;&gt;&#x27;+face(i,i%2===1)+&#x27;&lt;span class=&quot;dot&#x27;+(d[4]?&#x27;&#x27;:&#x27; off&#x27;)+&#x27;&quot;&gt;&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;who&quot;&gt;&lt;b&gt;#&#x27;+d[0]+&#x27;&lt;/b&gt;&lt;span class=&quot;m&quot;&gt;&#x27;+d[1]+&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;+(d[3]?&#x27;&lt;span class=&quot;n&quot;&gt;&#x27;+d[3]+&#x27;&lt;/span&gt;&#x27;:&#x27;&lt;span class=&quot;m&quot; style=&quot;font-size:11px;color:#7f8c85&quot;&gt;&#x27;+d[2]+&#x27;&lt;/span&gt;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
+  }).join(&#x27;&#x27;);
+}
+function drawDesk(){
+  var el=document.getElementById(&#x27;desk&#x27;);
+  el.innerHTML=&#x27;&lt;div class=&quot;rail&quot;&gt;&#x27;+rail()+&#x27;&lt;/div&gt;&#x27;+
+  &#x27;&lt;div class=&quot;panel&quot;&gt;&lt;div class=&quot;search&quot;&gt;Search or start a chat&lt;/div&gt;&lt;div class=&quot;nav&quot;&gt;&lt;div class=&quot;on&quot;&gt;Discover&lt;/div&gt;&lt;div&gt;Explore&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;lbl&quot;&gt;Direct messages&lt;/div&gt;&#x27;+dmRows()+&#x27;&lt;div class=&quot;me&quot;&gt;&lt;div class=&quot;av&quot; style=&quot;width:34px;height:34px&quot;&gt;&#x27;+face(7,true)+&#x27;&lt;/div&gt;#amaka-eze&lt;/div&gt;&lt;/div&gt;&#x27;+
+  &#x27;&lt;div class=&quot;main&quot;&gt;&lt;div class=&quot;top&quot;&gt;&lt;div&gt;&lt;b&gt;Discover&lt;/b&gt;Tuesday, November 24&lt;/div&gt;&lt;div&gt;Notifications&lt;/div&gt;&lt;/div&gt;&#x27;+
+  &#x27;&lt;div class=&quot;hero&quot;&gt;&lt;h3&gt;Good morning,&lt;br&gt;&lt;em&gt;#amaka-eze&lt;/em&gt;&lt;/h3&gt;&lt;p&gt;Pick up a chat or find a new community.&lt;/p&gt;&lt;span class=&quot;btn p&quot;&gt;Find people&lt;/span&gt;&lt;span class=&quot;btn&quot;&gt;Explore&lt;/span&gt;&lt;div class=&quot;big&quot;&gt;&#x27;+face(2,false)+&#x27;&lt;/div&gt;&lt;/div&gt;&#x27;+
+  &#x27;&lt;div style=&quot;display:flex;justify-content:space-between;margin-top:18px&quot;&gt;&lt;b style=&quot;font-size:15px&quot;&gt;Top communities to join&lt;/b&gt;&lt;span style=&quot;color:#a6ff1a&quot;&gt;See all&lt;/span&gt;&lt;/div&gt;&#x27;+
+  &#x27;&lt;div class=&quot;cards&quot;&gt;&#x27;+[&#x27;Web3 Builders&#x27;,&#x27;Design Crit&#x27;,&#x27;Rust Naija&#x27;].map(function(n,i){return &#x27;&lt;div class=&quot;card&quot;&gt;&lt;svg class=&quot;hx&quot; viewBox=&quot;0 0 52 58&quot;&gt;&lt;polygon points=&quot;&#x27;+PTS+&#x27;&quot; fill=&quot;#151d19&quot; stroke=&quot;#2c3832&quot; stroke-width=&quot;1.5&quot;/&gt;&lt;text x=&quot;26&quot; y=&quot;34&quot; text-anchor=&quot;middle&quot; font-size=&quot;12&quot; font-weight=&quot;700&quot; fill=&quot;#a6ff1a&quot;&gt;&#x27;+n.slice(0,2).toUpperCase()+&#x27;&lt;/text&gt;&lt;/svg&gt;&lt;div&gt;&lt;b&gt;&#x27;+n+&#x27;&lt;/b&gt;&lt;small&gt;&#x27;+(4120-i*900)+&#x27; members&lt;/small&gt;&lt;/div&gt;&lt;/div&gt;&#x27;;}).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&lt;/div&gt;&#x27;;
+}
+function drawPhone(){
+  var el=document.getElementById(&#x27;phone&#x27;);
+  var rec=[0,1,2,3].map(function(i){return &#x27;&lt;div class=&quot;r&quot;&gt;&lt;div class=&quot;av&quot;&gt;&#x27;+face(i,i%2===1)+(i===0?&#x27;&lt;span class=&quot;badge&quot;&gt;2&lt;/span&gt;&#x27;:i===2?&#x27;&lt;span class=&quot;badge&quot;&gt;1&lt;/span&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;+DMS[i][0].split(&#x27;-&#x27;)[0]+&#x27;&lt;/div&gt;&#x27;;}).join(&#x27;&#x27;);
+  el.innerHTML=&#x27;&lt;div class=&quot;sb&quot;&gt;&lt;span&gt;3:47&lt;/span&gt;&lt;span&gt;5G&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;mb&quot;&gt;&lt;div class=&quot;rail&quot;&gt;&#x27;+rail()+&#x27;&lt;/div&gt;&lt;div class=&quot;mc&quot;&gt;&lt;div class=&quot;tabs&quot;&gt;&lt;span class=&quot;on&quot;&gt;Chats&lt;/span&gt;&lt;span&gt;Explore&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;lbl&quot;&gt;Recent&lt;/div&gt;&lt;div class=&quot;recent&quot;&gt;&#x27;+rec+&#x27;&lt;/div&gt;&lt;div class=&quot;lbl&quot;&gt;Direct messages&lt;/div&gt;&#x27;+dmRows()+&#x27;&lt;div class=&quot;me&quot;&gt;&lt;div class=&quot;av&quot; style=&quot;width:32px;height:32px&quot;&gt;&#x27;+face(7,true)+&#x27;&lt;/div&gt;#amaka-eze&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&#x27;;
+}
+function wire(){
+  document.querySelectorAll(&#x27;.hex[data-i]&#x27;).forEach(function(b){
+    b.onclick=function(){active=+b.dataset.i;drawDesk();drawPhone();wire();};
+  });
+}
+drawDesk();drawPhone();wire();
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+" ></iframe><iframe id="f-mobile" title="Mobile screens" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1, viewport-fit=cover&quot;&gt;
+&lt;title&gt;Square: mobile redesign&lt;/title&gt;
+&lt;style&gt;
+:root{--pg:#eef2ef;--tx:#17201b;--mu:#5b6a61;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme=&quot;light&quot;]){--pg:#070a09;--tx:#e6ece8;--mu:#8a978f}}
+:root[data-theme=&quot;dark&quot;]{--pg:#070a09;--tx:#e6ece8;--mu:#8a978f}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--pg);color:var(--tx);font:15px/1.5 &quot;Segoe UI&quot;,system-ui,-apple-system,Roboto,sans-serif;padding:28px 16px 48px}
+h1{font-size:20px;font-weight:600;margin:0 0 4px}
+p.sub{margin:0 0 8px;color:var(--mu);max-width:64ch}
+.row{display:flex;flex-wrap:wrap;gap:36px 28px;justify-content:center;margin-top:20px}
+figure{margin:0}
+figcaption{font-size:14px;font-weight:600;color:var(--mu);margin:0 0 10px;text-align:center}
+.phone{--bg:#0a0e0c;--panel:#0f1512;--line:#222c27;--g:#a6ff1a;--b:#38c0ff;--t:#e6ece8;--m:#7f8c85;background:var(--bg);color:var(--t);font-size:13px;width:360px;max-width:100%;height:720px;border-radius:40px;border:9px solid #1d2420;display:grid;grid-template-rows:28px 1fr;overflow:hidden}
+.sb{display:flex;justify-content:space-between;padding:9px 24px 0;font-size:12px;font-weight:600}
+.mb{display:grid;grid-template-columns:62px 1fr;min-height:0;background:#080b09}
+.rail{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 0}
+.rail .sep{width:30px;height:1px;background:var(--line);margin:3px 0}
+.rail .grow{flex:1}
+.hex{position:relative;width:42px;height:47px;border:0;background:none;padding:0;cursor:pointer}
+.hex svg{width:100%;height:100%;display:block}
+.hex:focus-visible{outline:2px solid var(--b);outline-offset:2px;border-radius:10px}
+.badge{position:absolute;top:-3px;right:-3px;min-width:17px;height:17px;border-radius:9px;background:var(--b);color:#06222f;font-size:10px;font-weight:700;display:grid;place-items:center;padding:0 4px;border:2px solid #080b09}
+.mc{background:var(--panel);display:flex;flex-direction:column;min-height:0;border-top-left-radius:26px;border-top:1.5px solid var(--b);border-left:1.5px solid var(--b);overflow:hidden}
+.scr{flex:1;overflow-y:auto;padding:16px 14px;scrollbar-width:none}
+.scr::-webkit-scrollbar{display:none}
+h3{margin:0;font-size:22px;font-weight:600;line-height:1.2}
+.mut{color:var(--m)}
+.btn{display:block;width:100%;border:0;font:inherit;font-weight:700;font-size:14px;padding:13px 16px;background:var(--g);color:#0a0e0c;cursor:pointer;clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 10px,100% calc(100% - 10px),calc(100% - 10px) 100%,10px 100%,0 calc(100% - 10px),0 10px)}
+.btn:focus-visible{outline:2px solid var(--b)}
+.search{display:flex;gap:8px;align-items:center;border:1px solid var(--line);background:#0a0f0c;border-radius:12px;padding:10px 12px;color:var(--m);margin:12px 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:#18211c;color:#aab6af;padding:6px 13px;font-size:12px;clip-path:polygon(7px 0,calc(100% - 7px) 0,100% 7px,100% calc(100% - 7px),calc(100% - 7px) 100%,7px 100%,0 calc(100% - 7px),0 7px);cursor:pointer;border:0;font-family:inherit}
+.chip.on{background:var(--b);color:#06222f;font-weight:700}
+.seg{display:flex;margin:12px 0 4px;background:#0a0f0c;border:1px solid var(--line);border-radius:10px;padding:3px;width:max-content;margin-left:auto}
+.seg span{padding:5px 12px;border-radius:7px;color:var(--m)}
+.seg .on{background:#1a231e;color:var(--t)}
+.card{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#121a16;margin-top:10px}
+.ban{height:70px;background:#14201a;position:relative}
+.ban svg{position:absolute;right:0;top:0;height:100%}
+.ban small{position:absolute;left:14px;top:12px;color:#6e8f3a;font-size:11px;letter-spacing:.12em}
+.cb{padding:0 14px 14px;margin-top:-26px}
+.hx{width:50px;height:56px;display:block}
+.cb h4{margin:8px 0 0;font-size:16px}
+.tags{display:flex;gap:6px;margin:10px 0}
+.tags span{border:1px solid #2c4a5a;color:#7cc7ea;border-radius:7px;padding:2px 8px;font-size:11px}
+.jr{display:flex;align-items:center;justify-content:space-between}
+.jr .btn{width:auto;padding:9px 18px}
+.ftb{display:flex;align-items:center;justify-content:space-between;margin:12px 0 4px;position:relative}
+.ftb .seg{margin:0}
+.fbtn{display:flex;align-items:center;gap:7px;background:#18211c;color:var(--t);border:1px solid var(--line);border-radius:12px;padding:4px 10px 4px 6px;font:inherit;font-size:12px;cursor:pointer}
+.fbtn:focus-visible,.fbtn[aria-expanded=true]{border-color:var(--b);outline:none}
+.menu{position:absolute;left:0;top:42px;z-index:5;background:#161f1a;border:1px solid #2a6b8c;border-radius:14px;padding:6px;display:none;width:170px}
+.menu.open{display:block}
+.menu button{display:flex;width:100%;align-items:center;justify-content:space-between;border:0;background:none;color:#cfd8d3;font:inherit;font-size:13px;padding:8px 10px;border-radius:9px;cursor:pointer;text-align:left}
+.menu button:hover,.menu button:focus-visible{background:#1f2b25;outline:none}
+.menu button.on{color:var(--b);font-weight:700}
+.crow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.crow svg{width:34px;height:38px;flex:none}
+.crow .w{flex:1;min-width:0}
+.crow b{display:block;font-size:13px}
+.crow small{color:var(--m);font-size:11px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jn{border:0;font:inherit;font-weight:700;font-size:12px;background:var(--g);color:#0a0e0c;padding:6px 13px;cursor:pointer;clip-path:polygon(6px 0,calc(100% - 6px) 0,100% 6px,100% calc(100% - 6px),calc(100% - 6px) 100%,6px 100%,0 calc(100% - 6px),0 6px)}
+.jn.in{background:#12303f;color:var(--b)}
+.jn:focus-visible{outline:2px solid var(--b)}
+.empty{color:var(--m);padding:18px 0;text-align:center}
+.av{position:relative;width:38px;height:38px;flex:none}
+.av svg{width:100%;height:100%;display:block}
+.dot{position:absolute;right:-1px;bottom:-1px;width:11px;height:11px;border-radius:50%;background:var(--b);border:2px solid var(--panel)}
+.hd{display:flex;gap:10px;align-items:center;padding:14px 14px 12px;border-bottom:1px solid var(--line)}
+.hd b{display:block;font-size:15px}
+.hd small{color:var(--b);font-size:12px}
+.day{text-align:center;color:var(--m);font-size:11px;margin:4px 0 12px;display:flex;align-items:center;gap:10px}
+.day:before,.day:after{content:&quot;&quot;;flex:1;height:1px;background:var(--line)}
+.msg{display:flex;gap:9px;margin-bottom:14px}
+.msg .bd{min-width:0;max-width:calc(100% - 50px)}
+.nm{font-size:12px;color:var(--g);font-weight:700}
+.nm i{font-style:normal;color:var(--m);font-weight:400;margin-left:6px}
+.bub{margin-top:3px;background:#18211c;padding:9px 12px;border-radius:4px 14px 14px 14px;font-size:14px;line-height:1.4;width:fit-content;max-width:100%}
+.me{flex-direction:row-reverse}
+.me .bd{display:flex;flex-direction:column;align-items:flex-end}
+.me .bub{background:#12303f;border:1px solid #2a6b8c;border-radius:14px 4px 14px 14px}
+.me .nm{color:var(--b)}
+.rx{display:flex;gap:5px;margin-top:5px}
+.rx span{background:#18211c;border:1px solid var(--line);border-radius:9px;padding:1px 8px;font-size:12px}
+.seen{font-size:11px;color:var(--m);margin-top:3px}
+.comp{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}
+.comp input{flex:1;min-width:0;background:#0a0f0c;border:1px solid var(--line);border-radius:12px;color:var(--t);padding:10px 12px;font:inherit}
+.comp input:focus{outline:none;border-color:var(--b)}
+.comp .btn{width:46px;padding:0;display:grid;place-items:center}
+.login{display:flex;flex-direction:column;padding:26px 22px;overflow:hidden;position:relative;background:#0a0e0c}
+.login .bgx{position:absolute;right:-40px;top:-20px;width:240px;opacity:.5}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;margin-top:70px;position:relative}
+.login h3{font-size:30px;margin:18px 0 8px;position:relative}
+.otp{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin:14px 0 6px}
+.otp input{width:100%;height:50px;text-align:center;font:inherit;font-size:20px;font-weight:700;color:var(--t);background:#0f1512;border:1px solid var(--line);border-radius:12px;padding:0}
+.otp input:focus{outline:none;border-color:var(--b)}
+.err{color:#ff8a8a;font-size:12px;min-height:18px}
+.lk{display:flex;justify-content:space-between;color:var(--m);margin-top:16px}
+.lk b{color:var(--g);font-weight:600}
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;h1&gt;Square: mobile redesign&lt;/h1&gt;
+&lt;p class=&quot;sub&quot;&gt;Explore, a DM chat and the verify screen, rebuilt with the hex rail, curved blue edge, robot avatars and angled-corner buttons. The login screen now fits the width (the code boxes were running off the edge), and “communitys” is now “communities”.&lt;/p&gt;
+
+&lt;div class=&quot;row&quot;&gt;
+&lt;figure&gt;&lt;figcaption&gt;Explore&lt;/figcaption&gt;
+&lt;div class=&quot;phone&quot;&gt;&lt;div class=&quot;sb&quot;&gt;&lt;span&gt;11:35 pm&lt;/span&gt;&lt;span&gt;4G&lt;/span&gt;&lt;/div&gt;
+&lt;div class=&quot;mb&quot;&gt;&lt;div class=&quot;rail&quot; data-rail=&quot;explore&quot;&gt;&lt;/div&gt;
+&lt;div class=&quot;mc&quot;&gt;&lt;div class=&quot;scr&quot;&gt;
+&lt;h3&gt;Explore&lt;/h3&gt;&lt;div class=&quot;mut&quot; style=&quot;margin:4px 0 14px&quot;&gt;Public communities across campus.&lt;/div&gt;
+&lt;button class=&quot;btn&quot;&gt;Create a community&lt;/button&gt;
+&lt;div class=&quot;search&quot;&gt;&lt;svg width=&quot;16&quot; height=&quot;16&quot; viewBox=&quot;0 0 16 16&quot; fill=&quot;none&quot; stroke=&quot;#7f8c85&quot; stroke-width=&quot;1.6&quot; stroke-linecap=&quot;round&quot;&gt;&lt;circle cx=&quot;7&quot; cy=&quot;7&quot; r=&quot;5&quot;/&gt;&lt;path d=&quot;M11 11l3.500 3.500&quot;/&gt;&lt;/svg&gt;Search public communities&lt;/div&gt;
+&lt;div class=&quot;ftb&quot;&gt;&lt;button class=&quot;fbtn&quot; id=&quot;fb&quot; aria-haspopup=&quot;true&quot; aria-expanded=&quot;false&quot; aria-label=&quot;Filter communities&quot;&gt;&lt;svg width=&quot;26&quot; height=&quot;26&quot; viewBox=&quot;0 0 26 26&quot; fill=&quot;none&quot; stroke=&quot;#a6ff1a&quot; stroke-width=&quot;1.7&quot; stroke-linecap=&quot;round&quot;&gt;&lt;path d=&quot;M13 6V3&quot;/&gt;&lt;circle cx=&quot;13&quot; cy=&quot;2.300&quot; r=&quot;1.300&quot; fill=&quot;#a6ff1a&quot; stroke=&quot;none&quot;/&gt;&lt;rect x=&quot;3&quot; y=&quot;7&quot; width=&quot;20&quot; height=&quot;15&quot; rx=&quot;6&quot;/&gt;&lt;path d=&quot;M8 12h10M10 15.500h6M12 19h2&quot;/&gt;&lt;/svg&gt;&lt;span id=&quot;fl&quot;&gt;My school&lt;/span&gt;&lt;svg width=&quot;10&quot; height=&quot;10&quot; viewBox=&quot;0 0 10 10&quot; fill=&quot;none&quot; stroke=&quot;#7f8c85&quot; stroke-width=&quot;1.600&quot; stroke-linecap=&quot;round&quot;&gt;&lt;path d=&quot;M2 3.500l3 3 3-3&quot;/&gt;&lt;/svg&gt;&lt;/button&gt;&lt;div class=&quot;menu&quot; id=&quot;fm&quot; role=&quot;menu&quot;&gt;&lt;/div&gt;&lt;div class=&quot;seg&quot;&gt;&lt;span class=&quot;on&quot;&gt;Top this week&lt;/span&gt;&lt;span&gt;New&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;div style=&quot;font-weight:700;margin:10px 0 0;font-size:15px&quot;&gt;Top communities&lt;/div&gt;
+&lt;div id=&quot;list&quot;&gt;&lt;/div&gt;
+&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/figure&gt;
+
+&lt;figure&gt;&lt;figcaption&gt;Direct message&lt;/figcaption&gt;
+&lt;div class=&quot;phone&quot;&gt;&lt;div class=&quot;sb&quot;&gt;&lt;span&gt;11:25 pm&lt;/span&gt;&lt;span&gt;4G&lt;/span&gt;&lt;/div&gt;
+&lt;div class=&quot;mb&quot;&gt;&lt;div class=&quot;rail&quot; data-rail=&quot;chat&quot;&gt;&lt;/div&gt;
+&lt;div class=&quot;mc&quot;&gt;
+&lt;div class=&quot;hd&quot;&gt;&lt;div class=&quot;av&quot; data-face=&quot;1&quot; data-blue=&quot;1&quot;&gt;&lt;span class=&quot;dot&quot;&gt;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;#chioma-n&lt;/b&gt;&lt;small&gt;Online · View profile&lt;/small&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;scr&quot; id=&quot;msgs&quot;&gt;
+&lt;div class=&quot;day&quot;&gt;Today&lt;/div&gt;
+&lt;div class=&quot;msg&quot;&gt;&lt;div class=&quot;av&quot; data-face=&quot;1&quot; data-blue=&quot;1&quot;&gt;&lt;/div&gt;&lt;div class=&quot;bd&quot;&gt;&lt;div class=&quot;nm&quot;&gt;#chioma-n&lt;i&gt;21:33&lt;/i&gt;&lt;/div&gt;&lt;div class=&quot;bub&quot;&gt;Can you check my mockup?&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;msg me&quot;&gt;&lt;div class=&quot;av&quot; data-face=&quot;4&quot;&gt;&lt;/div&gt;&lt;div class=&quot;bd&quot;&gt;&lt;div class=&quot;nm&quot;&gt;#amaka-eze&lt;i&gt;21:43&lt;/i&gt;&lt;/div&gt;&lt;div class=&quot;bub&quot;&gt;Looks clean, maybe tighten spacing.&lt;/div&gt;&lt;div class=&quot;rx&quot;&gt;&lt;span&gt;❤ 1&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;seen&quot;&gt;Seen&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;msg&quot;&gt;&lt;div class=&quot;av&quot; data-face=&quot;1&quot; data-blue=&quot;1&quot;&gt;&lt;/div&gt;&lt;div class=&quot;bd&quot;&gt;&lt;div class=&quot;nm&quot;&gt;#chioma-n&lt;i&gt;21:47&lt;/i&gt;&lt;/div&gt;&lt;div class=&quot;bub&quot;&gt;Thanks for the feedback!&lt;/div&gt;&lt;div class=&quot;rx&quot;&gt;&lt;span&gt;😂 1&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;/div&gt;
+&lt;form class=&quot;comp&quot; id=&quot;cf&quot; autocomplete=&quot;off&quot;&gt;&lt;input id=&quot;ci&quot; placeholder=&quot;Message&quot; aria-label=&quot;Message&quot;&gt;&lt;button class=&quot;btn&quot; aria-label=&quot;Send&quot;&gt;&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 20 20&quot; fill=&quot;none&quot; stroke=&quot;#0a0e0c&quot; stroke-width=&quot;2&quot; stroke-linejoin=&quot;round&quot; stroke-linecap=&quot;round&quot;&gt;&lt;path d=&quot;M18 2L9 11M18 2l-6 16-3-7-7-3z&quot;/&gt;&lt;/svg&gt;&lt;/button&gt;&lt;/form&gt;
+&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/figure&gt;
+
+&lt;figure&gt;&lt;figcaption&gt;Verify and log in&lt;/figcaption&gt;
+&lt;div class=&quot;phone&quot;&gt;&lt;div class=&quot;sb&quot;&gt;&lt;span&gt;11:23 pm&lt;/span&gt;&lt;span&gt;4G&lt;/span&gt;&lt;/div&gt;
+&lt;div class=&quot;login&quot;&gt;
+&lt;svg class=&quot;bgx&quot; viewBox=&quot;0 0 120 140&quot; fill=&quot;none&quot; stroke=&quot;#a6ff1a&quot; stroke-width=&quot;1&quot;&gt;&lt;polygon points=&quot;60,4 108,32 108,88 60,116 12,88 12,32&quot; stroke-opacity=&quot;.35&quot;/&gt;&lt;polygon points=&quot;60,30 90,47 90,81 60,98 30,81 30,47&quot; stroke-opacity=&quot;.25&quot;/&gt;&lt;polygon points=&quot;60,52 74,60 74,76 60,84 46,76 46,60&quot; fill=&quot;#a6ff1a&quot; fill-opacity=&quot;.15&quot;/&gt;&lt;/svg&gt;
+&lt;div class=&quot;brand&quot;&gt;&lt;svg width=&quot;38&quot; height=&quot;42&quot; viewBox=&quot;0 0 52 58&quot;&gt;&lt;polygon points=&quot;26,3 49,16 49,42 26,55 3,42 3,16&quot; fill=&quot;#a6ff1a&quot; stroke=&quot;#a6ff1a&quot; stroke-width=&quot;2&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;path d=&quot;M33 20h-9a5 5 0 0 0 0 10h4a2 2 0 0 1 0 4H19&quot; fill=&quot;none&quot; stroke=&quot;#0a0e0c&quot; stroke-width=&quot;4&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;/svg&gt;Square&lt;/div&gt;
+&lt;h3&gt;Your campus, connected.&lt;/h3&gt;
+&lt;div class=&quot;mut&quot;&gt;Find your people. Join the communities that matter, and chat with whoever you came to meet.&lt;/div&gt;
+&lt;div style=&quot;font-size:20px;font-weight:600;margin-top:34px&quot;&gt;Verify and log in&lt;/div&gt;
+&lt;div class=&quot;mut&quot; style=&quot;margin-top:2px&quot;&gt;We sent a 6-digit code to victorygray59@gmail.com&lt;/div&gt;
+&lt;div class=&quot;otp&quot; id=&quot;otp&quot;&gt;&lt;/div&gt;
+&lt;div class=&quot;err&quot; id=&quot;err&quot; role=&quot;alert&quot;&gt;&lt;/div&gt;
+&lt;button class=&quot;btn&quot; id=&quot;vb&quot; style=&quot;margin-top:4px&quot;&gt;Verify and log in&lt;/button&gt;
+&lt;div class=&quot;lk&quot;&gt;&lt;span&gt;Use a different email&lt;/span&gt;&lt;b&gt;Resend code&lt;/b&gt;&lt;/div&gt;
+&lt;/div&gt;&lt;/div&gt;&lt;/figure&gt;
+&lt;/div&gt;
+
+&lt;script&gt;
+var PTS=&#x27;26,3 49,16 49,42 26,55 3,42 3,16&#x27;;
+function hex(k,on,ring){
+  var per=159,len=Math.round(per*ring);
+  return &#x27;&lt;svg viewBox=&quot;0 0 52 58&quot; aria-hidden=&quot;true&quot;&gt;&#x27;+(ring&gt;0?&#x27;&lt;polygon points=&quot;&#x27;+PTS+&#x27;&quot; fill=&quot;none&quot; stroke=&quot;#38c0ff&quot; stroke-width=&quot;3&quot; stroke-linejoin=&quot;round&quot; stroke-dasharray=&quot;&#x27;+len+&#x27; &#x27;+per+&#x27;&quot; stroke-linecap=&quot;round&quot;/&gt;&#x27;:&#x27;&lt;polygon points=&quot;&#x27;+PTS+&#x27;&quot; fill=&quot;none&quot; stroke=&quot;#222c27&quot; stroke-width=&quot;1.5&quot;/&gt;&#x27;)+
+  &#x27;&lt;g transform=&quot;translate(26 29) scale(.76) translate(-26 -29)&quot;&gt;&lt;polygon points=&quot;&#x27;+PTS+&#x27;&quot; fill=&quot;&#x27;+(on?&#x27;#a6ff1a&#x27;:&#x27;#151d19&#x27;)+&#x27;&quot; stroke=&quot;&#x27;+(on?&#x27;#a6ff1a&#x27;:&#x27;#2c3832&#x27;)+&#x27;&quot; stroke-width=&quot;1.5&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;/g&gt;&#x27;+k+&#x27;&lt;/svg&gt;&#x27;;
+}
+function txt(t,on){return &#x27;&lt;text x=&quot;26&quot; y=&quot;34&quot; text-anchor=&quot;middle&quot; font-size=&quot;12&quot; font-weight=&quot;700&quot; fill=&quot;&#x27;+(on?&#x27;#0a0e0c&#x27;:&#x27;#a6ff1a&#x27;)+&#x27;&quot;&gt;&#x27;+t+&#x27;&lt;/text&gt;&#x27;;}
+function compass(on){var c=on?&#x27;#0a0e0c&#x27;:&#x27;#a6ff1a&#x27;;return &#x27;&lt;circle cx=&quot;26&quot; cy=&quot;29&quot; r=&quot;7&quot; fill=&quot;none&quot; stroke=&quot;&#x27;+c+&#x27;&quot; stroke-width=&quot;2&quot;/&gt;&lt;path d=&quot;M29 26l-1.500 4.500-4.500 1.500 1.500-4.500z&quot; fill=&quot;&#x27;+c+&#x27;&quot;/&gt;&#x27;;}
+function rail(page){
+  var h=&#x27;&lt;button class=&quot;hex&quot; aria-label=&quot;Square home&quot;&gt;&lt;svg viewBox=&quot;0 0 52 58&quot; aria-hidden=&quot;true&quot;&gt;&lt;polygon points=&quot;&#x27;+PTS+&#x27;&quot; fill=&quot;#a6ff1a&quot; stroke=&quot;#a6ff1a&quot; stroke-width=&quot;2&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;path d=&quot;M33 20h-9a5 5 0 0 0 0 10h4a2 2 0 0 1 0 4H19&quot; fill=&quot;none&quot; stroke=&quot;#0a0e0c&quot; stroke-width=&quot;4&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;badge&quot;&gt;5&lt;/span&gt;&lt;/button&gt;&lt;div class=&quot;sep&quot;&gt;&lt;/div&gt;&#x27;;
+  h+=&#x27;&lt;button class=&quot;hex&quot; aria-label=&quot;Web3 Club, 12 unread&quot;&gt;&#x27;+hex(txt(&#x27;WC&#x27;),0,.7)+&#x27;&lt;/button&gt;&#x27;;
+  h+=&#x27;&lt;button class=&quot;hex&quot; aria-label=&quot;Design Lab, 3 unread&quot;&gt;&#x27;+hex(txt(&#x27;DL&#x27;),0,.25)+&#x27;&lt;/button&gt;&#x27;;
+  h+=&#x27;&lt;div class=&quot;grow&quot;&gt;&lt;/div&gt;&lt;div class=&quot;sep&quot;&gt;&lt;/div&gt;&#x27;;
+  h+=&#x27;&lt;button class=&quot;hex&quot; aria-label=&quot;Add community&quot;&gt;&lt;svg viewBox=&quot;0 0 52 58&quot; aria-hidden=&quot;true&quot;&gt;&lt;polygon points=&quot;&#x27;+PTS+&#x27;&quot; fill=&quot;none&quot; stroke=&quot;#3a463f&quot; stroke-dasharray=&quot;3 4&quot; stroke-width=&quot;1.5&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;path d=&quot;M26 22v14M19 29h14&quot; stroke=&quot;#a6ff1a&quot; stroke-width=&quot;2.500&quot; stroke-linecap=&quot;round&quot;/&gt;&lt;/svg&gt;&lt;/button&gt;&#x27;;
+  var on=page===&#x27;explore&#x27;;
+  h+=&#x27;&lt;button class=&quot;hex&quot; aria-label=&quot;Explore&quot;&gt;&#x27;+hex(compass(on),on,0)+&#x27;&lt;/button&gt;&#x27;;
+  return h;
+}
+function face(i,blue){
+  var c=blue?&#x27;#38c0ff&#x27;:&#x27;#a6ff1a&#x27;,e=&#x27;&#x27;,x=&#x27;&#x27;,s=i%6;
+  if(s===0)e=&#x27;&lt;path d=&quot;M15 19q2.500-4 5 0M21 19q2.500-4 5 0&quot; stroke=&quot;&#x27;+c+&#x27;&quot; stroke-width=&quot;1.800&quot; fill=&quot;none&quot; stroke-linecap=&quot;round&quot;/&gt;&#x27;;
+  if(s===1)e=&#x27;&lt;rect x=&quot;16&quot; y=&quot;15.500&quot; width=&quot;2.600&quot; height=&quot;6&quot; rx=&quot;1.300&quot; fill=&quot;&#x27;+c+&#x27;&quot;/&gt;&lt;rect x=&quot;22.400&quot; y=&quot;15.500&quot; width=&quot;2.600&quot; height=&quot;6&quot; rx=&quot;1.300&quot; fill=&quot;&#x27;+c+&#x27;&quot;/&gt;&#x27;;
+  if(s===2){e=&#x27;&lt;circle cx=&quot;17&quot; cy=&quot;18.500&quot; r=&quot;2&quot; fill=&quot;&#x27;+c+&#x27;&quot;/&gt;&lt;circle cx=&quot;24&quot; cy=&quot;18.500&quot; r=&quot;2&quot; fill=&quot;&#x27;+c+&#x27;&quot;/&gt;&#x27;;x=&#x27;&lt;path d=&quot;M9 14L8 4l8 5zM32 14l1-10-8 5z&quot; fill=&quot;#e8ecef&quot;/&gt;&#x27;;}
+  if(s===3){e=&#x27;&lt;path d=&quot;M15 15.500l4 3-4 3M26 15.500l-4 3 4 3&quot; stroke=&quot;&#x27;+c+&#x27;&quot; stroke-width=&quot;1.800&quot; fill=&quot;none&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;/&gt;&#x27;;x=&#x27;&lt;path d=&quot;M20.500 8V3&quot; stroke=&quot;#e8ecef&quot; stroke-width=&quot;1.500&quot;/&gt;&lt;circle cx=&quot;20.500&quot; cy=&quot;2.500&quot; r=&quot;1.800&quot; fill=&quot;&#x27;+c+&#x27;&quot;/&gt;&#x27;;}
+  if(s===4)e=&#x27;&lt;path d=&quot;M14 18.500h13&quot; stroke=&quot;&#x27;+c+&#x27;&quot; stroke-width=&quot;2.400&quot; stroke-linecap=&quot;round&quot;/&gt;&#x27;;
+  if(s===5)e=&#x27;&lt;path d=&quot;M15 19q2.500-4 5 0&quot; stroke=&quot;&#x27;+c+&#x27;&quot; stroke-width=&quot;1.800&quot; fill=&quot;none&quot; stroke-linecap=&quot;round&quot;/&gt;&lt;circle cx=&quot;24.500&quot; cy=&quot;18&quot; r=&quot;2.200&quot; fill=&quot;&#x27;+c+&#x27;&quot;/&gt;&#x27;;
+  return &#x27;&lt;svg viewBox=&quot;0 0 41 41&quot; aria-hidden=&quot;true&quot;&gt;&lt;rect width=&quot;41&quot; height=&quot;41&quot; rx=&quot;12&quot; fill=&quot;#18211c&quot;/&gt;&#x27;+x+&#x27;&lt;path d=&quot;M6 41c0-9 6-12 14.500-12s14.500 3 14.500 12z&quot; fill=&quot;#e8ecef&quot;/&gt;&lt;rect x=&quot;9&quot; y=&quot;7&quot; width=&quot;23&quot; height=&quot;21&quot; rx=&quot;9.500&quot; fill=&quot;#e8ecef&quot;/&gt;&lt;rect x=&quot;12&quot; y=&quot;12&quot; width=&quot;17&quot; height=&quot;12&quot; rx=&quot;6&quot; fill=&quot;#0a0e0c&quot;/&gt;&#x27;+e+&#x27;&lt;/svg&gt;&#x27;;
+}
+document.querySelectorAll(&#x27;[data-rail]&#x27;).forEach(function(r){r.innerHTML=rail(r.dataset.rail);});
+document.querySelectorAll(&#x27;[data-face]&#x27;).forEach(function(a){a.insertAdjacentHTML(&#x27;afterbegin&#x27;,face(+a.dataset.face,!!a.dataset.blue));});
+var CM=[[&#x27;Big Community&#x27;,&#x27;BC&#x27;,&#x27;FUT Minna&#x27;,&#x27;12,345&#x27;,120,&#x27;Web2&#x27;],[&#x27;Web3 Builders&#x27;,&#x27;WB&#x27;,&#x27;FUT Minna&#x27;,&#x27;4,120&#x27;,34,&#x27;Web3&#x27;],[&#x27;Design Crit&#x27;,&#x27;DC&#x27;,&#x27;UNILAG&#x27;,&#x27;2,860&#x27;,58,&#x27;Design&#x27;],[&#x27;Rust Naija&#x27;,&#x27;RN&#x27;,&#x27;FUT Minna&#x27;,&#x27;1,940&#x27;,21,&#x27;Robotics&#x27;],[&#x27;Prompt Club&#x27;,&#x27;PC&#x27;,&#x27;UI Ibadan&#x27;,&#x27;3,310&#x27;,77,&#x27;AI&#x27;],[&#x27;Campus Writers&#x27;,&#x27;CW&#x27;,&#x27;FUT Minna&#x27;,&#x27;980&#x27;,12,&#x27;Writing&#x27;],[&#x27;Pixel Guild&#x27;,&#x27;PG&#x27;,&#x27;OAU&#x27;,&#x27;2,105&#x27;,40,&#x27;Design&#x27;]];
+var cur=&#x27;My school&#x27;,joined={},FL=[&#x27;All&#x27;,&#x27;My school&#x27;,&#x27;Web3&#x27;,&#x27;Web2&#x27;,&#x27;Design&#x27;,&#x27;AI&#x27;,&#x27;Robotics&#x27;,&#x27;Writing&#x27;];
+var fb=document.getElementById(&#x27;fb&#x27;),fm=document.getElementById(&#x27;fm&#x27;),ls=document.getElementById(&#x27;list&#x27;);
+function drawList(){
+  var r=CM.filter(function(c){return cur===&#x27;All&#x27;||(cur===&#x27;My school&#x27;?c[2]===&#x27;FUT Minna&#x27;:c[5]===cur);});
+  ls.innerHTML=r.length?r.map(function(c){var j=joined[c[0]];return &#x27;&lt;div class=&quot;crow&quot;&gt;&lt;svg viewBox=&quot;0 0 52 58&quot; aria-hidden=&quot;true&quot;&gt;&lt;polygon points=&quot;&#x27;+PTS+&#x27;&quot; fill=&quot;#151d19&quot; stroke=&quot;#2c3832&quot; stroke-width=&quot;1.500&quot;/&gt;&lt;text x=&quot;26&quot; y=&quot;34&quot; text-anchor=&quot;middle&quot; font-size=&quot;13&quot; font-weight=&quot;700&quot; fill=&quot;#a6ff1a&quot;&gt;&#x27;+c[1]+&#x27;&lt;/text&gt;&lt;/svg&gt;&lt;div class=&quot;w&quot;&gt;&lt;b&gt;&#x27;+c[0]+&#x27;&lt;/b&gt;&lt;small&gt;&#x27;+c[2]+&#x27; · &#x27;+c[3]+&#x27; · &lt;span style=&quot;color:#a6ff1a&quot;&gt;&#x27;+c[4]+&#x27; online&lt;/span&gt;&lt;/small&gt;&lt;/div&gt;&lt;button class=&quot;jn&#x27;+(j?&#x27; in&#x27;:&#x27;&#x27;)+&#x27;&quot; data-n=&quot;&#x27;+c[0]+&#x27;&quot;&gt;&#x27;+(j?&#x27;Joined&#x27;:&#x27;Join&#x27;)+&#x27;&lt;/button&gt;&lt;/div&gt;&#x27;;}).join(&#x27;&#x27;):&#x27;&lt;div class=&quot;empty&quot;&gt;No communities here yet. Try another filter.&lt;/div&gt;&#x27;;
+}
+function drawMenu(){fm.innerHTML=FL.map(function(f){return &#x27;&lt;button role=&quot;menuitem&quot; class=&quot;&#x27;+(f===cur?&#x27;on&#x27;:&#x27;&#x27;)+&#x27;&quot; data-f=&quot;&#x27;+f+&#x27;&quot;&gt;&#x27;+f+(f===cur?&#x27;&lt;span&gt;✓&lt;/span&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/button&gt;&#x27;;}).join(&#x27;&#x27;);document.getElementById(&#x27;fl&#x27;).textContent=cur;}
+function closeMenu(){fm.classList.remove(&#x27;open&#x27;);fb.setAttribute(&#x27;aria-expanded&#x27;,&#x27;false&#x27;);}
+fb.onclick=function(e){e.stopPropagation();var o=fm.classList.toggle(&#x27;open&#x27;);fb.setAttribute(&#x27;aria-expanded&#x27;,o);};
+fm.onclick=function(e){var f=e.target.closest(&#x27;[data-f]&#x27;);if(f){cur=f.dataset.f;drawMenu();drawList();closeMenu();}};
+ls.onclick=function(e){var n=e.target.dataset.n;if(n){joined[n]=!joined[n];drawList();}};
+document.addEventListener(&#x27;click&#x27;,closeMenu);
+document.addEventListener(&#x27;keydown&#x27;,function(e){if(e.key===&#x27;Escape&#x27;)closeMenu();});
+drawMenu();drawList();
+var m=document.getElementById(&#x27;msgs&#x27;);
+document.getElementById(&#x27;cf&#x27;).onsubmit=function(e){
+  e.preventDefault();var i=document.getElementById(&#x27;ci&#x27;),v=i.value.trim();if(!v)return;
+  var d=document.createElement(&#x27;div&#x27;);d.className=&#x27;msg me&#x27;;
+  d.innerHTML=&#x27;&lt;div class=&quot;av&quot;&gt;&#x27;+face(4,false)+&#x27;&lt;/div&gt;&lt;div class=&quot;bd&quot;&gt;&lt;div class=&quot;nm&quot;&gt;#amaka-eze&lt;i&gt;now&lt;/i&gt;&lt;/div&gt;&lt;div class=&quot;bub&quot;&gt;&lt;/div&gt;&lt;/div&gt;&#x27;;
+  d.querySelector(&#x27;.bub&#x27;).textContent=v;m.appendChild(d);i.value=&#x27;&#x27;;m.scrollTop=m.scrollHeight;
+};
+var o=document.getElementById(&#x27;otp&#x27;),er=document.getElementById(&#x27;err&#x27;);
+for(var k=0;k&lt;6;k++){var n=document.createElement(&#x27;input&#x27;);n.inputMode=&#x27;numeric&#x27;;n.maxLength=1;n.setAttribute(&#x27;aria-label&#x27;,&#x27;Digit &#x27;+(k+1));o.appendChild(n);}
+var ins=o.querySelectorAll(&#x27;input&#x27;);
+ins.forEach(function(el,idx){
+  el.oninput=function(){el.value=el.value.replace(/\D/g,&#x27;&#x27;);er.textContent=&#x27;&#x27;;if(el.value&amp;&amp;ins[idx+1])ins[idx+1].focus();};
+  el.onkeydown=function(e){if(e.key===&#x27;Backspace&#x27;&amp;&amp;!el.value&amp;&amp;ins[idx-1])ins[idx-1].focus();};
+});
+document.getElementById(&#x27;vb&#x27;).onclick=function(){
+  var f=Array.prototype.every.call(ins,function(x){return x.value;});
+  er.textContent=f?&#x27;&#x27;:&#x27;Enter all 6 digits.&#x27;;
+  if(f)er.textContent=&#x27;&#x27;;
+};
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+" hidden></iframe><iframe id="f-signup" title="Sign-up setup" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot;&gt;&lt;head&gt;&lt;meta charset=&quot;utf-8&quot;&gt;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;title&gt;Square: sign-up setup&lt;/title&gt;
+&lt;style&gt;
+:root{--pg:#eef2ef;--tx:#17201b;--mu:#5b6a61}
+@media (prefers-color-scheme:dark){:root:not([data-theme=&quot;light&quot;]){--pg:#070a09;--tx:#e6ece8;--mu:#8a978f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--pg);color:var(--tx);font:15px/1.5 &quot;Segoe UI&quot;,system-ui,-apple-system,Roboto,sans-serif;padding:24px 16px 40px}
+h2{font-size:14px;font-weight:600;margin:22px 0 10px;color:var(--mu)}
+.scroll{overflow-x:auto}
+.app{--bg:#0a0e0c;--panel:#0f1512;--line:#222c27;--g:#a6ff1a;--b:#38c0ff;--t:#e6ece8;--m:#7f8c85;background:var(--bg);color:var(--t);font-size:13px}
+.dsk{display:grid;grid-template-columns:1fr 1fr;min-width:860px;height:580px;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+.hl{position:relative;background:#080b09;padding:34px;display:flex;flex-direction:column;justify-content:flex-end;border-right:1px solid var(--line);overflow:hidden}
+.hl .pat{position:absolute;right:-60px;top:-40px;width:380px;opacity:.55}
+.hl .rb{position:absolute;left:50%;top:46px;width:250px;height:250px;transform:translateX(-50%)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;position:relative}
+.hl h3{font-size:30px;font-weight:600;margin:14px 0 6px;position:relative;line-height:1.2}
+.mut{color:var(--m)}
+.fr{display:flex;align-items:center;justify-content:center;padding:30px}
+.fm{width:100%;max-width:380px}
+.stp{display:flex;align-items:center;gap:6px;color:var(--g);font-size:12px;margin-bottom:10px}
+.stp svg{width:20px;height:22px}
+.fm h4{margin:0 0 18px;font-size:24px;font-weight:600}
+.fld{margin-bottom:14px;position:relative}
+.fld label{display:block;font-size:12px;font-weight:600;margin-bottom:6px}
+.fld label span{color:var(--m);font-weight:400}
+.inp{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:0 12px;height:46px}
+.inp:focus-within{border-color:var(--b)}
+.inp.bad{border-color:#ff8a8a}
+.inp i{font-style:normal;color:var(--g);font-weight:700}
+.inp input{flex:1;min-width:0;background:none;border:0;color:var(--t);font:inherit;font-size:14px;outline:none;height:100%;color-scheme:dark}
+.menu{position:absolute;left:0;right:0;top:76px;z-index:5;background:#161f1a;border:1px solid #2a6b8c;border-radius:14px;padding:6px;display:none;max-height:170px;overflow:auto}
+.menu.open{display:block}
+.menu button{display:block;width:100%;border:0;background:none;color:#cfd8d3;font:inherit;font-size:13px;padding:8px 10px;border-radius:9px;cursor:pointer;text-align:left}
+.menu button:hover,.menu button:focus-visible{background:#1f2b25;outline:none}
+.err{color:#ff8a8a;font-size:12px;min-height:16px;margin-top:3px}
+.btn{display:block;width:100%;border:0;font:inherit;font-weight:700;font-size:14px;padding:14px 16px;background:var(--g);color:#0a0e0c;cursor:pointer;margin-top:6px;clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 10px,100% calc(100% - 10px),calc(100% - 10px) 100%,10px 100%,0 calc(100% - 10px),0 10px)}
+.btn:focus-visible{outline:2px solid var(--b)}
+.ok{color:var(--g);font-size:13px;margin-top:10px;min-height:18px}
+.phone{width:360px;max-width:100%;height:720px;border-radius:40px;border:9px solid #1d2420;display:grid;grid-template-rows:28px 1fr;overflow:hidden;margin:0 auto}
+.sb{display:flex;justify-content:space-between;padding:9px 24px 0;font-size:12px;font-weight:600}
+.pb{display:flex;flex-direction:column;min-height:0;background:#080b09}
+.pt{position:relative;height:150px;flex:none;overflow:hidden}
+.pt .pat{position:absolute;right:-50px;top:-30px;width:220px;opacity:.5}
+.pt .rb{position:absolute;right:22px;top:10px;width:120px;height:120px}
+.pt .brand{position:absolute;left:20px;top:24px;font-size:16px}
+.pt p{position:absolute;left:20px;top:70px;margin:0;font-size:20px;font-weight:600;line-height:1.2;width:170px}
+.sheet{flex:1;background:var(--panel);border-top-left-radius:26px;border-top:1.5px solid var(--b);border-left:1.5px solid var(--b);padding:20px 18px;overflow:auto;scrollbar-width:none}
+.sheet::-webkit-scrollbar{display:none}
+&lt;/style&gt;&lt;/head&gt;&lt;body&gt;
+&lt;h2&gt;Desktop&lt;/h2&gt;
+&lt;div class=&quot;scroll&quot;&gt;&lt;div class=&quot;app dsk&quot;&gt;
+&lt;div class=&quot;hl&quot;&gt;&lt;svg class=&quot;pat&quot; viewBox=&quot;0 0 120 140&quot; fill=&quot;none&quot; stroke=&quot;#a6ff1a&quot;&gt;&lt;polygon points=&quot;60,4 108,32 108,88 60,116 12,88 12,32&quot; stroke-opacity=&quot;.3&quot;/&gt;&lt;polygon points=&quot;60,30 90,47 90,81 60,98 30,81 30,47&quot; stroke-opacity=&quot;.22&quot;/&gt;&lt;/svg&gt;
+&lt;div class=&quot;rb&quot; data-robot&gt;&lt;/div&gt;
+&lt;div class=&quot;brand&quot;&gt;&lt;span data-logo&gt;&lt;/span&gt;Square&lt;/div&gt;&lt;h3&gt;Your campus, connected.&lt;/h3&gt;&lt;div class=&quot;mut&quot; style=&quot;max-width:340px;position:relative&quot;&gt;Find your people. Join the communities that matter, and do what you came to do.&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;fr&quot;&gt;&lt;div class=&quot;fm&quot; data-form&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2&gt;Mobile&lt;/h2&gt;
+&lt;div class=&quot;app phone&quot;&gt;&lt;div class=&quot;sb&quot;&gt;&lt;span&gt;11:23 pm&lt;/span&gt;&lt;span&gt;4G&lt;/span&gt;&lt;/div&gt;
+&lt;div class=&quot;pb&quot;&gt;&lt;div class=&quot;pt&quot;&gt;&lt;svg class=&quot;pat&quot; viewBox=&quot;0 0 120 140&quot; fill=&quot;none&quot; stroke=&quot;#a6ff1a&quot;&gt;&lt;polygon points=&quot;60,4 108,32 108,88 60,116 12,88 12,32&quot; stroke-opacity=&quot;.3&quot;/&gt;&lt;/svg&gt;&lt;div class=&quot;brand&quot;&gt;&lt;span data-logo&gt;&lt;/span&gt;Square&lt;/div&gt;&lt;p&gt;Your campus, connected.&lt;/p&gt;&lt;div class=&quot;rb&quot; data-robot&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;sheet&quot;&gt;&lt;div class=&quot;fm&quot; data-form&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;script&gt;
+var PTS=&#x27;26,3 49,16 49,42 26,55 3,42 3,16&#x27;,SCH=[&#x27;FUT Minna&#x27;,&#x27;University of Lagos&#x27;,&#x27;University of Ibadan&#x27;,&#x27;Obafemi Awolowo University&#x27;,&#x27;Covenant University&#x27;,&#x27;Federal University of Technology Akure&#x27;,&#x27;University of Nigeria, Nsukka&#x27;,&#x27;Ahmadu Bello University&#x27;];
+function logo(){return &#x27;&lt;svg width=&quot;34&quot; height=&quot;38&quot; viewBox=&quot;0 0 52 58&quot;&gt;&lt;polygon points=&quot;&#x27;+PTS+&#x27;&quot; fill=&quot;#a6ff1a&quot; stroke=&quot;#a6ff1a&quot; stroke-width=&quot;2&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;path d=&quot;M33 20h-9a5 5 0 0 0 0 10h4a2 2 0 0 1 0 4H19&quot; fill=&quot;none&quot; stroke=&quot;#0a0e0c&quot; stroke-width=&quot;4&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;/svg&gt;&#x27;;}
+function robot(){var c=&#x27;#a6ff1a&#x27;;return &#x27;&lt;svg viewBox=&quot;0 0 41 41&quot; width=&quot;100%&quot; height=&quot;100%&quot;&gt;&lt;path d=&quot;M20.500 8V3&quot; stroke=&quot;#e8ecef&quot; stroke-width=&quot;1.500&quot;/&gt;&lt;circle cx=&quot;20.500&quot; cy=&quot;2.500&quot; r=&quot;1.800&quot; fill=&quot;&#x27;+c+&#x27;&quot;/&gt;&lt;path d=&quot;M6 41c0-9 6-12 14.500-12s14.500 3 14.500 12z&quot; fill=&quot;#e8ecef&quot;/&gt;&lt;path d=&quot;M15 33l5.500 4 5.500-4&quot; fill=&quot;none&quot; stroke=&quot;&#x27;+c+&#x27;&quot; stroke-width=&quot;1.200&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;rect x=&quot;9&quot; y=&quot;7&quot; width=&quot;23&quot; height=&quot;21&quot; rx=&quot;9.500&quot; fill=&quot;#e8ecef&quot;/&gt;&lt;rect x=&quot;5.500&quot; y=&quot;14&quot; width=&quot;3.500&quot; height=&quot;8&quot; rx=&quot;1.700&quot; fill=&quot;#18211c&quot;/&gt;&lt;rect x=&quot;32&quot; y=&quot;14&quot; width=&quot;3.500&quot; height=&quot;8&quot; rx=&quot;1.700&quot; fill=&quot;#18211c&quot;/&gt;&lt;rect x=&quot;12&quot; y=&quot;12&quot; width=&quot;17&quot; height=&quot;12&quot; rx=&quot;6&quot; fill=&quot;#0a0e0c&quot;/&gt;&lt;path d=&quot;M15 19q2.500-4 5 0M21 19q2.500-4 5 0&quot; stroke=&quot;&#x27;+c+&#x27;&quot; stroke-width=&quot;1.800&quot; fill=&quot;none&quot; stroke-linecap=&quot;round&quot;/&gt;&lt;/svg&gt;&#x27;;}
+function step(on){return &#x27;&lt;svg viewBox=&quot;0 0 52 58&quot;&gt;&lt;polygon points=&quot;&#x27;+PTS+&#x27;&quot; fill=&quot;&#x27;+(on?&#x27;none&#x27;:&#x27;#a6ff1a&#x27;)+&#x27;&quot; stroke=&quot;&#x27;+(on?&#x27;#38c0ff&#x27;:&#x27;#a6ff1a&#x27;)+&#x27;&quot; stroke-width=&quot;&#x27;+(on?5:2)+&#x27;&quot; stroke-linejoin=&quot;round&quot;/&gt;&#x27;+(on?&#x27;&lt;circle cx=&quot;26&quot; cy=&quot;29&quot; r=&quot;6&quot; fill=&quot;#38c0ff&quot;/&gt;&#x27;:&#x27;&lt;path d=&quot;M18 30l6 6 11-13&quot; stroke=&quot;#0a0e0c&quot; stroke-width=&quot;5&quot; fill=&quot;none&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;/&gt;&#x27;)+&#x27;&lt;/svg&gt;&#x27;;}
+document.querySelectorAll(&#x27;[data-logo]&#x27;).forEach(function(e){e.innerHTML=logo();});
+document.querySelectorAll(&#x27;[data-robot]&#x27;).forEach(function(e){e.innerHTML=robot();});
+document.querySelectorAll(&#x27;[data-form]&#x27;).forEach(function(f){
+  f.innerHTML=&#x27;&lt;div class=&quot;stp&quot;&gt;&#x27;+step()+step()+step(1)+&#x27;&lt;span&gt;Step 3 of 3&lt;/span&gt;&lt;/div&gt;&lt;h4&gt;Set up your profile&lt;/h4&gt;&#x27;+
+  &#x27;&lt;div class=&quot;fld&quot;&gt;&lt;label&gt;Username&lt;/label&gt;&lt;div class=&quot;inp&quot;&gt;&lt;i&gt;#&lt;/i&gt;&lt;input class=&quot;u&quot; placeholder=&quot;your-name&quot; autocomplete=&quot;off&quot; maxlength=&quot;24&quot;&gt;&lt;/div&gt;&lt;div class=&quot;err&quot;&gt;&lt;/div&gt;&lt;/div&gt;&#x27;+
+  &#x27;&lt;div class=&quot;fld&quot;&gt;&lt;label&gt;School&lt;/label&gt;&lt;div class=&quot;inp&quot;&gt;&lt;input class=&quot;s&quot; placeholder=&quot;Search your school&quot; autocomplete=&quot;off&quot;&gt;&lt;/div&gt;&lt;div class=&quot;menu&quot;&gt;&lt;/div&gt;&lt;div class=&quot;err&quot;&gt;&lt;/div&gt;&lt;/div&gt;&#x27;+
+  &#x27;&lt;div class=&quot;fld&quot;&gt;&lt;label&gt;Date of birth &lt;span&gt;(private)&lt;/span&gt;&lt;/label&gt;&lt;div class=&quot;inp&quot;&gt;&lt;input class=&quot;d&quot; type=&quot;date&quot;&gt;&lt;/div&gt;&lt;div class=&quot;err&quot;&gt;&lt;/div&gt;&lt;/div&gt;&#x27;+
+  &#x27;&lt;button class=&quot;btn&quot;&gt;Create account&lt;/button&gt;&lt;div class=&quot;ok&quot; role=&quot;status&quot;&gt;&lt;/div&gt;&#x27;;
+  var $=function(s){return f.querySelector(s)},u=$(&#x27;.u&#x27;),s=$(&#x27;.s&#x27;),d=$(&#x27;.d&#x27;),m=$(&#x27;.menu&#x27;),pick=false,errs=f.querySelectorAll(&#x27;.err&#x27;),boxes=f.querySelectorAll(&#x27;.inp&#x27;);
+  function bad(i,t){errs[i].textContent=t;boxes[i].classList.toggle(&#x27;bad&#x27;,!!t);}
+  u.oninput=function(){u.value=u.value.toLowerCase().replace(/[^a-z0-9-]/g,&#x27;&#x27;);bad(0,&#x27;&#x27;);};
+  function list(){var q=s.value.toLowerCase(),r=SCH.filter(function(x){return x.toLowerCase().indexOf(q)&gt;-1;}).slice(0,6);m.innerHTML=r.map(function(x){return &#x27;&lt;button type=&quot;button&quot;&gt;&#x27;+x+&#x27;&lt;/button&gt;&#x27;;}).join(&#x27;&#x27;)||&#x27;&lt;div class=&quot;mut&quot; style=&quot;padding:8px 10px&quot;&gt;No school found.&lt;/div&gt;&#x27;;m.classList.add(&#x27;open&#x27;);}
+  s.oninput=function(){pick=false;bad(1,&#x27;&#x27;);list();};s.onfocus=list;
+  m.onclick=function(e){if(e.target.tagName===&#x27;BUTTON&#x27;){s.value=e.target.textContent;pick=true;m.classList.remove(&#x27;open&#x27;);bad(1,&#x27;&#x27;);}};
+  document.addEventListener(&#x27;click&#x27;,function(e){if(!f.contains(e.target))m.classList.remove(&#x27;open&#x27;);});
+  d.oninput=function(){bad(2,&#x27;&#x27;);};
+  $(&#x27;.btn&#x27;).onclick=function(){
+    var ok=true;
+    if(u.value.length&lt;3){bad(0,&#x27;Enter a username with at least 3 characters.&#x27;);ok=false;}
+    if(!pick){bad(1,&#x27;Choose your school from the list.&#x27;);ok=false;}
+    if(!d.value){bad(2,&#x27;Enter your date of birth.&#x27;);ok=false;}
+    $(&#x27;.ok&#x27;).textContent=ok?&#x27;Account ready. Welcome to Square, #&#x27;+u.value+&#x27;.&#x27;:&#x27;&#x27;;
+  };
+});
+&lt;/script&gt;&lt;/body&gt;&lt;/html&gt;
+" hidden></iframe>
+<script>
+var fr=Array.prototype.slice.call(document.querySelectorAll('iframe')),tb=document.querySelectorAll('.tab');
+function fit(f){try{if(f.hidden)return;var d=f.contentDocument;f.style.height='auto';f.style.height=Math.max(600,d.documentElement.scrollHeight)+'px';}catch(e){f.style.height='900px';}}
+fr.forEach(function(f){f.onload=function(){fit(f);setTimeout(function(){fit(f);},300);};});
+tb.forEach(function(b){b.onclick=function(){
+  tb.forEach(function(x){x.setAttribute('aria-selected',x===b?'true':'false');});
+  fr.forEach(function(f){f.hidden=f.id!=='f-'+b.dataset.t;});
+  var a=document.getElementById('f-'+b.dataset.t);fit(a);setTimeout(function(){fit(a);},200);
+};});
+window.addEventListener('resize',function(){fr.forEach(fit);});
+</script></body></html>

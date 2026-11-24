@@ -5,12 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { toDisplayUsername, getInitials } from "@square/shared";
+import { toDisplayUsername } from "@square/shared";
 import { relativeTime, useNow } from "@/lib/time";
-import { PresenceDot } from "@/components/shell/PresenceDot";
 import { UserPanel } from "@/components/shell/UserPanel";
-import { UnreadBadge } from "@/components/messages/UnreadBadge";
 import { CommandPalette } from "@/components/shell/CommandPalette";
+import { CountBadge, RobotAvatar } from "@/components/ui/redesign";
 import clsx from "clsx";
 
 export function MessagesPanel() {
@@ -93,9 +92,8 @@ export function MessagesPanel() {
               <div key={c.id} className="relative">
                 <Link href={`/dm/${c.id}`} prefetch={false} aria-current={selectedId === c.id ? "page" : undefined} className={clsx("group flex min-h-[52px] items-center gap-2.5 rounded-lg px-2 py-1.5", selectedId === c.id ? "bg-surface" : "hover:bg-surface/70")}>
                   <span className="relative shrink-0">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-hi text-[11px] font-semibold">{getInitials(c.participant.username)}</span>
-                    <PresenceDot status={c.presence} className="absolute -bottom-0.5 -right-0.5" />
-                    {unread && <span aria-hidden="true" className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-blue-strong" />}
+                    <RobotAvatar id={c.participant.id} pictureUrl={c.participant.avatarUrl} size={40} online={c.presence === "online"} />
+                    {unread && <CountBadge count={c.unreadCount} className="absolute -right-2 -top-1" />}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline justify-between gap-2">
@@ -106,7 +104,6 @@ export function MessagesPanel() {
                       <span className="truncate">{c.blocked ? "You can't message this user" : c.lastMessagePreview || c.lastMessage || "No messages yet"}</span>
                     </span>
                   </span>
-                  <UnreadBadge unread={c.unreadCount} mentions={c.mentions || 0} className="ml-1" ringClassName="ring-surface" />
                 </Link>
                 <button type="button" onClick={e => { e.preventDefault(); setMenuFor(m => m === c.id ? null : c.id); }} aria-label={`Options for ${c.participant.username}`} className={clsx("absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-hi hover:text-text", menuFor === c.id ? "opacity-100" : "opacity-0 focus-visible:opacity-100 group-hover:opacity-100")}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>

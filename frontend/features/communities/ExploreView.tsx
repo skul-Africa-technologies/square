@@ -13,6 +13,7 @@ import { CreateCommunityModal } from "@/components/shell/CreateCommunityModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import clsx from "clsx";
 import { copy } from "@/lib/copy";
+import { AngleButton, FilterMenu, HexBadge } from "@/components/ui/redesign";
 
 const CATEGORIES = ["All", "My school", "Web3", "Web2", "Design", "AI", "Robotics", "Writing"] as const;
 type Sort = "top" | "new";
@@ -101,7 +102,7 @@ function ExploreInner() {
           <h1 className="font-heading text-2xl font-semibold">Explore</h1>
           <p className="mt-0.5 text-sm text-muted">Public {copy.unit.plural} across campus.</p>
         </div>
-        <button type="button" onClick={() => setCreating(true)} className="rounded-lg bg-lime px-3.5 py-2 text-sm font-medium text-bg hover:bg-lime-hover max-lg:w-full">Create a {copy.unit.name}</button>
+        <AngleButton type="button" onClick={() => setCreating(true)} className="max-lg:w-full">Create a {copy.unit.name}</AngleButton>
       </header>
 
       <label className="mb-3 block">
@@ -113,12 +114,8 @@ function ExploreInner() {
         </span>
       </label>
 
-      <div className="mb-5 flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Categories">
-          {CATEGORIES.map(c => (
-            <button key={c} type="button" onClick={() => setParam({ category: c })} aria-pressed={category === c} className={clsx("rounded-full border px-3 py-1.5 text-xs transition", category === c ? (c === "Web3" ? "border-lime bg-lime-tint text-lime" : "border-blue-strong bg-blue-soft text-blue") : "bg-surface text-muted hover:text-text hover:border-blue-strong/40")}>{c}</button>
-          ))}
-        </div>
+      <div className="mb-5 flex items-center gap-2">
+        <FilterMenu value={category} options={[...CATEGORIES]} onChange={value => setParam({ category: value })} />
         <div className="ml-auto flex items-center gap-1 rounded-lg border bg-surface p-1" role="group" aria-label="Sort">
           {(["top", "new"] as Sort[]).map(s => (
             <button key={s} type="button" onClick={() => setParam({ sort: s })} aria-pressed={sort === s} className={clsx("rounded-md px-2.5 py-1 text-xs", sort === s ? "bg-bg-2 text-text" : "text-muted hover:text-text")}>{s === "top" ? "Top this week" : "New"}</button>
@@ -142,7 +139,7 @@ function ExploreInner() {
           </div>
         ) : (
           <>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid gap-2">
               {items.map(c => <CommunityCard key={c.id} c={c} onJoin={() => join.mutate(c)} joining={join.isPending && join.variables?.id === c.id} />)}
             </div>
             <div ref={sentinel} className="h-1" />
@@ -164,53 +161,24 @@ function ExploreInner() {
 }
 
 function CommunityCard({ c, onJoin, joining }: { c: ExploreCommunity; onJoin: () => void; joining: boolean }) {
-  const [menu, setMenu] = useState(false);
   const joined = c.relation === "member" || c.joined;
   const href = `/c/${c.slug}/general`;
   return (
-    <article className="group relative overflow-hidden rounded-xl border bg-surface transition hover:border-lime/40">
-      <Link href={href} prefetch={false} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-strong" aria-label={`Preview ${c.name}`}>
-        <div className="aspect-[16/6] w-full overflow-hidden bg-[linear-gradient(135deg,#1f2b12,#0b0d0b)]" aria-hidden="true">
-          <span className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-lime/10" />
-          <span className="absolute left-6 top-4 text-[11px] uppercase tracking-[0.2em] text-lime/40">{c.schoolName || "FUT Minna"}</span>
-        </div>
-        <div className="p-3">
-          <div className="flex items-start gap-2">
-            <span className="-mt-8 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-surface bg-bg-2 text-xs font-semibold text-lime">{c.avatar || getInitials(c.name)}</span>
-            <div className="min-w-0 flex-1">
-              <h3 className="truncate text-sm font-semibold">{c.name}</h3>
-              <p className="truncate text-[11px] text-muted">{c.schoolName || "FUT Minna"}</p>
-            </div>
-          </div>
-          <p className="mt-2 line-clamp-2 min-h-[2.5rem] text-xs text-muted">{c.blurb}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted">
-            <span>{plural(c.memberCount || 0, "member", "members")}</span>
-            <span aria-hidden="true">·</span>
-            <span className="text-lime/80">{compactNumber(c.onlineCount || 0)} online</span>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-1">
-            {(c.categories || [c.category]).filter(Boolean).slice(0, 2).map(tag => <span key={tag} className={clsx("rounded border px-1.5 py-0.5 text-[10px]", tag === "Web3" ? "bg-lime-tint border-lime text-lime" : "bg-blue-soft border-blue-border text-blue")}>{tag}</span>)}
-          </div>
+    <article className="flex min-h-[64px] items-center gap-3 rounded-[12px] border px-3 py-2">
+      <Link href={href} prefetch={false} className="flex min-w-0 flex-1 items-center gap-3" aria-label={`Open ${c.name}`}>
+        <HexBadge label={c.name} initials={c.avatar || getInitials(c.name)} size={34} unread={0} />
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-semibold">{c.name}</h3>
+          <p className="truncate text-[11px] text-[var(--muted)]">
+            {c.schoolName || "FUT Minna"} · {plural(c.memberCount || 0, "member", "members")} · <span className="text-[var(--green)]">{compactNumber(c.onlineCount || 0)} online</span>
+          </p>
         </div>
       </Link>
-      <div className="flex items-center gap-2 px-3 pb-3">
-        {joined ? (
-          <Link href={href} prefetch={false} className="rounded-lg border px-3 py-1.5 text-xs text-muted hover:border-lime hover:text-lime">{c.joined && c.relation !== "member" ? "Open" : <><span className="group-hover:hidden">Joined</span><span className="hidden group-hover:inline">Open</span></>}</Link>
-        ) : (
-          <button type="button" onClick={onJoin} disabled={joining} className="rounded-lg bg-lime px-3 py-1.5 text-xs font-medium text-bg hover:bg-lime-hover disabled:opacity-60">{joining ? "Joining…" : `Join ${copy.unit.name}`}</button>
-        )}
-        <div className="relative ml-auto">
-          <button type="button" onClick={() => setMenu(v => !v)} aria-label={`More options for ${c.name}`} className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hi hover:text-text">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
-          </button>
-          {menu && (
-            <div role="menu" className="absolute bottom-9 right-0 z-30 w-36 rounded-xl border bg-bg-2 p-1 shadow-xl">
-              <button type="button" role="menuitem" onClick={() => { setMenu(false); void navigator.clipboard?.writeText(`${location.origin}${href}`); }} className="block w-full rounded-lg px-2 py-1.5 text-left text-sm hover:bg-surface">Share</button>
-              <button type="button" role="menuitem" onClick={() => setMenu(false)} className="block w-full rounded-lg px-2 py-1.5 text-left text-sm text-red-400 hover:bg-surface">Report</button>
-            </div>
-          )}
-        </div>
-      </div>
+      {joined ? (
+        <AngleButton as="link" href={href} secondary small>Joined</AngleButton>
+      ) : (
+        <AngleButton type="button" onClick={onJoin} disabled={joining} small>{joining ? "Joining…" : "Join"}</AngleButton>
+      )}
     </article>
   );
 }

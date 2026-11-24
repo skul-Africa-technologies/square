@@ -2,14 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { getInitials } from "@square/shared";
 import { CreateCommunityModal } from "./CreateCommunityModal";
-import { UnreadBadge } from "@/components/messages/UnreadBadge";
-import clsx from "clsx";
+import { HexBadge } from "@/components/ui/redesign";
 
 export function CommunityStrip() {
   const pathname = usePathname();
@@ -39,15 +37,9 @@ export function CommunityStrip() {
           aria-current={isHub ? "page" : undefined}
           className="relative flex h-12 w-12 items-center justify-center"
         >
-          <span
-            className={clsx(
-              "relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border-2 transition-[border-color] duration-200",
-              isHub ? "border-blue bg-blue-soft text-lime" : "border-blue-border bg-surface text-lime",
-            )}
-          >
-            <Image src="/logo-mark.png" alt="" width={44} height={44} className="h-11 w-11 object-cover" />
+          <span className="relative">
+            <HexBadge label="Square home" initials="S" active={isHub} unread={unread?.unread || 0} size={52} />
           </span>
-          {unread && <UnreadBadge unread={unread.unread} mentions={unread.mentions} className="absolute -right-1 -top-1" ringClassName="ring-bg" />}
         </Link>
 
         <div className="my-2 h-px w-8 shrink-0 bg-border" aria-hidden="true" />
@@ -67,17 +59,13 @@ export function CommunityStrip() {
               aria-current={active ? "page" : undefined}
               className="relative flex h-12 w-12 shrink-0 items-center justify-center"
             >
-              <span
-                className={clsx(
-                  "relative flex h-11 w-11 items-center justify-center rounded-full border-2 text-xs font-semibold transition-[border-color] duration-200",
-                  active
-                    ? "border-blue bg-blue-soft text-lime"
-                    : "border-blue-border bg-surface text-lime",
-                )}
-              >
-                {c.avatar || getInitials(c.name)}
-                <UnreadBadge unread={c.unreadCount || 0} mentions={c.mentions || 0} className="absolute -right-2 -top-1" ringClassName="ring-bg-2" />
-              </span>
+              <HexBadge
+                label={c.name}
+                initials={c.avatar || getInitials(c.name)}
+                active={active}
+                unread={(c.unreadCount || 0) + (c.mentions || 0)}
+                size={52}
+              />
             </Link>
           );
         })}
@@ -92,9 +80,12 @@ export function CommunityStrip() {
           aria-label="Create a community"
           className="relative flex h-12 w-12 items-center justify-center"
         >
-          <span className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-dashed border-blue-border text-lime transition-[border-color] duration-200">
+          <span className="relative flex h-12 w-14 items-center justify-center">
+            <svg viewBox="0 0 52 58" aria-hidden="true" className="absolute inset-0 h-full w-full">
+              <polygon points="26,3 49,16 49,42 26,55 3,42 3,16" fill="none" stroke="#3a463f" strokeDasharray="3 4" strokeWidth="1.5" strokeLinejoin="round" />
+            </svg>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <path d="M12 5v14M5 12h14" />
+              <path d="M12 5v14M5 12h14" className="text-lime" />
             </svg>
           </span>
         </button>
@@ -106,19 +97,7 @@ export function CommunityStrip() {
           aria-current={isExplore ? "page" : undefined}
           className="relative flex h-12 w-12 items-center justify-center"
         >
-          <span
-            className={clsx(
-              "flex h-11 w-11 items-center justify-center rounded-full border-2 transition-[border-color] duration-200",
-              isExplore
-                ? "border-blue bg-blue-soft text-lime"
-                : "border-blue-border bg-surface text-lime",
-            )}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" />
-              <path d="m15 9-2 6-6 2 2-6 6-2Z" />
-            </svg>
-          </span>
+          <HexBadge label="Explore" initials="EX" active={isExplore} unread={0} size={52} />
         </Link>
       </div>
 

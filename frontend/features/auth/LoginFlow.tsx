@@ -331,7 +331,7 @@ function CodeStep({ mode, email, onChangeEmail, onVerified }: {
         <h2 className="font-heading text-2xl font-semibold">{mode === "login" ? "Verify and log in" : "Verify and continue"}</h2>
         <p className="mt-1 text-sm text-muted">We sent a 6-digit code to {email}</p>
       </div>
-      <div className={`flex gap-2 ${shake ? "animate-[auth-shake_.3s_ease-in-out]" : ""}`} onPaste={paste}>
+      <div className={`grid grid-cols-6 gap-1 sm:gap-2 ${shake ? "animate-[auth-shake_.3s_ease-in-out]" : ""}`} onPaste={paste}>
         {digits.map((digit, index) => (
           <input key={index} ref={(element) => { refs.current[index] = element; }} value={digit} onChange={(event) => {
             const value = event.target.value.replace(/\D/g, "").slice(-1);

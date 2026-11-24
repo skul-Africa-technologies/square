@@ -3,17 +3,27 @@
 @tailwind utilities;
 
 :root {
+  --bg: #0a0e0c;
+  --rail: #080b09;
+  --panel: #0f1512;
+  --raised: #18211c;
+  --line: #222c27;
+  --text: #e6ece8;
+  --muted: #7f8c85;
+  --green: #a6ff1a;
+  --blue: #38c0ff;
+  --blue-deep: #12303f;
+  --blue-border-line: #2a6b8c;
+  --danger: #ff8a8a;
+  --offline: #56615b;
   /* Local system font stacks (no Google Fonts fetch at build/dev time). */
   --font-inter: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-space-grotesk: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --bg: #0B0D0B;
-  --bg-2: #101410;
-  --surface: #202720;
-  --surface-hi: #283128;
-  --border: #303A2D;
-  --text: #F5F7F2;
-  --muted: #929A90;
-  --lime: #B6FF3B;
+  --bg-2: var(--panel);
+  --surface: var(--raised);
+  --surface-hi: #202720;
+  --border: var(--line);
+  --lime: var(--green);
   --lime-hover: #A3EB2F;
   --lime-tint: rgba(182,255,59,.12);
   /* Blue tokens (secondary accent). Change here only. */
@@ -26,8 +36,8 @@
   --name-other: #B6FF3B; /* lime, others */
   --name-self: #7DD3FC;  /* sky blue, signed-in user */
   /* Shell widths */
-  --shell-strip: 72px;
-  --shell-left: 240px;
+  --shell-strip: 84px;
+  --shell-left: 250px;
   --shell-right: 300px;
   --sheet-radius: 24px;
 }
@@ -123,6 +133,7 @@ body { @apply bg-bg text-text font-body antialiased; }
 @media (max-width: 767px) {
   .shell-grid { display: none; }
   .mobile-shell { display: flex; }
+  :root { --shell-strip: 62px; }
   .mobile-sheet-layout {
     display: flex;
     width: 100%;
@@ -188,6 +199,9 @@ body { @apply bg-bg text-text font-body antialiased; }
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  border-top-left-radius: 26px;
+  border-top: 1.5px solid var(--blue);
+  border-left: 1.5px solid var(--blue);
 }
 .main-header {
   flex-shrink: 0;
@@ -222,10 +236,10 @@ body { @apply bg-bg text-text font-body antialiased; }
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  border-left: 1px solid var(--blue-strong);
-  border-top: 1px solid var(--blue-strong);
-  border-top-left-radius: var(--sheet-radius);
-  background: var(--bg-2);
+  border-left: 1.5px solid var(--blue);
+  border-top: 1.5px solid var(--blue);
+  border-top-left-radius: 26px;
+  background: var(--panel);
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
 }

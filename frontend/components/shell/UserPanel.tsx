@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { toDisplayUsername, getInitials } from "@square/shared";
+import { toDisplayUsername } from "@square/shared";
 import { PresenceDot } from "./PresenceDot";
 import clsx from "clsx";
 import { clearSession } from "@/lib/session";
 import { useRouter } from "next/navigation";
+import { RobotAvatar } from "@/components/ui/redesign";
 
 export function UserPanel({ onOpenProfile, className }: { onOpenProfile?: () => void; className?: string }) {
   const qc = useQueryClient();
@@ -37,8 +38,7 @@ export function UserPanel({ onOpenProfile, className }: { onOpenProfile?: () => 
       <div className="flex items-center gap-1">
         <button type="button" onClick={() => setOpen(v => !v)} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-2 text-left hover:bg-surface" aria-haspopup="menu" aria-expanded={open}>
           <span className="relative">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-hi text-xs font-semibold">{me ? getInitials(me.username) : "??"}</span>
-            <PresenceDot status={status} className="absolute -bottom-0.5 -right-0.5" />
+            {me ? <RobotAvatar id={me.id} pictureUrl={me.avatarUrl} size={32} online={status === "online"} /> : <span className="block h-8 w-8 rounded-[12px] bg-surface" />}
           </span>
           <span className="min-w-0">
             <span className="block truncate text-sm text-name-self">{me ? toDisplayUsername(me.username) : "…"}</span>

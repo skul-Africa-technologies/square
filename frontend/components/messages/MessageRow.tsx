@@ -5,6 +5,7 @@ import { toDisplayUsername, getInitials, type Paginated, type ReactionSummary, t
 import clsx from "clsx";
 import { SmilePlus } from "lucide-react";
 import { getNameColor, isSelf } from "@/lib/nameColor";
+import { RobotAvatar } from "@/components/ui/redesign";
 
 const LazyReactionPicker = lazy(() => import("./ReactionPicker").then(module => ({ default: module.ReactionPicker })));
 
@@ -100,7 +101,6 @@ export const MessageRow = forwardRef<HTMLDivElement, {
   onReactionUsers?: (emoji: string, cursor?: string) => Promise<Paginated<ReactionUser>>;
 }>(function MessageRow({ item, currentUserId, grouped, showSeen, flash, onReply, onDelete, onRetry, onJumpToReply, showReactions, canReact = true, reactionDisabledReason, currentUsername = "amaka-eze", onFloatingUiChange, onReaction, onReactionUsers }, ref) {
   const name = item.authorUsername ? toDisplayUsername(item.authorUsername) : (item.authorId || "user");
-  const initials = getInitials(item.authorUsername || item.authorId || "u");
   const nameColor = getNameColor(item.authorId, currentUserId);
   const self = isSelf(item.authorId, currentUserId);
   const [reactions, setReactions] = useState(item.reactions || []);
@@ -185,7 +185,11 @@ export const MessageRow = forwardRef<HTMLDivElement, {
       <div className="flex gap-3">
         <div className="w-9 shrink-0">
           {!grouped && (
-            <div className="h-9 w-9 rounded-full bg-surface-hi flex items-center justify-center text-xs font-semibold">{initials}</div>
+            <RobotAvatar
+              id={item.authorId}
+              pictureUrl={item.authorAvatarUrl}
+              size={36}
+            />
           )}
         </div>
         <div className="min-w-0 flex-1">

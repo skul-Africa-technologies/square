@@ -7,10 +7,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatUsername, getInitials, plural } from "@square/shared";
 import { relativeTime, useNow } from "@/lib/time";
-import { PresenceDot } from "@/components/shell/PresenceDot";
 import { CommandPalette } from "@/components/shell/CommandPalette";
 import { UnreadBadge } from "@/components/messages/UnreadBadge";
 import clsx from "clsx";
+import { AngleButton, CountBadge, HexBadge, RobotAvatar } from "@/components/ui/redesign";
 
 export const MOBILE_HOME_DEFAULT = "discover" as const;
 
@@ -22,6 +22,7 @@ interface CommunityItem {
   slug: string;
   blurb: string;
   memberCount: number;
+  onlineCount?: number;
   category: string;
   bannerUrl?: string;
   avatar?: string;
@@ -238,10 +239,7 @@ export function MobileHomeHub() {
         )}
         <div className="flex items-center gap-2 rounded-full border bg-bg/95 p-1.5 pl-2 shadow-lg backdrop-blur">
           <span className="relative flex-shrink-0">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-hi text-xs font-semibold select-none">
-              {me ? getInitials(me.username) : "??"}
-            </span>
-            <PresenceDot status="online" className="absolute -bottom-0.5 -right-0.5" />
+            {me ? <RobotAvatar id={me.id} pictureUrl={me.avatarUrl} size={32} online /> : <span className="block h-8 w-8 rounded-[12px] bg-surface" />}
           </span>
           <button
             type="button"
@@ -310,7 +308,7 @@ function MobileDiscoverView({
 
       {birthdays.length > 0 && (
         <section aria-labelledby="mob-birthdays">
-          <h2 id="mob-birthdays" className="font-heading text-sm font-semibold mb-3">Celebrating today</h2>
+          <h2 id="mob-birthdays" className="font-heading text-sm font-semibold mb-3"><span aria-hidden="true" className="mr-2">🎂</span>Celebrating today</h2>
           <MobileBirthdayStrip people={birthdays} currentUserId={user?.id} />
         </section>
       )}
@@ -369,6 +367,7 @@ function MobileGreetingRow({ user, now }: { user?: { username: string; displayNa
 function MobileCommunityCardRow({ communities, excludeSlugs = [] }: { communities: CommunityItem[]; excludeSlugs?: string[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const qc = useQueryClient();
   const filtered = communities.filter(c => !excludeSlugs.includes(c.slug));
   useMask(scrollRef);
 
@@ -384,45 +383,49 @@ function MobileCommunityCardRow({ communities, excludeSlugs = [] }: { communitie
       {filtered.map(c => (
         <article
           key={c.id}
-          className="community-photo-card"
           role="listitem"
-          style={{ width: 240, scrollSnapAlign: "start" }}
+          style={{
+            width: 248,
+            minHeight: 82,
+            flexShrink: 0,
+            scrollSnapAlign: "start",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            borderRadius: 14,
+            border: "1px solid var(--line)",
+            background: "var(--panel)",
+            padding: 10,
+          }}
         >
-          <div className="banner" style={{ flex: "1 1 0", minHeight: 0, position: "relative", overflow: "hidden" }}>
-            {c.bannerUrl ? (
-              <div className="absolute inset-0" style={{ background: c.bannerUrl }} />
-            ) : (
-              <GeneratedBanner name={c.name} category={c.category} />
-            )}
-            <div className="gradient" />
-            <div className="banner-info">
-              <div className="avatar-wrap">
-                {/* letter avatar — no img, no 404 */}
-                <div className="avatar">{c.avatar || getInitials(c.name)}</div>
-              </div>
-              <div className="text">
-                <div className="name">{c.name}</div>
-                <div className="blurb">{c.blurb}</div>
-              </div>
-            </div>
-          </div>
-          <div className="footer">
-            <div className="footer-info">
-              <span className="members">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>
-                {c.memberCount.toLocaleString()}
-              </span>
-              <span className="chip">{c.category}</span>
-            </div>
-            <button
-              type="button"
-              className="join-btn join"
-              onClick={() => router.push(`/c/${c.slug}`)}
-              aria-label={`Join ${c.name}`}
-            >
-              Join
-            </button>
-          </div>
+          <HexBadge label={c.name} initials={c.avatar || getInitials(c.name)} size={34} unread={0} />
+          <button
+            type="button"
+            onClick={() => router.push(`/c/${c.slug}`)}
+            className="min-w-0 flex-1 text-left"
+            aria-label={`Open ${c.name}`}
+          >
+            <span className="block truncate text-[14px] font-semibold text-[var(--text)]">{c.name}</span>
+            <span className="mt-1 block truncate text-[11px] text-[var(--muted)]">
+              {c.memberCount.toLocaleString()} members
+              {(c.onlineCount ?? 0) > 0 ? ` · ${c.onlineCount} online` : ""}
+            </span>
+          </button>
+          <AngleButton
+            type="button"
+            small
+            onClick={async () => {
+              try {
+                await api.joinCommunity(c.slug);
+                await qc.invalidateQueries({ queryKey: ["discover"] });
+                await qc.invalidateQueries({ queryKey: ["my-communities"] });
+                router.push(`/c/${c.slug}`);
+              } catch {}
+            }}
+            aria-label={`Join ${c.name}`}
+          >
+            Join
+          </AngleButton>
         </article>
       ))}
     </div>
@@ -557,25 +560,32 @@ function MobileBirthdayStrip({ people, currentUserId }: { people: BirthdayItem[]
       }}
     >
       {filtered.map(p => (
-        <div key={p.id} className="birthday-item" role="listitem">
-          <div className="avatar-wrap">
-            {p.avatarUrl ? (
-              <img src={p.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
-            ) : (
-              <span className="avatar-initials">{getInitials(p.username)}</span>
-            )}
-            <span className="badge" aria-label="Birthday today">🎂</span>
+        <div
+          key={p.id}
+          role="listitem"
+          className="flex w-[160px] min-h-[104px] flex-col items-center rounded-[14px] border px-3 py-3"
+          style={{ borderColor: "var(--line)", background: "var(--panel)", flexShrink: 0 }}
+        >
+          <div className="relative">
+            <RobotAvatar id={p.id} pictureUrl={p.avatarUrl} size={44} />
+            <span
+              aria-label="Birthday today"
+              title="Birthday today"
+              className="absolute -bottom-1 -right-1 grid h-[22px] w-[22px] place-items-center rounded-full border-2 text-[13px]"
+              style={{ borderColor: "var(--panel)", background: "var(--raised)" }}
+            >🎂</span>
           </div>
-          <div className="username">{formatUsername(p.username)}</div>
-          <button
+          <div className="mt-2 w-full truncate text-center text-[12px] font-semibold">{formatUsername(p.username)}</div>
+          <AngleButton
             type="button"
-            className="btn"
+            small
             onClick={() => {
               window.location.href = `/dm/${p.id}?prefill=${encodeURIComponent(`Happy birthday ${formatUsername(p.displayName || p.username)}! 🎉`)}`;
             }}
+            className="mt-2 w-full"
           >
-            Say happy birthday
-          </button>
+            Wish
+          </AngleButton>
         </div>
       ))}
     </div>
@@ -587,33 +597,27 @@ function MobileBirthdayStrip({ people, currentUserId }: { people: BirthdayItem[]
 function MobileEventsList({ events }: { events: EventItem[] }) {
   if (events.length === 0) return null;
   return (
-    <div className="space-y-3" role="list">
+    <div className="space-y-2" role="list">
       {events.map(e => (
-        <article key={e.id} className="event-card" role="listitem">
-          <div className="flex items-center gap-3">
-            <div className="date-badge">
-              <span className="day">{new Date(e.date).getDate()}</span>
-              <span className="month">{new Date(e.date).toLocaleDateString(undefined, { month: "short" })}</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="title truncate">{e.title}</p>
-              <p className="community truncate">{e.communityName}</p>
-            </div>
+        <button
+          key={e.id}
+          type="button"
+          role="listitem"
+          onClick={() => window.location.href = `/c/${e.communitySlug}/events`}
+          className="grid min-h-[64px] w-full grid-cols-[44px_minmax(0,1fr)] items-center gap-2 rounded-[12px] border px-3 py-2 text-left"
+          style={{ borderColor: "var(--line)", background: "var(--panel)" }}
+        >
+          <div className="flex h-[48px] w-[44px] flex-col items-center justify-center rounded-[12px]" style={{ background: "var(--raised)" }}>
+            <span className="text-[11px] text-[var(--muted)]">{new Date(e.date).toLocaleDateString(undefined, { month: "short" })}</span>
+            <span className="text-[18px] font-bold text-[var(--green)]">{new Date(e.date).getDate()}</span>
           </div>
-          {(e.time || e.place) && (
-            <div className="meta">
-              {e.time && <span className="flex items-center gap-1"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>{e.time}</span>}
-              {e.place && <span className="flex items-center gap-1"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0" /><circle cx="12" cy="10" r="3" /></svg>{e.place}</span>}
-            </div>
-          )}
-          <button
-            type="button"
-            className="btn"
-            onClick={() => window.location.href = `/c/${e.communitySlug}/events`}
-          >
-            View
-          </button>
-        </article>
+          <div className="min-w-0">
+            <p className="truncate text-[14px] font-semibold">{e.title}</p>
+            <p className="truncate text-[11px] text-[var(--muted)]">
+              {[e.communityName, e.time, e.place].filter(Boolean).join(" · ")}
+            </p>
+          </div>
+        </button>
       ))}
     </div>
   );
@@ -679,11 +683,8 @@ function MobileMessagesView({
             {recent.map((c: any) => (
               <Link key={c.id} href={`/dm/${c.id}`} prefetch={false} className="w-[72px] shrink-0 text-center">
                 <span className="relative mx-auto block h-14 w-14">
-                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-hi text-sm font-semibold select-none">
-                    {getInitials(c.participant.username)}
-                  </span>
-                  <PresenceDot status={c.presence} className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5" />
-                  <UnreadBadge unread={c.unreadCount} mentions={c.mentions || 0} size="mobile" className="absolute -right-2 top-0" ringClassName="ring-bg" />
+                  <RobotAvatar id={c.participant.id} pictureUrl={c.participant.avatarUrl} size={56} online={c.presence === "online"} />
+                  {c.unreadCount > 0 && <CountBadge count={c.unreadCount} className="absolute -right-2 -top-1" />}
                 </span>
                 <span className="mt-1 block truncate text-[11px] text-muted">{formatUsername(c.participant.username)}</span>
               </Link>
@@ -707,11 +708,8 @@ function MobileMessagesView({
                 className={clsx("flex min-h-[56px] items-center gap-3 py-2", highlight && "rounded-lg bg-surface/60 px-2")}
               >
                 <span className="relative shrink-0">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-hi text-[11px] font-semibold select-none">
-                    {getInitials(c.participant.username)}
-                  </span>
-                  <PresenceDot status={c.presence} className="absolute -bottom-0.5 -right-0.5" />
-                  {unread && <span aria-hidden="true" className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-blue-strong" />}
+                  <RobotAvatar id={c.participant.id} pictureUrl={c.participant.avatarUrl} size={40} online={c.presence === "online"} />
+                  {unread && <CountBadge count={c.unreadCount} className="absolute -right-2 -top-1" />}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline justify-between gap-2">
@@ -724,7 +722,6 @@ function MobileMessagesView({
                     {c.lastMessagePreview || c.lastMessage || "No messages yet"}
                   </span>
                 </span>
-                <UnreadBadge unread={c.unreadCount} mentions={c.mentions || 0} size="mobile" ringClassName="ring-bg" />
               </Link>
             );
           })}
