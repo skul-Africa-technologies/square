@@ -1,6 +1,7 @@
 *.tsbuildinfo
 node_modules/
 .next/
+.next-dev/
 .next-build/
 .next-e2e/
 .turbo/
