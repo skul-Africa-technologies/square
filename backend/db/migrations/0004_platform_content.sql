@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS chat.messages (
 );
 
 ALTER TABLE chat.messages ADD COLUMN IF NOT EXISTS body text;
+ALTER TABLE chat.messages ADD COLUMN IF NOT EXISTS content text;
 ALTER TABLE chat.messages ADD COLUMN IF NOT EXISTS reply_to_id text;
 ALTER TABLE chat.messages ADD COLUMN IF NOT EXISTS seq bigint;
 ALTER TABLE chat.messages ADD COLUMN IF NOT EXISTS client_msg_id text;
@@ -135,6 +136,8 @@ CREATE TABLE IF NOT EXISTS dm.conversations (
   archived_at timestamptz,
   hidden_at timestamptz
 );
+
+ALTER TABLE dm.conversations ADD COLUMN IF NOT EXISTS pair_key text;
 
 CREATE TABLE IF NOT EXISTS dm.participants (
   conversation_id text NOT NULL REFERENCES dm.conversations(id) ON DELETE CASCADE,

@@ -18,11 +18,12 @@ import { ReactionsService } from "./reactions.service";
 import { BACKEND_CONFIG } from "./tokens";
 import { IdentityController } from "./identity.controller";
 import { PlatformController } from "./platform.controller";
+import { ConversationController } from "./conversation.controller";
 
 const config = parseBackendConfig(process.env);
 
 @Module({
-  controllers: [HealthController, GatewayController, IdentityController, PlatformController, ReactionsController],
+  controllers: [HealthController, GatewayController, IdentityController, PlatformController, ConversationController, ReactionsController],
   providers: [
     { provide: BACKEND_CONFIG, useValue: config },
     { provide: DatabaseService, useFactory: () => new DatabaseService(config) },
