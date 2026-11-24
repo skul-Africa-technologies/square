@@ -17,11 +17,12 @@ import { ReactionsScheduler } from "./reactions.scheduler";
 import { ReactionsService } from "./reactions.service";
 import { BACKEND_CONFIG } from "./tokens";
 import { IdentityController } from "./identity.controller";
+import { PlatformController } from "./platform.controller";
 
 const config = parseBackendConfig(process.env);
 
 @Module({
-  controllers: [HealthController, GatewayController, IdentityController, ReactionsController],
+  controllers: [HealthController, GatewayController, IdentityController, PlatformController, ReactionsController],
   providers: [
     { provide: BACKEND_CONFIG, useValue: config },
     { provide: DatabaseService, useFactory: () => new DatabaseService(config) },
