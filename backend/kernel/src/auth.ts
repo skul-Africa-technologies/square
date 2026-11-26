@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, SetMetadata } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { importPKCS8, importSPKI, jwtVerify, SignJWT } from "jose";
-import { timingSafeEqual } from "node:crypto";
+import { timingSafeEqual, randomUUID } from "node:crypto";
 import type { FastifyRequest } from "fastify";
 import { ApiException } from "./errors";
 import type { BackendConfig } from "./config";
@@ -74,10 +74,10 @@ export class JwtAuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const token = cookieValue(request.headers.cookie, authCookieNames(this.config).access);
-    if (this.config.NODE_ENV === "development" && token?.startsWith("dev_")) {
+    if (this.config.AUTH_DEV_BYPASS && this.config.NODE_ENV !== "production" && token?.startsWith("dev_")) {
       const id = token.slice(4);
       if (/^[A-Za-z0-9_-]{1,128}$/.test(id)) {
-        request.user = { id, sessionId: "dev-session", trustLevel: 1, sessionVersion: 1 };
+        request.user = { id, sessionId: `dev-${randomUUID()}`, trustLevel: 1, sessionVersion: 1 };
         return true;
       }
     }

@@ -173,8 +173,10 @@ export class ReactionsController {
     const client = await this.database.pool.connect();
     let closed = false;
     let ready = false;
+    let backedUp = false;
     let heartbeat: ReturnType<typeof setInterval> | undefined;
     const pendingIds: string[] = [];
+    const MAX_PENDING = 200;
     const cleanup = () => {
       if (closed) return;
       closed = true;
@@ -183,9 +185,8 @@ export class ReactionsController {
       void client.query("UNLISTEN kernel_reaction_outbox").finally(() => client.release());
     };
     const writeEvent = (name: string, id: string, data: unknown) => {
-      if (!closed && !reply.raw.destroyed) {
-        reply.raw.write(`id: ${id}\nevent: ${name}\ndata: ${JSON.stringify(data)}\n\n`);
-      }
+      if (closed || backedUp || reply.raw.destroyed) return;
+      backedUp = !reply.raw.write(`id: ${id}\nevent: ${name}\ndata: ${JSON.stringify(data)}\n\n`);
     };
     const deliver = async (eventId: string) => {
       if (closed) return;
@@ -196,7 +197,7 @@ export class ReactionsController {
         );
         const row = result.rows[0];
         const data = row?.payload?.data;
-        if (row?.type !== "reaction.updated" || data?.scope !== scope || data.roomId !== roomId) return;
+        if (row?.type !== "reaction.updated" || data?.scope !== scope || data?.roomId !== roomId) return;
         await this.reactions.assertCanViewRoom(scope, roomId, user.id);
         const event = reactionUpdatedEventSchema.parse({ ...data, type: "reaction.updated" });
         writeEvent(event.type, row.id, event);
@@ -209,7 +210,7 @@ export class ReactionsController {
     const onNotification = (notification: { channel?: string; payload?: string }) => {
       if (notification.channel !== "kernel_reaction_outbox" || !notification.payload || closed) return;
       if (!ready) {
-        pendingIds.push(notification.payload);
+        if (pendingIds.length < MAX_PENDING) pendingIds.push(notification.payload);
         return;
       }
       void deliver(notification.payload);
@@ -228,10 +229,11 @@ export class ReactionsController {
         "X-Accel-Buffering": "no",
       });
       reply.raw.flushHeaders();
+      reply.raw.on("drain", () => { backedUp = false; });
       writeEvent(resync.type, `resync-${Date.now()}`, resync);
       ready = true;
       for (const eventId of pendingIds.splice(0)) void deliver(eventId);
-      heartbeat = setInterval(() => { if (!closed) reply.raw.write(": keep-alive\n\n"); }, 20_000);
+      heartbeat = setInterval(() => { if (!closed && !backedUp && !reply.raw.destroyed) reply.raw.write(": keep-alive\n\n"); }, 20_000);
       reply.raw.on("close", cleanup);
     } catch (error) {
       client.removeListener("notification", onNotification);

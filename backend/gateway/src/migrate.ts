@@ -23,32 +23,49 @@ async function migrate(): Promise<void> {
         applied_at timestamptz NOT NULL DEFAULT now()
       )
     `);
-    const migrations = (await readdir(migrationsPath)).filter((name) => name.endsWith(".sql")).sort();
 
-    for (const name of migrations) {
-      const applied = await pool.query("SELECT 1 FROM kernel.schema_migrations WHERE name = $1", [name]);
-      if (applied.rowCount) continue;
+    const client = await pool.connect();
+    let pending: string[] = [];
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK_KEY]);
+      const migrations = (await readdir(migrationsPath)).filter((name) => name.endsWith(".sql")).sort();
+      const appliedRows = await client.query<{ name: string }>("SELECT name FROM kernel.schema_migrations");
+      const applied = new Set(appliedRows.rows.map((row) => row.name));
+      pending = migrations.filter((name) => !applied.has(name));
 
-      const sql = await readFile(resolve(migrationsPath, name), "utf8");
-      const client = await pool.connect();
-      try {
+      for (const name of pending) {
+        const sql = await readFile(resolve(migrationsPath, name), "utf8");
         await client.query("BEGIN");
-        await client.query(sql);
-        await client.query("INSERT INTO kernel.schema_migrations (name) VALUES ($1)", [name]);
-        await client.query("COMMIT");
-        process.stdout.write(`applied ${name}\n`);
-      } catch (error) {
-        await client.query("ROLLBACK");
-        throw error;
-      } finally {
-        client.release();
+        try {
+          await client.query(sql);
+          await client.query("INSERT INTO kernel.schema_migrations (name) VALUES ($1)", [name]);
+          await client.query("COMMIT");
+          process.stdout.write(`applied ${name}\n`);
+        } catch (error) {
+          await client.query("ROLLBACK");
+          throw error;
+        }
       }
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
     }
-    process.stdout.write("database migrations complete\n");
+
+    if (pending.length === 0) {
+      process.stdout.write("database migrations already up to date\n");
+    } else {
+      process.stdout.write(`database migrations complete (${pending.length} applied)\n`);
+    }
   } finally {
     await pool.end();
   }
 }
+
+const MIGRATION_LOCK_KEY = 4242001;
 
 migrate().catch((error: unknown) => {
   process.stderr.write(`database migration failed: ${error instanceof Error ? error.message : "unknown error"}\n`);

@@ -12,7 +12,7 @@ function replyMock() {
 }
 
 describe("HealthController", () => {
-  const config = parseBackendConfig({});
+  const config = parseBackendConfig({ NODE_ENV: "test", DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square" });
 
   it("reports ready only when Postgres is migrated and Redis responds", async () => {
     const controller = new HealthController(

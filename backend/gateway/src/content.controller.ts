@@ -87,6 +87,7 @@ export class ContentController {
       can_read: boolean;
       can_post: boolean;
       can_pin: boolean;
+      can_member: boolean;
     }>(
       `SELECT membership.role,
               (
@@ -103,7 +104,13 @@ export class ContentController {
                     AND (restriction.restriction='banned'
                       OR (restriction.restriction='timeout' AND restriction.expires_at>now()))
                 ) AS can_post,
-              (membership.role IS NOT NULL AND membership.role=ANY(asset.can_pin_roles)) AS can_pin
+              (membership.role IS NOT NULL AND membership.role=ANY(asset.can_pin_roles)) AS can_pin,
+              (membership.role IS NOT NULL AND NOT EXISTS (
+                SELECT 1 FROM communities.member_restrictions restriction
+                WHERE restriction.community_id=community.id AND restriction.user_id=membership.user_id
+                  AND (restriction.restriction='banned'
+                    OR (restriction.restriction='timeout' AND restriction.expires_at>now()))
+              )) AS can_member
        FROM assets.assets asset
        JOIN communities.communities community ON community.id=asset.community_id
        LEFT JOIN communities.memberships membership
@@ -118,7 +125,7 @@ export class ContentController {
       : access === "post"
         ? row.can_post
         : access === "member"
-          ? row.role !== null
+          ? row.can_member
           : row.role === "owner" || row.role === "moderator";
     if (!allowed) {
       if (access === "read") throw new ApiException(404, "not_found", "Asset not found");

@@ -12,6 +12,7 @@ export class RedisService implements OnApplicationShutdown {
       maxRetriesPerRequest: 1,
       enableOfflineQueue: false,
       connectTimeout: 3_000,
+      commandTimeout: 5_000,
       retryStrategy: (attempt) => Math.min(attempt * 250, 3_000),
     });
     this.client.on("error", () => process.stderr.write("redis connection error\n"));

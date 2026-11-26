@@ -100,3 +100,104 @@ docker run --rm -p 3000:3000 -e PORT=3000 -e NEXT_PUBLIC_USE_MOCK=true square-fr
 
 The image uses Node 22 Alpine, installs production dependencies separately from
 the build stage, and runs the frontend as a non-root user.
+
+## Backend production deployment
+
+The gateway (`backend/gateway`) and worker run from the same image
+(`backend/gateway/Dockerfile`, `node:22-bookworm-slim`, non-root `node` user,
+port 4000). The image entrypoint runs `pnpm --filter @square/gateway migrate`
+then `pnpm start:backend`; the worker overrides the command with
+`pnpm start:worker`.
+
+### 1. Required infrastructure
+- PostgreSQL 16+ reachable with TLS (`sslmode=require`).
+- Redis 7+ reachable with TLS (`rediss://`) and Streams support.
+- A container runtime/orchestrator that can run two replicas from one image
+  (gateway + worker) and terminate them gracefully.
+- An HTTPS edge/load balancer in front of the gateway (TLS termination).
+
+### 2. Required environment variables
+See `.env.example`. In production the config (`backend/kernel/src/config.ts`)
+**fails fast** unless all of these are set: `NODE_ENV=production`,
+`DATABASE_URL` (with `sslmode=require`), `REDIS_URL` (`rediss://`),
+`CORS_ORIGINS` (HTTPS only), `METRICS_TOKEN` (≥32 chars),
+`JWT_PUBLIC_KEY` + `JWT_PRIVATE_KEY` (Ed25519 PEM), `AUTH_CODE_PEPPER` (≥32),
+`RESEND_API_KEY` + `RESEND_SENDER_EMAIL`. `AUTH_DEV_BYPASS` must never be set.
+
+### 3. Generate JWT keys securely
+```sh
+openssl genpkey -algorithm ed25519 -out jwt_private.pem
+openssl pkey -in jwt_private.pem -pubout -out jwt_public.pem
+```
+Store the private key in your secret manager; inject both as env vars.
+
+### 4. PostgreSQL
+Use a managed Postgres with TLS and a connection pooler. `DATABASE_URL` points
+at the pooler (transaction mode), `DIRECT_URL` at a session-mode endpoint for
+migrations. Application tables live in schemas (`users`, `identity`,
+`communities`, `chat`, `dm`, `assets`, `feeds`, `events`, `lists`, `boards`,
+`campaigns`, `moderation`, `kernel`), not `public`.
+
+### 5. Redis
+Use a managed Redis with TLS (`rediss://`). The app uses `pg_notify` +
+`LISTEN` (Postgres) for SSE and Redis for rate limiting, session deny-list, and
+streams. Redis must support `EVAL` (Lua), `XADD`/`XREADGROUP`/`XACK`, and
+`SET`/`GET`/`INCR`.
+
+### 6. Run migrations
+Migrations are hand-written SQL in `backend/db/migrations/`, applied in order by
+`backend/gateway/src/migrate.ts`. The runner takes a Postgres advisory lock
+(`pg_advisory_lock`) so **multiple replicas can run it concurrently safely** —
+the second replica waits, then sees the schema up to date and exits. The gateway
+container runs migrate before start, so schema is always current on rollout. To
+run manually: `pnpm db:migrate` (status: `pnpm db:status`).
+
+### 7. Build the image
+```sh
+docker build -f backend/gateway/Dockerfile -t square-gateway .
+```
+
+### 8. Deploy the gateway
+Run N gateway replicas from the image (env from your secret manager). The
+container migrates-then-starts; readiness is `GET /readyz` (checks Postgres +
+Redis). Liveness is `GET /healthz`.
+
+### 9. Deploy the worker
+Run the worker from the **same image** with command `pnpm start:worker`. It
+relays committed outbox events to Redis Streams and recovers pending work on
+restart. It must share `DATABASE_URL`/`REDIS_URL` with the gateway.
+
+### 10. Frontend API URL
+Set `NEXT_PUBLIC_USE_MOCK=false` and `NEXT_PUBLIC_API_URL=https://api.example.com/v1`
+at **build time** (Next.js embeds public vars in the bundle).
+
+### 11. CORS and cookies
+`CORS_ORIGINS` must list the exact frontend HTTPS origins. Cookies use
+`__Host-sq` (or `__Secure-sq` with `COOKIE_DOMAIN`), `HttpOnly`, `Secure`,
+`SameSite=Lax`. CSRF uses a double-submit token (`X-Square-CSRF`).
+
+### 12. Verify health and readiness
+`GET /healthz` → `{status:"ok"}`. `GET /readyz` → 200 when Postgres+Redis are
+reachable, 503 otherwise. `GET /metrics` (protected by `METRICS_TOKEN`).
+
+### 13. Monitor logs and metrics
+Structured JSON logs with request ids (`X-Request-Id`); auth/cookie/url headers
+are redacted. Prometheus metrics at `/metrics` (`square_http_requests_total`,
+`square_http_request_duration_seconds`).
+
+### 14. Rollback
+Redeploy the previous image tag. Migrations are forward-only and transactional;
+rolling back the image does not revert schema. Restore the DB from backup if a
+migration must be undone.
+
+### 15. Backup and restore
+Use your Postgres provider's PITR/backup. Test restores regularly. The
+`kernel.schema_migrations` table tracks applied migrations; a restored backup
+must be consistent with the image's migration set.
+
+### Remaining work before production
+Uploads (Cloudinary signing) are not implemented — keep `UPLOADS_ENABLED=false`.
+Several blueprint routes and full launch-profile behavior remain incomplete (see
+`docs/parity-matrix.md`). No CD pipeline exists; deploy via your orchestrator.
+External dependencies (Resend, Cloudinary, managed Postgres/Redis TLS) must be
+verified in your environment.

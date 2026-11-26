@@ -30,7 +30,7 @@ describe("IdentityController auth codes", () => {
       database,
       redis,
       limiter,
-      parseBackendConfig({ NODE_ENV: "test" }),
+      parseBackendConfig({ NODE_ENV: "test", DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square" }),
     );
 
     await expect(
@@ -50,7 +50,7 @@ describe("IdentityController auth codes", () => {
   });
 
   it("blocks requests when the email rate limit is exceeded", async () => {
-    const set = vi.fn();
+    const set = vi.fn(async () => "OK");
     const database = {
       pool: { query: vi.fn(async () => ({ rows: [], rowCount: 1 })) },
     } as unknown as DatabaseService;
@@ -62,7 +62,7 @@ describe("IdentityController auth codes", () => {
       database,
       redis,
       limiter,
-      parseBackendConfig({ NODE_ENV: "test" }),
+      parseBackendConfig({ NODE_ENV: "test", DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square" }),
     );
 
     await expect(
@@ -71,7 +71,32 @@ describe("IdentityController auth codes", () => {
         { ip: "127.0.0.1" } as never,
       ),
     ).rejects.toMatchObject({ status: 429, code: "rate_limited" });
-    expect(set).not.toHaveBeenCalled();
+    expect(limiter.consume).toHaveBeenCalled();
+  });
+
+  it("does not consume the rate limit when a delivery cooldown is active", async () => {
+    const set = vi.fn(async () => null);
+    const database = {
+      pool: { query: vi.fn(async () => ({ rows: [], rowCount: 1 })) },
+    } as unknown as DatabaseService;
+    const redis = { client: { set, del: vi.fn() } } as unknown as RedisService;
+    const limiter = {
+      consume: vi.fn(async () => ({ allowed: true, limit: 5, remaining: 4, retryAfterMs: 0 })),
+    } as unknown as RedisRateLimiter;
+    const controller = new IdentityController(
+      database,
+      redis,
+      limiter,
+      parseBackendConfig({ NODE_ENV: "test", DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square" }),
+    );
+
+    await expect(
+      controller.requestCode(
+        { email: "student@example.com" },
+        { ip: "127.0.0.1" } as never,
+      ),
+    ).resolves.toEqual({ ok: true });
+    expect(limiter.consume).not.toHaveBeenCalled();
   });
 
   it("uses the deterministic code only when explicit test mode is enabled", async () => {
@@ -80,7 +105,7 @@ describe("IdentityController auth codes", () => {
       { pool: { query: vi.fn(async () => ({ rows: [], rowCount: 1 })) } } as unknown as DatabaseService,
       { client: { set: vi.fn(async () => "OK"), del: vi.fn(async () => 1) } } as unknown as RedisService,
       { consume: vi.fn(async () => ({ allowed: true, limit: 5, remaining: 4, retryAfterMs: 0 })) } as unknown as RedisRateLimiter,
-      parseBackendConfig({ NODE_ENV: "test", AUTH_TEST_MODE: "true" }),
+      parseBackendConfig({ NODE_ENV: "test", AUTH_TEST_MODE: "true", DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square" }),
     );
 
     await controller.requestCode(
@@ -106,7 +131,7 @@ describe("IdentityController auth codes", () => {
       { pool: { query } } as unknown as DatabaseService,
       redis,
       {} as RedisRateLimiter,
-      parseBackendConfig({ NODE_ENV: "test" }),
+      parseBackendConfig({ NODE_ENV: "test", DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square" }),
     );
     const request = { ip: "127.0.0.1" } as never;
     const reply = { header: vi.fn() } as never;
@@ -144,7 +169,7 @@ describe("IdentityController blocks", () => {
       database,
       redis,
       limiter,
-      parseBackendConfig({ NODE_ENV: "test" }),
+      parseBackendConfig({ NODE_ENV: "test", DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square" }),
     );
 
     await expect(controller.blockUser({ username: "user-1" }, {
@@ -177,7 +202,7 @@ describe("IdentityController signup", () => {
       database,
       redis,
       {} as RedisRateLimiter,
-      parseBackendConfig({ NODE_ENV: "test" }),
+      parseBackendConfig({ NODE_ENV: "test", DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square" }),
     );
     const request = { ip: "127.0.0.1" } as never;
     const reply = { header: vi.fn() } as never;
@@ -247,7 +272,7 @@ describe("IdentityController signup", () => {
       database,
       redis,
       {} as RedisRateLimiter,
-      parseBackendConfig({ NODE_ENV: "development" }),
+      parseBackendConfig({ NODE_ENV: "development", DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square", AUTH_CODE_PEPPER: "p".repeat(32), AUTH_DEV_BYPASS: "true" }),
     );
 
     await expect(controller.signup(
@@ -297,7 +322,7 @@ describe("IdentityController sessions", () => {
       { pool: { query } } as unknown as DatabaseService,
       {} as RedisService,
       {} as RedisRateLimiter,
-      parseBackendConfig({ NODE_ENV: "test" }),
+      parseBackendConfig({ NODE_ENV: "test", DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square" }),
     );
 
     await expect(controller.sessions({
@@ -320,7 +345,7 @@ describe("IdentityController sessions", () => {
       { pool: { query } } as unknown as DatabaseService,
       { client: {} } as unknown as RedisService,
       {} as RedisRateLimiter,
-      parseBackendConfig({ NODE_ENV: "test" }),
+      parseBackendConfig({ NODE_ENV: "test", DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square" }),
     );
 
     await expect(controller.revokeSession("other-user-session", {
@@ -346,7 +371,7 @@ describe("IdentityController institution search", () => {
       { pool: { query } } as unknown as DatabaseService,
       {} as RedisService,
       {} as RedisRateLimiter,
-      parseBackendConfig({ NODE_ENV: "test" }),
+      parseBackendConfig({ NODE_ENV: "test", DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square" }),
     );
 
     await expect(controller.schools("  FUT ")).resolves.toEqual([{

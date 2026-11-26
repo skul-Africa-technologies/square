@@ -37,23 +37,27 @@ export class OutboxRelay {
     if (!Number.isInteger(limit) || limit < 1 || limit > 1000) throw new Error("Invalid outbox batch size");
     const redis: Redis = this.redisService.client;
 
-    return this.database.transaction(async (client) => {
-      const rows = await client.query<{ id: string; type: string; payload: DomainEvent }>(
-        `SELECT id, type, payload
-         FROM kernel.outbox
-         WHERE published_at IS NULL
-         ORDER BY created_at, id
-         LIMIT $1
-         FOR UPDATE SKIP LOCKED`,
-        [limit],
-      );
+    const rows = await this.database.pool.query<{ id: string; type: string; payload: DomainEvent }>(
+      `SELECT id, type, payload
+       FROM kernel.outbox
+       WHERE published_at IS NULL
+       ORDER BY created_at, id
+       LIMIT $1`,
+      [limit],
+    );
+    if (rows.rowCount === 0) return 0;
 
-      for (const row of rows.rows) {
-        await redis.xadd(`evt:${row.type}`, "MAXLEN", "~", "100000", "*", "id", row.id, "payload", JSON.stringify(row.payload));
-        await client.query("UPDATE kernel.outbox SET published_at = now() WHERE id = $1", [row.id]);
-      }
-      return rows.rowCount ?? 0;
-    });
+    for (const row of rows.rows) {
+      await redis.xadd(`evt:${row.type}`, "MAXLEN", "~", "100000", "*", "id", row.id, "payload", JSON.stringify(row.payload));
+    }
+
+    const ids = rows.rows.map((row) => row.id);
+    await this.database.pool.query(
+      `UPDATE kernel.outbox SET published_at = now()
+       WHERE id = ANY($1::text[]) AND published_at IS NULL`,
+      [ids],
+    );
+    return ids.length;
   }
 }
 

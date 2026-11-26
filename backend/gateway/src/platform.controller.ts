@@ -732,10 +732,10 @@ export class PlatformController {
       row.role === "owner" ||
       row.role === "moderator",
     );
-    const groups = ASSET_CATEGORY_ORDER.map(category => ({
+    const groups = ASSET_CATEGORY_ORDER.map((category: string) => ({
       category,
-      assets: visible.filter(row => row.category === category),
-    })).filter(group => group.assets.length > 0);
+      assets: visible.filter((row) => row.category === category),
+    })).filter((group: { category: string; assets: typeof visible }) => group.assets.length > 0);
     return groups;
   }
 

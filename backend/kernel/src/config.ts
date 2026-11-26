@@ -22,10 +22,10 @@ const postgresUrl = (name: string) =>
     });
 
 const backendConfigSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  NODE_ENV: z.enum(["development", "test", "production"]),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   SERVICES: z.string().trim().min(1).default("all"),
-  DATABASE_URL: postgresUrl("DATABASE_URL").default("postgresql://square:square@127.0.0.1:5432/square"),
+  DATABASE_URL: postgresUrl("DATABASE_URL"),
   DIRECT_URL: postgresUrl("DIRECT_URL").optional(),
   REDIS_URL: z
     .string()
@@ -74,6 +74,7 @@ const backendConfigSchema = z.object({
   ),
   JWT_KEY_ID: z.string().trim().min(1).default("v1"),
   AUTH_CODE_PEPPER: optionalNonEmpty,
+  AUTH_DEV_BYPASS: boolFromEnv(false),
   COOKIE_DOMAIN: z.preprocess(
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
     z.string().regex(/^\.[a-z0-9.-]+$/i, "COOKIE_DOMAIN must be a parent domain such as .example.com").optional(),
@@ -104,6 +105,22 @@ const backendConfigSchema = z.object({
       code: "custom",
       path: ["AUTH_TEST_MODE"],
       message: "AUTH_TEST_MODE is only available when NODE_ENV=test",
+    });
+  }
+
+  if (config.AUTH_DEV_BYPASS && config.NODE_ENV === "production") {
+    context.addIssue({
+      code: "custom",
+      path: ["AUTH_DEV_BYPASS"],
+      message: "AUTH_DEV_BYPASS must never be enabled in production",
+    });
+  }
+
+  if (config.NODE_ENV !== "test" && (!config.AUTH_CODE_PEPPER || config.AUTH_CODE_PEPPER.length < 32)) {
+    context.addIssue({
+      code: "custom",
+      path: ["AUTH_CODE_PEPPER"],
+      message: "AUTH_CODE_PEPPER must contain at least 32 characters outside of test",
     });
   }
 

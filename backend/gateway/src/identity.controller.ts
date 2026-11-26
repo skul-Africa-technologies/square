@@ -170,7 +170,7 @@ export class IdentityController {
     private readonly rateLimiter: RedisRateLimiter,
     @Inject(BACKEND_CONFIG) private readonly config: BackendConfig,
   ) {
-    this.codePepper = config.AUTH_CODE_PEPPER ?? "local-only-auth-code-pepper";
+    this.codePepper = config.AUTH_CODE_PEPPER ?? (config.NODE_ENV === "test" ? "test-only-auth-code-pepper" : "");
   }
 
   @Post("auth/request-code")
@@ -182,11 +182,12 @@ export class IdentityController {
     const emailHash = hmac(this.codePepper, normalizedEmail);
     const ipHash = hmac(this.codePepper, request.ip || "unknown");
 
-    await this.consumeLimit("auth_code_email", emailHash, 5, 60 * 60 * 1000);
-    await this.consumeLimit("auth_code_ip", ipHash, 10, 60 * 60 * 1000);
     const cooldownKey = `auth:cooldown:${emailHash}`;
     const cooldown = await this.redis.client.set(cooldownKey, "1", "EX", 60, "NX");
     if (!cooldown) return { ok: true };
+
+    await this.consumeLimit("auth_code_email", emailHash, 5, 60 * 60 * 1000);
+    await this.consumeLimit("auth_code_ip", ipHash, 10, 60 * 60 * 1000);
 
     const code = this.config.AUTH_TEST_MODE
       ? "123456"
@@ -487,8 +488,10 @@ export class IdentityController {
 
   @Get("users/username-available")
   @Public()
-  async usernameAvailable(@Query("u") username: string) {
+  async usernameAvailable(@Query("u") username: string, @Req() request: IdentityRequest) {
     const query = usernameAvailableQuerySchema.parse({ u: username });
+    const ipHash = hmac(this.codePepper, request.ip || "unknown");
+    await this.consumeLimit("username_available_ip", ipHash, 30, 60 * 60 * 1000);
     const normalized = query.u.replace(/^#/, "").normalize("NFC").toLowerCase();
     const result = await this.database.pool.query(
       "SELECT 1 FROM users.profiles WHERE lower(username)=lower($1) AND deleted_at IS NULL",
@@ -701,7 +704,11 @@ export class IdentityController {
   }
 
   private async sendVerificationCode(email: string, code: string): Promise<void> {
-    if (this.config.NODE_ENV !== "production") {
+    if (this.config.NODE_ENV === "test") {
+      this.logger.log(`Test sign-in verification code: ${code}`);
+      return;
+    }
+    if (this.config.NODE_ENV === "development" && !this.config.RESEND_API_KEY) {
       this.logger.log(`Development sign-in verification code: ${code}`);
       return;
     }
@@ -764,7 +771,7 @@ export class IdentityController {
     userId: string,
     trustLevel: number,
   ): Promise<void> {
-    if (this.config.NODE_ENV === "development" && !this.config.JWT_PRIVATE_KEY) {
+    if (this.config.AUTH_DEV_BYPASS && this.config.NODE_ENV !== "production" && !this.config.JWT_PRIVATE_KEY) {
       setSessionCookies(reply, this.config, { access: `dev_${userId}` });
       return;
     }

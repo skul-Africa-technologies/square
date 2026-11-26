@@ -12,7 +12,7 @@ function contextFor(request: Record<string, unknown>, handler = () => undefined)
 }
 
 describe("gateway security guards", () => {
-  const config = parseBackendConfig({ CORS_ORIGINS: "http://localhost:3000" });
+  const config = parseBackendConfig({ NODE_ENV: "test", DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square", CORS_ORIGINS: "http://localhost:3000", AUTH_CODE_PEPPER: "p".repeat(32) });
 
   it("allows an unauthenticated public route but default-denies protected routes", async () => {
     const publicHandler = () => undefined;
@@ -27,6 +27,34 @@ describe("gateway security guards", () => {
       status: 401,
       code: "unauthenticated",
     });
+  });
+
+  it("rejects dev_ access tokens unless AUTH_DEV_BYPASS is explicitly enabled", async () => {
+    const reflector = {
+      getAllAndOverride: () => undefined,
+    } as unknown as Reflector;
+    const redis = { client: { get: async () => null } } as never;
+
+    const strictConfig = parseBackendConfig({
+      NODE_ENV: "development",
+      DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square",
+      AUTH_CODE_PEPPER: "p".repeat(32),
+    });
+    const strictGuard = new JwtAuthGuard(strictConfig, reflector, redis);
+    await expect(
+      strictGuard.canActivate(contextFor({ headers: { cookie: "__Host-sq_access=dev_user123" } })),
+    ).rejects.toMatchObject({ status: 401 });
+
+    const bypassConfig = parseBackendConfig({
+      NODE_ENV: "development",
+      DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square",
+      AUTH_CODE_PEPPER: "p".repeat(32),
+      AUTH_DEV_BYPASS: "true",
+    });
+    const bypassGuard = new JwtAuthGuard(bypassConfig, reflector, redis);
+    const request: Record<string, unknown> = { headers: { cookie: "__Host-sq_access=dev_user123" } };
+    await expect(bypassGuard.canActivate(contextFor(request))).resolves.toBe(true);
+    expect((request.user as { id: string }).id).toBe("user123");
   });
 
   it("requires a matching same-origin CSRF value for cookie-authenticated writes", () => {

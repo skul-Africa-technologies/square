@@ -18,11 +18,13 @@ function firstStreamMessageId(value: unknown): string | undefined {
 }
 
 describe.skipIf(!enabled)("Postgres and Redis integration", () => {
-  const config = parseBackendConfig(process.env);
-  const database = new DatabaseService(config);
-  const redisService = new RedisService(config);
+  let database: DatabaseService;
+  let redisService: RedisService;
 
   beforeAll(async () => {
+    const config = parseBackendConfig(process.env);
+    database = new DatabaseService(config);
+    redisService = new RedisService(config);
     await Promise.all([database.probe(), redisService.probe()]);
     await database.pool.query(`
       CREATE TABLE IF NOT EXISTS kernel.integration_effects (
