@@ -16,7 +16,6 @@ import type { AuthUser, AuthVerifyCodeResponse, School } from "@square/shared";
 import { appConfig } from "@/lib/config";
 import { copy } from "@/lib/copy";
 import { ClientApiError } from "@/lib/api/errors";
-import { VerificationEmail } from "./VerificationEmail";
 
 type Mode = "login" | "signup";
 type Step = "email" | "code" | "no-account" | "setup";
@@ -279,7 +278,6 @@ function CodeStep({ mode, email, onChangeEmail, onVerified }: {
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(60);
   const [shake, setShake] = useState(false);
-  const [demoCode] = useState(() => String(Math.floor(100000 + Math.random() * 900000)));
   const refs = useRef<Array<HTMLInputElement | null>>([]);
   const attemptedCode = useRef("");
   const code = digits.join("");
@@ -333,7 +331,6 @@ function CodeStep({ mode, email, onChangeEmail, onVerified }: {
         <h2 className="font-heading text-2xl font-semibold">{mode === "login" ? "Verify and log in" : "Verify and continue"}</h2>
         <p className="mt-1 text-sm text-muted">We sent a 6-digit code to {email}</p>
       </div>
-      {appConfig.useMock && <VerificationEmail code={demoCode} email={email} />}
       <div className={`grid grid-cols-6 gap-1 sm:gap-2 ${shake ? "animate-[auth-shake_.3s_ease-in-out]" : ""}`} onPaste={paste}>
         {digits.map((digit, index) => (
           <input key={index} ref={(element) => { refs.current[index] = element; }} value={digit} onChange={(event) => {

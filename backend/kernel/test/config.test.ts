@@ -71,6 +71,22 @@ describe("parseBackendConfig", () => {
     })).toThrow(/AUTH_DEV_BYPASS/);
   });
 
+  it("forbids DEV_EXPOSE_AUTH_CODE in production", () => {
+    expect(() => parseBackendConfig({
+      NODE_ENV: "production",
+      DATABASE_URL: "postgresql://square:secret@db.example/square?sslmode=require",
+      REDIS_URL: "rediss://square:secret@redis.example:6379",
+      CORS_ORIGINS: "https://square.example",
+      METRICS_TOKEN: "m".repeat(32),
+      JWT_PUBLIC_KEY: "-----BEGIN PUBLIC KEY-----\npublic-key\n-----END PUBLIC KEY-----",
+      JWT_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nprivate-key\n-----END PRIVATE KEY-----",
+      AUTH_CODE_PEPPER: "p".repeat(32),
+      RESEND_API_KEY: "resend_test_key",
+      RESEND_SENDER_EMAIL: "auth@example.com",
+      DEV_EXPOSE_AUTH_CODE: "true",
+    })).toThrow(/DEV_EXPOSE_AUTH_CODE/);
+  });
+
   it("requires secure database, Redis, CORS and metrics configuration in production", () => {
     expect(() => parseBackendConfig({
       NODE_ENV: "production",

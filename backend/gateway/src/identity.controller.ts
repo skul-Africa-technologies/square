@@ -23,6 +23,7 @@ import {
 import { importPKCS8, SignJWT } from "jose";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
+import { verificationEmailHtml, verificationEmailText } from "./emails/verification-code";
 import type { AuthenticatedUser, BackendConfig } from "@square/kernel";
 import {
   ApiException,
@@ -704,12 +705,13 @@ export class IdentityController {
   }
 
   private async sendVerificationCode(email: string, code: string): Promise<void> {
+    const exposeCode = this.config.DEV_EXPOSE_AUTH_CODE;
     if (this.config.NODE_ENV === "test") {
-      this.logger.log(`Test sign-in verification code: ${code}`);
+      if (exposeCode) this.logger.log(`Test sign-in verification code: ${code}`);
       return;
     }
     if (this.config.NODE_ENV === "development" && !this.config.RESEND_API_KEY) {
-      this.logger.log(`Development sign-in verification code: ${code}`);
+      if (exposeCode) this.logger.log(`Development sign-in verification code: ${code}`);
       return;
     }
     if (!this.config.RESEND_API_KEY || !this.config.RESEND_SENDER_EMAIL) {
@@ -727,7 +729,8 @@ export class IdentityController {
           from: `${this.config.RESEND_SENDER_NAME} <${this.config.RESEND_SENDER_EMAIL}>`,
           to: [email],
           subject: "Your Square sign-in code",
-          text: `Your Square sign-in code is ${code}. It expires in 10 minutes.`,
+          text: verificationEmailText({ code, email, expiresInMinutes: 10, assetBaseUrl: this.config.ASSET_BASE_URL ?? "http://localhost:3000" }),
+          html: verificationEmailHtml({ code, email, expiresInMinutes: 10, assetBaseUrl: this.config.ASSET_BASE_URL ?? "http://localhost:3000" }),
         }),
         signal: AbortSignal.timeout(5_000),
       });

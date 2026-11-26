@@ -1,0 +1,4 @@
+Your Square sign-in code is 123456. It expires in 10 minutes.
+We sent this code to ada@school.edu. Enter it in Square to continue.
+Never share this code with anyone. Square will never ask you for it.
+Didn't request this? You can safely ignore this email, and no one can log in without the code.

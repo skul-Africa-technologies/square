@@ -7,6 +7,7 @@ import { IdentityController } from "../src/identity.controller";
 describe("IdentityController auth codes", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("generates a random six-digit code and stores only its HMAC", async () => {
@@ -30,7 +31,7 @@ describe("IdentityController auth codes", () => {
       database,
       redis,
       limiter,
-      parseBackendConfig({ NODE_ENV: "test", DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square" }),
+      parseBackendConfig({ NODE_ENV: "test", DEV_EXPOSE_AUTH_CODE: "true", DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square" }),
     );
 
     await expect(
@@ -46,6 +47,51 @@ describe("IdentityController auth codes", () => {
     expect(stored.hash).toMatch(/^[a-f0-9]{64}$/);
     expect(String(codeCall?.[1])).not.toContain("123456");
     expect(logger.mock.calls.flat().join(" ")).toMatch(/\d{6}/);
+    expect(limiter.consume).toHaveBeenCalledTimes(2);
+  });
+
+  it("never returns the verification code in the request-code response", async () => {
+    let sentBody: { text?: string; html?: string } | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: { body?: string }) => {
+      sentBody = JSON.parse(String(init?.body)) as { text?: string; html?: string };
+      return { ok: true, status: 200, text: async () => "", json: async () => ({}) } as unknown as Response;
+    }));
+    const set = vi.fn(async (..._args: unknown[]) => "OK");
+    const database = {
+      pool: { query: vi.fn(async () => ({ rows: [] as Record<string, unknown>[], rowCount: 1 })) },
+    } as unknown as DatabaseService;
+    const redis = {
+      client: { set, del: vi.fn(async () => 1) },
+    } as unknown as RedisService;
+    const limiter = {
+      consume: vi.fn(async () => ({ allowed: true, limit: 5, remaining: 4, retryAfterMs: 0 })),
+    } as unknown as RedisRateLimiter;
+    const controller = new IdentityController(
+      database,
+      redis,
+      limiter,
+      parseBackendConfig({
+        NODE_ENV: "development",
+        DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square",
+        AUTH_CODE_PEPPER: "p".repeat(32),
+        RESEND_API_KEY: "re_test_key",
+        RESEND_SENDER_EMAIL: "auth@square.app",
+      }),
+    );
+
+    const response = await controller.requestCode(
+      { email: "student@example.com" },
+      { ip: "127.0.0.1" } as never,
+    );
+
+    expect(response).toEqual({ ok: true });
+    const serialized = JSON.stringify(response);
+    expect(serialized).not.toMatch(/[0-9]{6}/);
+    // The code is delivered by email only, never in the HTTP response.
+    const emailedCode = String(sentBody?.text ?? "").match(/[0-9]{6}/)?.[0] ?? "";
+    expect(emailedCode).toMatch(/^[0-9]{6}$/);
+    expect(serialized).not.toContain(emailedCode);
+    expect(sentBody?.html).toContain(emailedCode);
     expect(limiter.consume).toHaveBeenCalledTimes(2);
   });
 
@@ -105,7 +151,7 @@ describe("IdentityController auth codes", () => {
       { pool: { query: vi.fn(async () => ({ rows: [], rowCount: 1 })) } } as unknown as DatabaseService,
       { client: { set: vi.fn(async () => "OK"), del: vi.fn(async () => 1) } } as unknown as RedisService,
       { consume: vi.fn(async () => ({ allowed: true, limit: 5, remaining: 4, retryAfterMs: 0 })) } as unknown as RedisRateLimiter,
-      parseBackendConfig({ NODE_ENV: "test", AUTH_TEST_MODE: "true", DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square" }),
+      parseBackendConfig({ NODE_ENV: "test", AUTH_TEST_MODE: "true", DEV_EXPOSE_AUTH_CODE: "true", DATABASE_URL: "postgresql://square:square@127.0.0.1:5432/square" }),
     );
 
     await controller.requestCode(

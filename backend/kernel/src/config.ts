@@ -89,7 +89,9 @@ const backendConfigSchema = z.object({
     z.email().optional(),
   ),
   RESEND_SENDER_NAME: z.string().trim().min(1).default("Square"),
+  ASSET_BASE_URL: optionalNonEmpty,
   AUTH_TEST_MODE: boolFromEnv(false),
+  DEV_EXPOSE_AUTH_CODE: boolFromEnv(false),
   CLOUDINARY_CLOUD_NAME: optionalNonEmpty,
   CLOUDINARY_API_KEY: optionalNonEmpty,
   CLOUDINARY_API_SECRET: optionalNonEmpty,
@@ -113,6 +115,14 @@ const backendConfigSchema = z.object({
       code: "custom",
       path: ["AUTH_DEV_BYPASS"],
       message: "AUTH_DEV_BYPASS must never be enabled in production",
+    });
+  }
+
+  if (config.DEV_EXPOSE_AUTH_CODE && config.NODE_ENV === "production") {
+    context.addIssue({
+      code: "custom",
+      path: ["DEV_EXPOSE_AUTH_CODE"],
+      message: "DEV_EXPOSE_AUTH_CODE must never be enabled in production",
     });
   }
 
