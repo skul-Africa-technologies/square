@@ -5,6 +5,11 @@ import { Providers } from "./providers";
 export const metadata: Metadata = {
   title: "Square",
   description: "Discord for campus builders, where doing things is rewarded and visible",
+  icons: {
+    icon: "/logo-mark.png",
+    shortcut: "/logo-mark.png",
+    apple: "/logo-mark.png",
+  },
 };
 
 export const viewport: Viewport = {

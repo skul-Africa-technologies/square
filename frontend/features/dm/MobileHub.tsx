@@ -8,6 +8,8 @@ import { toDisplayUsername } from "@square/shared";
 import { relativeTime, useNow } from "@/lib/time";
 import { CommandPalette } from "@/components/shell/CommandPalette";
 import { CountBadge, RobotAvatar } from "@/components/ui/redesign";
+import { BadgeCorner } from "@/components/ui/badge";
+import { QueryError } from "@/components/ui/query-error";
 import clsx from "clsx";
 
 export function MobileHub() {
@@ -16,7 +18,7 @@ export function MobileHub() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => api.me(), staleTime: 30_000 });
-  const { data, isLoading } = useQuery({ queryKey: ["conversations"], queryFn: () => api.listConversations(), staleTime: 10_000, refetchInterval: 20_000 }); // PROPOSED
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["conversations"], queryFn: () => api.listConversations(), staleTime: 10_000, refetchInterval: 20_000 }); // PROPOSED
   const items = data || [];
   const recent = items.filter(c => !c.blocked).slice(0, 6);
   const firstUnread = items.findIndex(c => c.unreadCount > 0);
@@ -53,12 +55,12 @@ export function MobileHub() {
               <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted">Recent</h2>
               {firstUnread >= 0 && <button type="button" onClick={markAllRead} className="text-[11px] text-lime hover:underline">Mark all read</button>}
             </div>
-            <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
-              {recent.map(c => (
+            <div className="-mx-1 -mt-2 flex gap-3 overflow-x-auto px-1 pt-2 pb-1 scrollbar-hide" style={{ scrollPadding: "8px" }}>
+              {recent.map((c) => (
                 <Link key={c.id} href={`/dm/${c.id}`} prefetch={false} className="w-[76px] shrink-0 text-center">
                   <span className="relative mx-auto block h-14 w-14">
                     <RobotAvatar id={c.participant.id} pictureUrl={c.participant.avatarUrl} size={56} online={c.presence === "online"} />
-                    {c.unreadCount > 0 && <CountBadge count={c.unreadCount} className="absolute -right-2 -top-1" />}
+                    {c.unreadCount > 0 && <BadgeCorner><CountBadge count={c.unreadCount} /></BadgeCorner>}
                   </span>
                   <span className="mt-1 block truncate text-[11px] text-muted">{toDisplayUsername(c.participant.username)}</span>
                 </Link>
@@ -70,6 +72,7 @@ export function MobileHub() {
         <section aria-label="Conversations">
           <h2 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Direct Messages</h2>
           {isLoading && <p className="py-3 text-sm text-muted">Loading…</p>}
+          {isError && <QueryError message="Could not load messages." onRetry={() => refetch()} />}
           <div className="divide-y divide-border/60">
             {items.map((c, i) => {
               const unread = c.unreadCount > 0;
@@ -78,7 +81,7 @@ export function MobileHub() {
                 <Link key={c.id} href={`/dm/${c.id}`} prefetch={false} className={clsx("flex min-h-[56px] items-center gap-3 py-2", highlight && "rounded-lg bg-surface/60 px-2")}>
                   <span className="relative shrink-0">
                     <RobotAvatar id={c.participant.id} pictureUrl={c.participant.avatarUrl} size={40} online={c.presence === "online"} />
-                    {unread && <CountBadge count={c.unreadCount} className="absolute -right-2 -top-1" />}
+                    {unread && <BadgeCorner><CountBadge count={c.unreadCount} /></BadgeCorner>}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline justify-between gap-2">

@@ -14,10 +14,17 @@ import { RobotAvatar } from "@/components/ui/redesign";
 export function UserPanel({ onOpenProfile, className }: { onOpenProfile?: () => void; className?: string }) {
   const qc = useQueryClient();
   const router = useRouter();
-  const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => api.me(), staleTime: 30_000 });
+  const { data: me, isError, error, refetch } = useQuery({ queryKey: ["me"], queryFn: () => api.me(), staleTime: 30_000, retry: 1 });
   const [open, setOpen] = useState(false);
   const [appearOffline, setAppearOffline] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  // The session/me query must resolve to a user or a redirect to /login. Only
+  // an unauthenticated response redirects; transient failures show Retry.
+  useEffect(() => {
+    const code = error && typeof error === "object" && "code" in error ? (error as { code?: string }).code : undefined;
+    if (isError && code === "unauthenticated") router.replace("/login");
+  }, [isError, error, router]);
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
@@ -41,7 +48,11 @@ export function UserPanel({ onOpenProfile, className }: { onOpenProfile?: () => 
             {me ? <RobotAvatar id={me.id} pictureUrl={me.avatarUrl} size={32} online={status === "online"} /> : <span className="block h-8 w-8 rounded-[12px] bg-surface" />}
           </span>
           <span className="min-w-0">
-            <span className="block truncate text-sm text-name-self">{me ? toDisplayUsername(me.username) : "…"}</span>
+            {isError ? (
+              <button type="button" onClick={() => refetch()} className="block truncate text-sm text-red-400 hover:underline">Retry</button>
+            ) : (
+              <span className="block truncate text-sm text-name-self">{me ? toDisplayUsername(me.username) : "…"}</span>
+            )}
           </span>
         </button>
         <Link href="/settings" prefetch={false} title="Settings" aria-label="Settings" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-surface hover:text-text">

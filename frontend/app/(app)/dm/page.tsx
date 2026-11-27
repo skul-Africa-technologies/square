@@ -1,5 +1,6 @@
-import { DmDesktop } from "@/features/dm/DmDesktop";
+import { redirect } from "next/navigation";
 
+// Canonical Messages list lives at /messages; keep /dm as an alias.
 export default function DmPage() {
-  return <DmDesktop />;
+  redirect("/messages");
 }

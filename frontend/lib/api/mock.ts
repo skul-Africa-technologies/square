@@ -1,5 +1,6 @@
 import type { ApiClient, Profile, UploadSignRequest, UploadSignResponse } from "./types";
 import { ClientApiError } from "./errors";
+import { withTimeout } from "./timeout";
 import { ADD_ASSET_ROLES, ASSET_CATALOG, ASSET_CATEGORY_ORDER, DEFAULT_ASSETS, getAssetCatalogEntry } from "@square/shared";
 import {
   authRequestCodeRequestSchema,
@@ -427,7 +428,7 @@ function interestCommunities(): DiscoverCommunity[] {
     .map(c => ({ id: c.id, name: c.name, slug: c.slug, blurb: c.blurb, memberCount: c.memberCount, onlineCount: c.onlineCount, category: c.category, bannerUrl: c.bannerUrl, avatar: c.avatar, isPublic: c.isPublic !== false }));
 }
 
-export const mockApi: ApiClient = {
+export const mockApi: ApiClient = withTimeout({
   async requestCode(email) {
     const request = authRequestCodeRequestSchema.parse({ email });
     await delay();
@@ -1124,6 +1125,6 @@ export const mockApi: ApiClient = {
     currentUser = { ...currentUser, showBirthday: data.showBirthday };
     return { ok: true };
   },
-};
+});
 
 void ASSET_CATEGORY_ORDER;

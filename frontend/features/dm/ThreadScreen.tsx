@@ -11,7 +11,7 @@ export function ThreadScreen({ conversationId }: { conversationId: string }) {
   const username = conv?.participant.username || "";
   return (
     <div className="flex h-full min-h-0">
-      <div className="flex-1 min-w-0 h-full"><ThreadView conversationId={conversationId} /></div>
+      <div className="flex-1 min-w-0 h-full"><ThreadView key={conversationId} conversationId={conversationId} /></div>
       <aside className="hidden min-[1100px]:block w-72 shrink-0 border-l bg-bg-2 p-4 overflow-auto">
         <div className="rounded-xl border bg-surface p-4">
           {conv && <div className="mb-3"><RobotAvatar id={conv.participant.id} pictureUrl={conv.participant.avatarUrl} size={48} online={conv.presence === "online"} /></div>}

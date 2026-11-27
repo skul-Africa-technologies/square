@@ -43,15 +43,25 @@ function requestHeaders(init?: RequestInit) {
   return { method, headers };
 }
 
+const REQUEST_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_REQUEST_TIMEOUT_MS) || 10_000;
+
 function performRequest(path: string, init?: RequestInit) {
   const { method, headers } = requestHeaders(init);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   return fetch(`${appConfig.apiUrl}${path}`, {
     ...init,
     method,
     headers,
     credentials: "include",
     cache: "no-store",
-  });
+    signal: controller.signal,
+  }).catch((error: unknown) => {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ClientApiError({ code: "timeout", message: `Request timed out after ${REQUEST_TIMEOUT_MS / 1000}s` });
+    }
+    throw new ClientApiError({ code: "network", message: "Cannot reach the server" });
+  }).finally(() => clearTimeout(timer));
 }
 
 function shouldRefresh(path: string) {

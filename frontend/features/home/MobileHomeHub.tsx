@@ -11,6 +11,8 @@ import { CommandPalette } from "@/components/shell/CommandPalette";
 import { UnreadBadge } from "@/components/messages/UnreadBadge";
 import clsx from "clsx";
 import { AngleButton, CountBadge, HexBadge, RobotAvatar } from "@/components/ui/redesign";
+import { BadgeCorner } from "@/components/ui/badge";
+import { HomeFamily } from "./HomeFamily";
 
 export const MOBILE_HOME_DEFAULT = "discover" as const;
 
@@ -124,6 +126,7 @@ function GeneratedBanner({ name, category }: { name: string; category: string })
 
 export function MobileHomeHub() {
   const qc = useQueryClient();
+  const router = useRouter();
   const now = useNow();
   const [activeTab, setActiveTab] = useState<"discover" | "messages">(MOBILE_HOME_DEFAULT);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -136,7 +139,7 @@ export function MobileHomeHub() {
     staleTime: 10_000,
     refetchInterval: 20_000,
   });
-  const { data: discover, isLoading: discoverLoading } = useQuery({
+  const { data: discover, isLoading: discoverLoading, isError: discoverError, refetch: discoverRefetch } = useQuery({
     queryKey: ["discover"],
     queryFn: () => api.discover(),
   });
@@ -187,16 +190,17 @@ export function MobileHomeHub() {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab("messages")}
+            onClick={() => router.push("/messages")}
             className={clsx(
               "relative rounded-lg px-3 py-1.5 transition-colors",
-              activeTab === "messages" ? "bg-lime text-bg" : "text-muted hover:bg-surface hover:text-text",
+              "text-muted hover:bg-surface hover:text-text",
             )}
-            aria-current={activeTab === "messages" ? "page" : undefined}
             aria-label="Messages"
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-            <UnreadBadge unread={totalUnread} mentions={totalMentions} className="absolute -right-2 -top-2" ringClassName="ring-bg-2" />
+            <span className="relative inline-flex p-1.5">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+              <BadgeCorner><UnreadBadge unread={totalUnread} mentions={totalMentions} ringClassName="ring-bg-2" /></BadgeCorner>
+            </span>
           </button>
         </div>
         <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Search" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-surface hover:text-text">
@@ -213,6 +217,8 @@ export function MobileHomeHub() {
           <MobileDiscoverView
             sections={sections}
             isLoading={discoverLoading}
+            isError={discoverError}
+            onRetry={() => discoverRefetch()}
             user={me}
             now={now}
           />
@@ -266,15 +272,27 @@ export function MobileHomeHub() {
 function MobileDiscoverView({
   sections,
   isLoading,
+  isError,
+  onRetry,
   user,
   now,
 }: {
   sections: { id: string; items: unknown[] }[];
   isLoading: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
   user?: { username: string; displayName?: string; id: string; joinedCommunitySlugs?: string[] } | null;
   now: number;
 }) {
   if (isLoading) return <MobileDiscoverSkeletons />;
+  if (isError) {
+    return (
+      <div className="rounded-xl border bg-surface px-4 py-6 text-center text-sm text-muted">
+        Couldn't load content.{" "}
+        <button type="button" onClick={onRetry} className="text-lime hover:underline">Retry</button>
+      </div>
+    );
+  }
 
   const topCommunities = (sections.find(s => s.id === "topCommunities")?.items || []) as CommunityItem[];
   const people = (sections.find(s => s.id === "peopleYouMayKnow")?.items || []) as PersonItem[];
@@ -306,26 +324,8 @@ function MobileDiscoverView({
         </section>
       )}
 
-      {birthdays.length > 0 && (
-        <section aria-labelledby="mob-birthdays">
-          <h2 id="mob-birthdays" className="font-heading text-sm font-semibold mb-3"><span aria-hidden="true" className="mr-2">🎂</span>Celebrating today</h2>
-          <MobileBirthdayStrip people={birthdays} currentUserId={user?.id} />
-        </section>
-      )}
-
-      {events.length > 0 && (
-        <section aria-labelledby="mob-events">
-          <h2 id="mob-events" className="font-heading text-sm font-semibold mb-3">Upcoming events</h2>
-          <MobileEventsList events={events} />
-        </section>
-      )}
-
-      {newStudents.length > 0 && (
-        <section aria-labelledby="mob-new-from-school">
-          <h2 id="mob-new-from-school" className="font-heading text-sm font-semibold mb-3">New from your school</h2>
-          <MobileNewStudentsRow students={newStudents} />
-        </section>
-      )}
+      {/* Lower family: Upcoming events, Celebrating today, New from your school */}
+      <HomeFamily events={events} birthdays={birthdays} newStudents={newStudents} currentUserId={user?.id} />
 
       {interestCommunities.length > 0 && (
         <section aria-labelledby="mob-interests">
@@ -679,12 +679,12 @@ function MobileMessagesView({
               </button>
             )}
           </div>
-          <div className="-mx-2 flex gap-3 overflow-x-auto px-2 pb-2 scrollbar-hide">
+          <div className="-mx-2 -mt-2 flex gap-3 overflow-x-auto px-2 pt-2 pb-1 scrollbar-hide" style={{ scrollPadding: "8px" }}>
             {recent.map((c: any) => (
               <Link key={c.id} href={`/dm/${c.id}`} prefetch={false} className="w-[72px] shrink-0 text-center">
                 <span className="relative mx-auto block h-14 w-14">
                   <RobotAvatar id={c.participant.id} pictureUrl={c.participant.avatarUrl} size={56} online={c.presence === "online"} />
-                  {c.unreadCount > 0 && <CountBadge count={c.unreadCount} className="absolute -right-2 -top-1" />}
+                  {c.unreadCount > 0 && <BadgeCorner><CountBadge count={c.unreadCount} /></BadgeCorner>}
                 </span>
                 <span className="mt-1 block truncate text-[11px] text-muted">{formatUsername(c.participant.username)}</span>
               </Link>
@@ -709,7 +709,7 @@ function MobileMessagesView({
               >
                 <span className="relative shrink-0">
                   <RobotAvatar id={c.participant.id} pictureUrl={c.participant.avatarUrl} size={40} online={c.presence === "online"} />
-                  {unread && <CountBadge count={c.unreadCount} className="absolute -right-2 -top-1" />}
+                  {unread && <BadgeCorner><CountBadge count={c.unreadCount} /></BadgeCorner>}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline justify-between gap-2">

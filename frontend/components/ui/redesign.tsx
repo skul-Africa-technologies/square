@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import clsx from "clsx";
 import { ButtonHTMLAttributes, ReactNode, useEffect, useRef, useState } from "react";
+import { Badge } from "./badge";
 
 export const HEX_POINTS = "26,3 49,16 49,42 26,55 3,42 3,16";
 
@@ -15,6 +16,7 @@ export function unreadRatio(unread: number) {
 export function HexBadge({
   label,
   initials,
+  imageSrc,
   active = false,
   unread = 0,
   className,
@@ -22,6 +24,7 @@ export function HexBadge({
 }: {
   label: string;
   initials?: string;
+  imageSrc?: string;
   active?: boolean;
   unread?: number;
   className?: string;
@@ -46,9 +49,20 @@ export function HexBadge({
           transform="translate(26 29) scale(.76) translate(-26 -29)"
         />
       </svg>
-      <span className={clsx("relative z-10 text-[12px] font-bold", active ? "text-[var(--bg)]" : "text-[var(--green)]")}>
-        {initials || ""}
-      </span>
+      {imageSrc ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imageSrc}
+          alt=""
+          aria-hidden="true"
+          className="relative z-10 h-[76%] w-[76%] object-cover"
+          style={{ clipPath: "polygon(50% 5.2%, 94.2% 27.6%, 94.2% 72.4%, 50% 94.8%, 5.8% 72.4%, 5.8% 27.6%)" }}
+        />
+      ) : (
+        <span className={clsx("relative z-10 text-[12px] font-bold", active ? "text-[var(--bg)]" : "text-[var(--green)]")}>
+          {initials || ""}
+        </span>
+      )}
       <span className="sr-only">{label}{unread ? `, ${unread} unread` : ""}</span>
     </span>
   );
@@ -56,11 +70,7 @@ export function HexBadge({
 
 export function CountBadge({ count, className }: { count: number; className?: string }) {
   if (count <= 0) return null;
-  return (
-    <span className={clsx("grid min-w-[18px] h-[18px] place-items-center rounded-full bg-[var(--blue)] px-1.5 text-[11px] font-bold text-[#06222f]", className)}>
-      {count > 99 ? "99+" : count}
-    </span>
-  );
+  return <Badge unread={count} mentions={0} className={className} />;
 }
 
 function hashId(id: string) {

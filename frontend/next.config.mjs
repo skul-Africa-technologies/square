@@ -30,6 +30,7 @@ const securityHeaders = [
 const baseConfig = {
   transpilePackages: ["@square/shared"],
   poweredByHeader: false,
+  devIndicators: false,
   distDir: process.env.NEXT_DIST_DIR || ".next",
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

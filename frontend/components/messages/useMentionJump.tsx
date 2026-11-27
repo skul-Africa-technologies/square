@@ -6,6 +6,11 @@ import { AtSign } from "lucide-react";
 import type { MentionRecord, MentionScope } from "@square/shared";
 import { api } from "@/lib/api";
 
+// Stable empty reference so the effects below don't re-run every render while
+// the mentions query is still loading (a fresh `[]` each render caused an
+// infinite setState loop → "Maximum update depth exceeded").
+const EMPTY_MENTIONS: MentionRecord[] = [];
+
 export function useMentionJump(scope: MentionScope, roomId: string, listRef: RefObject<HTMLDivElement | null>, messageCount = 0, enabled = true) {
   const queryClient = useQueryClient();
   const [pending, setPending] = useState<MentionRecord[]>([]);
@@ -17,12 +22,13 @@ export function useMentionJump(scope: MentionScope, roomId: string, listRef: Ref
   const currentRoomRef = useRef(roomId);
   pendingRef.current = pending;
   currentRoomRef.current = roomId;
-  const { data: records = [] } = useQuery({
+  const { data } = useQuery({
     queryKey: ["mentions", scope, roomId],
     queryFn: () => api.listMentions(scope, roomId),
     refetchInterval: 8_000,
     enabled,
   });
+  const records = data ?? EMPTY_MENTIONS;
 
   useEffect(() => {
     if (pending.length) {
@@ -53,13 +59,16 @@ export function useMentionJump(scope: MentionScope, roomId: string, listRef: Ref
     const added = records.filter(record => !seenIds.current.has(record.messageId) && !pendingIds.has(record.messageId)).length;
     setPending(current => {
       const currentIds = new Set(current.map(record => record.messageId));
+      let changed = false;
       const next = [...current];
       for (const record of records) {
         if (!seenIds.current.has(record.messageId) && !currentIds.has(record.messageId)) {
           next.push(record);
           currentIds.add(record.messageId);
+          changed = true;
         }
       }
+      if (!changed) return current;
       return next.sort((a, b) => a.seq - b.seq);
     });
     if (added) {

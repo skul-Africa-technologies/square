@@ -11,13 +11,25 @@ import { MentionInput } from "@/components/messages/MentionInput";
 import { useMentionJump } from "@/components/messages/useMentionJump";
 import { addReactionSummary, applyReactionCount, config, removeReactionSummary, type DirectMessage, type ReactionStreamEvent, type ReplyPreview } from "@square/shared";
 import { RobotAvatar } from "@/components/ui/redesign";
+import { QueryError } from "@/components/ui/query-error";
+import { BackButton } from "@/components/ui/back-button";
+
+const draftKey = (id: string) => `square:draft:${id}`;
+function readDraft(id: string): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return localStorage.getItem(draftKey(id)) || "";
+  } catch {
+    return "";
+  }
+}
 
 export function ThreadView({ conversationId }: { conversationId: string }) {
   const qc = useQueryClient();
   const { data: currentUser } = useQuery({ queryKey: ["me"], queryFn: () => api.me(), staleTime: 60_000 });
   const { data: conv } = useQuery({ queryKey: ["conversation", conversationId], queryFn: () => api.getConversation(conversationId) }); // PROPOSED
-  const { data, isLoading } = useQuery({ queryKey: ["messages", conversationId], queryFn: () => api.listMessages(conversationId), staleTime: 5_000 }); // PROPOSED
-  const [text, setText] = useState("");
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["messages", conversationId], queryFn: () => api.listMessages(conversationId), staleTime: 5_000 }); // PROPOSED
+  const [text, setText] = useState(() => readDraft(conversationId));
   const [replyTo, setReplyTo] = useState<MessageItem | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
   const [showJumpLatest, setShowJumpLatest] = useState(false);
@@ -26,6 +38,13 @@ export function ThreadView({ conversationId }: { conversationId: string }) {
   const mentionJump = useMentionJump("dm", conversationId, listRef, data?.items?.length || 0);
 
   useEffect(() => { void api.markRead(conversationId).then(() => { qc.invalidateQueries({ queryKey: ["conversations"] }); qc.invalidateQueries({ queryKey: ["unread"] }); }).catch(() => {}); }, [conversationId, qc, data?.items?.length]); // PROPOSED
+
+  // Persist the unsent draft per conversation so it survives back/forward.
+  useEffect(() => {
+    try {
+      localStorage.setItem(draftKey(conversationId), text);
+    } catch {}
+  }, [text, conversationId]);
 
   useEffect(() => api.subscribeReactionEvents("dm", conversationId, (event: ReactionStreamEvent) => {
     if (event.type === "reaction.resync") {
@@ -163,6 +182,9 @@ export function ThreadView({ conversationId }: { conversationId: string }) {
     <div className="flex flex-col h-full min-h-[70vh]">
       <header className="border-b px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
+          <span className="hidden lg:block">
+            <BackButton fallback="/messages" />
+          </span>
           {conv?.participant && <RobotAvatar id={conv.participant.id} pictureUrl={conv.participant.avatarUrl} size={40} online={conv.presence === "online"} />}
           <div className="min-w-0">
             <div className="truncate font-heading font-semibold">#{peer}</div>
@@ -175,7 +197,8 @@ export function ThreadView({ conversationId }: { conversationId: string }) {
         setShowJumpLatest(element.scrollHeight - element.scrollTop - element.clientHeight > 160);
       }} className="relative flex-1 overflow-auto p-3 [overflow-anchor:auto]">
         {isLoading && <Skeleton className="h-24" />}
-        {!isLoading && items.length === 0 && <p className="text-sm text-muted px-2">No messages yet.</p>}
+        {isError && <QueryError message="Could not load messages." onRetry={() => refetch()} />}
+        {!isLoading && !isError && items.length === 0 && <p className="text-sm text-muted px-2">No messages yet.</p>}
         {items.map((m, i) => {
           const prev = i > 0 ? items[i - 1] : null;
           const showDay = !prev || dayLabel(prev.createdAt) !== dayLabel(m.createdAt);

@@ -3,21 +3,22 @@
 import { ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { CommunityStrip } from "./CommunityStrip";
-import { MobileSheet } from "./MobileSheet";
+import { MobileShell } from "./MobileShell";
 import { AppSidebar } from "./AppSidebar";
 import { MessagesPanel } from "@/features/dm/MessagesPanel";
 import { MobileHub } from "@/features/dm/MobileHub";
 import { MobileHomeHub } from "@/features/home/MobileHomeHub";
+import { ServerBanner } from "./ServerBanner";
+import { markNavigation } from "@/lib/navigation";
 import { useEffect, useRef, useState } from "react";
 
 export function AppShell({ children, rightRail }: { children: ReactNode; rightRail?: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const isHub = pathname === "/home" || pathname === "/dm" || pathname === "/inbox";
-  const isAssetView = /^\/c\/[^/]+\/[^/]+$/.test(pathname);
+  const isHub = pathname === "/home" || pathname === "/dm" || pathname === "/messages" || pathname === "/inbox";
   const isProfileView = /^\/u\/[^/]+$/.test(pathname);
-  const showMessagesPanel = pathname === "/home" || pathname.startsWith("/dm") || isProfileView;
+  const showMessagesPanel = pathname === "/home" || pathname === "/messages" || pathname.startsWith("/dm") || isProfileView;
   const [isMobile, setIsMobile] = useState(false);
   const [toast, setToast] = useState("");
   const [profileBanner, setProfileBanner] = useState("");
@@ -41,6 +42,11 @@ export function AppShell({ children, rightRail }: { children: ReactNode; rightRa
       router.replace("/settings/profile");
     }
   }, [pathname, router]);
+
+  // Track in-app navigation for the shared back mechanism.
+  useEffect(() => {
+    markNavigation();
+  }, [pathname]);
 
   const scrollPositionsRef = useRef<Map<string, number>>(new Map());
   const isBackNavigation = useRef(false);
@@ -85,6 +91,7 @@ export function AppShell({ children, rightRail }: { children: ReactNode; rightRa
 
   return (
     <div className="bg-bg text-text" suppressHydrationWarning>
+      <ServerBanner />
       {toast && <div role="status" aria-live="polite" className="fixed left-1/2 top-4 z-[100] -translate-x-1/2 rounded-lg border border-lime/40 bg-surface px-4 py-3 text-sm shadow-xl">{toast}</div>}
       {profileBanner && <div role="status" aria-live="polite" className="fixed left-1/2 top-4 z-[100] -translate-x-1/2 rounded-lg border border-lime/40 bg-surface px-4 py-3 text-sm shadow-xl">{profileBanner}</div>}
       {!isMobile ? (
@@ -101,26 +108,9 @@ export function AppShell({ children, rightRail }: { children: ReactNode; rightRa
           {rightRail ? <aside className="right-rail h-[100dvh] overflow-y-auto border-l bg-bg-2 p-4">{rightRail}</aside> : null}
         </div>
       ) : (
-        <div className="mobile-shell">
-          <MobileSheet>
-            {isAssetView ? (
-              <div className="flex h-full min-h-0 flex-col">
-                <header className="flex shrink-0 items-center gap-1 border-b bg-bg-2 px-4 pb-2 pt-2">
-                  <button type="button" onClick={() => router.back()} aria-label="Back" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-surface hover:text-text">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg>
-                  </button>
-                </header>
-                <div className="mobile-sheet-content min-h-0 flex-1 overflow-y-auto">
-                  {children}
-                </div>
-              </div>
-            ) : (
-              <div className="mobile-sheet-content min-h-0 flex-1 overflow-y-auto">
-                {pathname === "/home" ? <MobileHomeHub /> : isHub ? <MobileHub /> : children}
-              </div>
-            )}
-          </MobileSheet>
-        </div>
+        <MobileShell>
+          {pathname === "/home" ? <MobileHomeHub /> : isHub ? <MobileHub /> : children}
+        </MobileShell>
       )}
     </div>
   );

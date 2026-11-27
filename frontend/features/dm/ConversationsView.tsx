@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty } from "@/components/ui/empty";
 import { CountBadge, RobotAvatar } from "@/components/ui/redesign";
+import { BadgeCorner } from "@/components/ui/badge";
 
 export function ConversationsView({ compact }: { compact?: boolean }) {
   const { data, isLoading } = useQuery({ queryKey: ["conversations"], queryFn: () => api.listConversations(), staleTime: 10_000, refetchInterval: 20_000 }); // PROPOSED
@@ -19,7 +20,7 @@ export function ConversationsView({ compact }: { compact?: boolean }) {
           <Link key={c.id} href={`/dm/${c.id}`} prefetch={false} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border bg-surface p-3 hover:border-lime/40">
             <span className="relative">
               <RobotAvatar id={c.participant.id} pictureUrl={c.participant.avatarUrl} size={40} online={c.presence === "online"} />
-              {c.unreadCount > 0 && <CountBadge count={c.unreadCount} className="absolute -right-2 -top-1" />}
+              {c.unreadCount > 0 && <BadgeCorner><CountBadge count={c.unreadCount} /></BadgeCorner>}
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">

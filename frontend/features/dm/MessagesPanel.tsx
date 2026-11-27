@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toDisplayUsername } from "@square/shared";
@@ -10,16 +10,19 @@ import { relativeTime, useNow } from "@/lib/time";
 import { UserPanel } from "@/components/shell/UserPanel";
 import { CommandPalette } from "@/components/shell/CommandPalette";
 import { CountBadge, RobotAvatar } from "@/components/ui/redesign";
+import { BadgeCorner } from "@/components/ui/badge";
+import { QueryError } from "@/components/ui/query-error";
 import clsx from "clsx";
 
 export function MessagesPanel() {
   const pathname = usePathname();
+  const router = useRouter();
   const qc = useQueryClient();
   const now = useNow();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const { data, isLoading } = useQuery({ queryKey: ["conversations"], queryFn: () => api.listConversations(), staleTime: 10_000, refetchInterval: 20_000 }); // PROPOSED
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["conversations"], queryFn: () => api.listConversations(), staleTime: 10_000, refetchInterval: 20_000 }); // PROPOSED
   const items = data || [];
   const selectedId = pathname.startsWith("/dm/") ? pathname.split("/")[2] : undefined;
 
@@ -84,16 +87,17 @@ export function MessagesPanel() {
 
       <div className="min-h-0 flex-1 overflow-auto px-2 pb-2">
         {isLoading && <div className="px-2 py-2 text-sm text-muted">Loading…</div>}
-        {!isLoading && items.length === 0 && <div className="px-2 py-2 text-sm text-muted">No conversations yet.</div>}
+        {isError && <div className="px-2 py-2"><QueryError message="Could not load messages." onRetry={() => refetch()} /></div>}
+        {!isLoading && !isError && items.length === 0 && <div className="px-2 py-2 text-sm text-muted">No conversations yet.</div>}
         <div className="space-y-0.5">
           {items.map(c => {
             const unread = c.unreadCount > 0;
             return (
               <div key={c.id} className="relative">
-                <Link href={`/dm/${c.id}`} prefetch={false} aria-current={selectedId === c.id ? "page" : undefined} className={clsx("group flex min-h-[52px] items-center gap-2.5 rounded-lg px-2 py-1.5", selectedId === c.id ? "bg-surface" : "hover:bg-surface/70")}>
+                <Link href={`/dm/${c.id}`} prefetch={false} onClick={(e) => { if (pathname.startsWith("/dm/")) { e.preventDefault(); router.replace(`/dm/${c.id}`); } }} aria-current={selectedId === c.id ? "page" : undefined} className={clsx("group flex min-h-[52px] items-center gap-2.5 rounded-lg px-2 py-1.5", selectedId === c.id ? "bg-surface" : "hover:bg-surface/70")}>
                   <span className="relative shrink-0">
                     <RobotAvatar id={c.participant.id} pictureUrl={c.participant.avatarUrl} size={40} online={c.presence === "online"} />
-                    {unread && <CountBadge count={c.unreadCount} className="absolute -right-2 -top-1" />}
+                    {unread && <BadgeCorner><CountBadge count={c.unreadCount} /></BadgeCorner>}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline justify-between gap-2">

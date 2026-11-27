@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { formatUsername, getInitials, plural, pluralWord } from "@square/shared";
 import { useNow } from "@/lib/time";
 import { AngleButton, HexBadge, RobotAvatar } from "@/components/ui/redesign";
+import { HomeFamily } from "./HomeFamily";
 
 // ─── localStorage key ────────────────────────────────────────────────────────
 const DISMISSED_KEY = "square:dismissedPeople";
@@ -222,16 +223,27 @@ export function HomeHub() {
                 )}
               </section>
 
-              {/* Two-column zone */}
-              {(visiblePeople.length > 0 || otherBirthdays.length > 0 || visibleEvents.length > 0) && (
-                <TwoColZone
-                  people={visiblePeople}
-                  birthdays={otherBirthdays}
-                  extraBirthdays={extraBirthdays}
-                  events={visibleEvents}
-                  onDismiss={dismiss}
-                />
+              {/* People you may know (full width) */}
+              {visiblePeople.length > 0 && (
+                <section
+                  aria-labelledby="h-people"
+                  style={{ borderRadius: 14, border: "1px solid var(--line)", background: "var(--panel)", overflow: "hidden" }}
+                >
+                  <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid var(--border)" }}>
+                    <h2 id="h-people" style={{ margin: 0, fontFamily: "var(--font-space-grotesk)", fontSize: 16, fontWeight: 600 }}>
+                      People you may know
+                    </h2>
+                  </div>
+                  <div role="list">
+                    {visiblePeople.map((p, i) => (
+                      <PersonRow key={p.id} person={p} onDismiss={dismiss} divider={i < visiblePeople.length - 1} />
+                    ))}
+                  </div>
+                </section>
               )}
+
+              {/* Lower family: Upcoming events + Celebrating today, then New from your school */}
+              <HomeFamily events={events} birthdays={birthdays} newStudents={newStudents} currentUserId={me?.id} />
 
               {/* Interest grid */}
               {interestTiles.length > 0 && (
@@ -251,14 +263,6 @@ export function HomeHub() {
                       qc.invalidateQueries({ queryKey: ["my-communities"] });
                     }).catch(() => {});
                   }} />
-                </section>
-              )}
-
-              {/* New from school */}
-              {newStudents.length > 0 && (
-                <section aria-labelledby="h-new-school">
-                  <SectionHeader id="h-new-school" title="New from your school" />
-                  <NewStudentsRow students={newStudents} />
                 </section>
               )}
             </>
@@ -936,12 +940,17 @@ function DiscoverSkeletons() {
         </div>
       </div>
 
-      {/* two-col */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24 }}>
-        <Sk w="100%" h={360} r={14} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Sk w="100%" h={160} r={14} />
-          <Sk w="100%" h={196} r={14} />
+      {/* two-col: events (7) + birthdays (5), equal height */}
+      <div style={{ display: "grid", gridTemplateColumns: "7fr 5fr", gap: 24 }}>
+        <Sk w="100%" h={204} r={16} />
+        <Sk w="100%" h={204} r={16} />
+      </div>
+
+      {/* new from your school */}
+      <div>
+        <Sk w="30%" h={20} r={6} />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 12, marginTop: 12 }}>
+          {[0, 1, 2, 3].map(i => <Sk key={i} w="100%" h={140} r={12} />)}
         </div>
       </div>
 

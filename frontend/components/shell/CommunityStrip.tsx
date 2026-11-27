@@ -38,7 +38,7 @@ export function CommunityStrip() {
           className="relative flex h-12 w-12 items-center justify-center"
         >
           <span className="relative">
-            <HexBadge label="Square home" initials="S" active={isHub} unread={unread?.unread || 0} size={52} />
+            <HexBadge label="Square home" imageSrc="/logo-mark.png" active={isHub} unread={unread?.unread || 0} size={52} />
           </span>
         </Link>
 

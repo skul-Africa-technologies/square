@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useBack } from "@/lib/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatUsername, getInitials, plural, pluralWord } from "@square/shared";
@@ -132,6 +133,7 @@ function completionItems(u: User | null): { label: string; done: boolean; link?:
 export function ProfileView({ username }: { username: string }) {
   const clean = username.replace(/^#/, "");
   const router = useRouter();
+  const back = useBack();
   const searchParams = useSearchParams();
   const qc = useQueryClient();
   const [tab, setTab] = useState(searchParams.get("tab") || "about");
@@ -207,7 +209,7 @@ export function ProfileView({ username }: { username: string }) {
     <div data-testid="profile-page" className="min-h-[100dvh] flex flex-col">
       {/* Mobile header bar (56px): back arrow, #username, menu */}
       <header className="flex h-14 items-center gap-2 px-4 border-b border-border/60 bg-bg-2 backdrop-blur z-20 shrink-0 md:hidden">
-        <button type="button" onClick={() => router.back()} className="flex h-10 w-10 items-center justify-center rounded-lg text-muted hover:bg-surface hover:text-text">
+        <button type="button" onClick={back} className="flex h-10 w-10 items-center justify-center rounded-lg text-muted hover:bg-surface hover:text-text">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg>
         </button>
         <h1 className="font-heading text-base font-semibold truncate min-w-0">{formatUsername(data.username)}</h1>
