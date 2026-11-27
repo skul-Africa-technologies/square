@@ -21,11 +21,14 @@ import { PlatformController } from "./platform.controller";
 import { ConversationController } from "./conversation.controller";
 import { ContentController } from "./content.controller";
 import { ModerationController } from "./moderation.controller";
+import { ReputationController } from "./reputation.controller";
+import { ReputationService } from "./reputation.service";
+import { loadScoringConfig, SCORING_CONFIG, type ScoringConfig } from "./reputation.config";
 
 const config = parseBackendConfig(process.env);
 
 @Module({
-  controllers: [HealthController, GatewayController, IdentityController, PlatformController, ConversationController, ContentController, ModerationController, ReactionsController],
+  controllers: [HealthController, GatewayController, IdentityController, PlatformController, ConversationController, ContentController, ModerationController, ReactionsController, ReputationController],
   providers: [
     { provide: BACKEND_CONFIG, useValue: config },
     { provide: DatabaseService, useFactory: () => new DatabaseService(config) },
@@ -36,6 +39,12 @@ const config = parseBackendConfig(process.env);
       inject: [RedisService],
     },
     ReactionsService,
+    { provide: SCORING_CONFIG, useFactory: () => loadScoringConfig() },
+    {
+      provide: ReputationService,
+      useFactory: (config: ScoringConfig) => new ReputationService(config),
+      inject: [SCORING_CONFIG],
+    },
     ReactionsScheduler,
     {
       provide: OutboxRelay,

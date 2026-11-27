@@ -12,6 +12,7 @@ import type { Profile } from "@/lib/api/types";
 import Image from "next/image";
 import clsx from "clsx";
 import { PresenceDot } from "@/components/shell/PresenceDot";
+import { RankBadge } from "@/components/rank/RankBadge";
 
 const PROFILE_TABS: { key: string; label: string; icon: string; count?: number }[] = [
   { key: "about", label: "About", icon: "user" },
@@ -159,6 +160,13 @@ export function ProfileView({ username }: { username: string }) {
     staleTime: 30_000,
     enabled: !!clean && tab === "activity",
   });
+  const rankQuery = useQuery({
+    queryKey: ["rank-key", isOwn ? "me" : clean],
+    queryFn: async () => (isOwn ? (await api.getMyRank()).rank : (await api.getPublicRank(clean)).rank),
+    enabled: !!clean,
+    staleTime: 60_000,
+  });
+  const rankKey = rankQuery.data;
 
   const msg = useMutation({
     mutationFn: () => api.getOrCreateConversation(clean),
@@ -225,7 +233,7 @@ export function ProfileView({ username }: { username: string }) {
             <HeaderCard
               data={data} relations={relations} canMessage={canMessage} joinedStr={joinedStr}
               interests={interests} moreInterests={moreInterests} msg={msg} block={block} report={report}
-              isOwn={isOwn} me={me} comp={comp} compPct={compPct} onSetTab={onSetTab}
+              isOwn={isOwn} me={me} comp={comp} compPct={compPct} onSetTab={onSetTab} rankKey={rankKey}
             />
           </section>
           <div data-testid="profile-tabs" className="relative">
@@ -265,10 +273,11 @@ function dataUsernameEquals(a: string, b: string): boolean {
 }
 
 /* ── Desktop header card ── */
-function HeaderCard({ data, relations, canMessage, joinedStr, interests, moreInterests, msg, block, report, isOwn, me, comp, compPct, onSetTab }: {
+function HeaderCard({ data, relations, canMessage, joinedStr, interests, moreInterests, msg, block, report, isOwn, me, comp, compPct, onSetTab, rankKey }: {
   data: Profile; relations: any; canMessage: boolean; joinedStr: string;
   interests: string[]; moreInterests: number; msg: any; block: any; report: any;
   isOwn: boolean; me: User | undefined; comp: any[]; compPct: number; onSetTab: (k: string) => void;
+  rankKey?: string;
 }) {
   const router = useRouter();
   const [shareOpen, setShareOpen] = useState(false);
@@ -319,6 +328,13 @@ function HeaderCard({ data, relations, canMessage, joinedStr, interests, moreInt
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-3 mb-1">
               <h1 className={clsx("font-heading text-lg md:text-[28px] font-semibold leading-tight truncate", usernameColor)}>{formatUsername(data.username)}</h1>
+              {rankKey && (isOwn ? (
+                <Link href="/profile/rank" className="shrink-0" aria-label="View your rank">
+                  <RankBadge rankKey={rankKey} size={26} />
+                </Link>
+              ) : (
+                <RankBadge rankKey={rankKey} size={26} />
+              ))}
               {data.birthdayToday && <span className="text-[20px] md:text-[24px]" aria-label="Birthday today">🎂</span>}
             </div>
             <div className="flex flex-wrap gap-2 mt-1">

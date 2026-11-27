@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Square: profile redesign</title>
+<style>
+:root{--pg:#eef2ef;--tx:#17201b;--mu:#5b6a61;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--pg:#070a09;--tx:#e6ece8;--mu:#8a978f}}
+:root[data-theme="dark"]{--pg:#070a09;--tx:#e6ece8;--mu:#8a978f}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--pg);color:var(--tx);font:15px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;padding:28px 16px 48px}
+h1{font-size:20px;font-weight:600;margin:0 0 4px}
+p.sub{margin:0 0 16px;color:var(--mu);max-width:64ch}
+.sw{display:flex;gap:6px;justify-content:center;margin-bottom:16px}
+.sw button{border:1px solid var(--mu);background:none;color:var(--mu);font:inherit;font-size:13px;padding:5px 14px;border-radius:10px;cursor:pointer}
+.sw button[aria-pressed="true"]{background:#38c0ff;border-color:#38c0ff;color:#06222f;font-weight:700}
+.sw button:focus-visible{outline:2px solid #38c0ff;outline-offset:2px}
+.phone{--bg:#0a0e0c;--panel:#0f1512;--line:#222c27;--g:#a6ff1a;--b:#38c0ff;--t:#e6ece8;--m:#7f8c85;background:var(--bg);color:var(--t);font-size:13px;width:360px;max-width:100%;height:720px;border-radius:40px;border:9px solid #1d2420;display:grid;grid-template-rows:28px 1fr;overflow:hidden;margin:0 auto}
+.sb{display:flex;justify-content:space-between;padding:9px 24px 0;font-size:12px;font-weight:600}
+.mb{display:grid;grid-template-columns:62px 1fr;min-height:0;background:#080b09}
+.rail{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 0}
+.rail .sep{width:30px;height:1px;background:var(--line);margin:3px 0}
+.rail .grow{flex:1}
+.hex{width:42px;height:47px;border:0;background:none;padding:0;cursor:pointer}
+.hex svg{width:100%;height:100%;display:block}
+.hex:focus-visible{outline:2px solid var(--b);outline-offset:2px;border-radius:10px}
+.mc{background:var(--panel);display:flex;flex-direction:column;min-height:0;border-top-left-radius:26px;border-top:1.5px solid var(--b);border-left:1.5px solid var(--b);overflow:hidden}
+.hd{display:flex;align-items:center;gap:8px;padding:13px 14px 10px}
+.hd button{border:0;background:#18211c;color:var(--t);width:32px;height:32px;border-radius:10px;cursor:pointer;display:grid;place-items:center}
+.hd button:focus-visible{outline:2px solid var(--b)}
+.hd b{font-size:15px}
+.scr{flex:1;overflow-y:auto;scrollbar-width:none;padding-bottom:18px}
+.scr::-webkit-scrollbar{display:none}
+.ban{height:92px;background:#14201a;position:relative;margin:0 12px;border-radius:16px;overflow:hidden}
+.ban svg{position:absolute;inset:0;width:100%;height:100%}
+.pr{display:flex;justify-content:space-between;align-items:flex-start;padding:0 14px;margin-top:-46px;position:relative}
+.av{position:relative;width:88px;height:99px;flex:none}
+.av svg{width:100%;height:100%;display:block}
+.av .dot{position:absolute;right:8px;bottom:12px;width:15px;height:15px;border-radius:50%;background:var(--b);border:3px solid var(--panel)}
+.act{display:flex;gap:8px;margin-top:54px}
+.btn{border:0;font:inherit;font-weight:700;font-size:13px;padding:10px 16px;background:var(--g);color:#0a0e0c;cursor:pointer;display:flex;align-items:center;gap:6px;clip-path:polygon(8px 0,calc(100% - 8px) 0,100% 8px,100% calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,0 calc(100% - 8px),0 8px)}
+.btn.s{background:#18211c;color:var(--t);padding:10px 12px}
+.btn:focus-visible{outline:2px solid var(--b)}
+.nm{padding:8px 14px 0;font-size:22px;font-weight:700;line-height:1.2}
+.nm i{font-style:normal;color:var(--g)}
+.meta{display:flex;flex-wrap:wrap;gap:6px;padding:8px 14px 0}
+.meta span{display:flex;align-items:center;gap:6px;background:#18211c;color:#aab6af;font-size:12px;padding:4px 10px;border-radius:9px}
+.bio{padding:10px 14px 0;color:var(--m)}
+.bio a{color:var(--g);font-weight:600;cursor:pointer;text-decoration:none}
+.bio a:focus-visible{outline:2px solid var(--b)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:14px 12px 0}
+.stats div{background:#121a16;border:1px solid var(--line);border-radius:12px;padding:9px 4px;text-align:center}
+.stats b{display:block;font-size:17px;color:var(--t)}
+.stats small{color:var(--m);font-size:10px}
+.tabs{display:flex;gap:4px;padding:16px 12px 0;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--line);margin:0 0}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:none;border:0;background:none;color:var(--m);font:inherit;font-size:13px;font-weight:600;padding:8px 11px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:6px}
+.tabs button[aria-selected="true"]{color:var(--t);border-bottom-color:var(--b)}
+.tabs button:focus-visible{outline:2px solid var(--b);outline-offset:-2px}
+.tabs em{font-style:normal;font-size:10px;background:#18211c;color:var(--m);border-radius:8px;padding:0 6px}
+.card{margin:14px 12px 0;background:#121a16;border:1px solid var(--line);border-radius:16px;padding:14px}
+.card h4{margin:0 0 6px;font-size:14px}
+.empty{text-align:center;padding:26px 14px 10px;color:var(--m)}
+.empty svg{width:46px;height:52px;margin-bottom:8px}
+.empty b{display:block;color:var(--t);font-size:14px;margin-bottom:2px}
+</style>
+</head>
+<body>
+<h1>Square: profile redesign</h1>
+<p class="sub">Your profile in the new concept: hex avatar with a robot face, a hex-pattern banner, stat tiles, and the curved blue edge. Switch between your own profile and someone else’s, and tap the tabs.</p>
+<div class="sw" role="group" aria-label="Profile view"><button id="v-me" aria-pressed="true">Your profile</button><button id="v-other" aria-pressed="false">Someone else’s</button></div>
+<div class="phone"><div class="sb"><span>11:35</span><span>4G</span></div>
+<div class="mb"><div class="rail" id="rail"></div>
+<div class="mc"><div class="hd"><button aria-label="Back"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#e6ece8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg></button><b>#max</b></div>
+<div class="scr" id="scr"></div></div></div></div>
+
+<script>
+var PTS='26,3 49,16 49,42 26,55 3,42 3,16',mode='me',tab='overview';
+function logo(){return '<button class="hex" aria-label="Square home"><svg viewBox="0 0 52 58" aria-hidden="true"><polygon points="'+PTS+'" fill="#a6ff1a" stroke="#a6ff1a" stroke-width="2" stroke-linejoin="round"/><path d="M33 20h-9a5 5 0 0 0 0 10h4a2 2 0 0 1 0 4H19" fill="none" stroke="#0a0e0c" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';}
+function rail(){return logo()+'<div class="sep"></div><div class="grow"></div><div class="sep"></div><button class="hex" aria-label="Add community"><svg viewBox="0 0 52 58" aria-hidden="true"><polygon points="'+PTS+'" fill="none" stroke="#3a463f" stroke-dasharray="3 4" stroke-width="1.5" stroke-linejoin="round"/><path d="M26 22v14M19 29h14" stroke="#a6ff1a" stroke-width="2.5" stroke-linecap="round"/></svg></button><button class="hex" aria-label="Explore"><svg viewBox="0 0 52 58" aria-hidden="true"><polygon points="'+PTS+'" fill="#151d19" stroke="#2c3832" stroke-width="1.5" stroke-linejoin="round"/><circle cx="26" cy="29" r="7" fill="none" stroke="#a6ff1a" stroke-width="2"/><path d="M29 26l-1.5 4.5-4.5 1.5 1.5-4.5z" fill="#a6ff1a"/></svg></button>';}
+function avatar(){var c='#38c0ff';
+  return '<div class="av"><svg viewBox="0 0 52 58" role="img" aria-label="Robot avatar for max"><defs><clipPath id="hc"><polygon points="'+PTS+'"/></clipPath></defs><polygon points="'+PTS+'" fill="#18211c"/><g clip-path="url(#hc)"><svg x="-2" y="3" width="56" height="56" viewBox="0 0 41 41"><path d="M6 41c0-9 6-12 14.5-12s14.5 3 14.5 12z" fill="#e8ecef"/><rect x="9" y="7" width="23" height="21" rx="9.5" fill="#e8ecef"/><rect x="12" y="12" width="17" height="12" rx="6" fill="#0a0e0c"/><path d="M15 19q2.5-4 5 0M21 19q2.5-4 5 0" stroke="'+c+'" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></g><polygon points="'+PTS+'" fill="none" stroke="#a6ff1a" stroke-width="2" stroke-linejoin="round"/></svg><span class="dot"></span></div>';}
+function banner(){return '<div class="ban"><svg viewBox="0 0 300 92" preserveAspectRatio="xMidYMid slice" fill="none" stroke="#a6ff1a" aria-hidden="true"><polygon points="250,-20 290,3 290,49 250,72 210,49 210,3" stroke-opacity=".25" stroke-width="2"/><polygon points="250,6 272,19 272,45 250,58 228,45 228,19" fill="#a6ff1a" fill-opacity=".1" stroke="none"/><polygon points="170,40 190,52 190,76 170,88 150,76 150,52" stroke-opacity=".18" stroke-width="2"/><polygon points="40,-6 60,6 60,30 40,42 20,30 20,6" stroke-opacity=".15" stroke-width="2"/></svg></div>';}
+var ICON={share:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#e6ece8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="3.5" r="2"/><circle cx="4" cy="8" r="2"/><circle cx="12" cy="12.5" r="2"/><path d="M5.8 7l4.4-2.5M5.8 9l4.4 2.5"/></svg>',
+ edit:'<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#0a0e0c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 14l1-4 8-8 3 3-8 8z"/></svg>',
+ msg:'<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#0a0e0c" stroke-width="2" stroke-linejoin="round"><path d="M2 3h12v8H7l-3 3v-3H2z"/></svg>',
+ school:'<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#7f8c85" stroke-width="1.6" stroke-linejoin="round"><path d="M1 6l7-4 7 4-7 4zM4 8v4c2 1.500 6 1.500 8 0V8"/></svg>',
+ cal:'<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#7f8c85" stroke-width="1.6" stroke-linejoin="round"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 7h12M5 1v3M11 1v3"/></svg>'};
+var TABS=[['overview','Overview'],['people','People'],['awards','Awards',0],['badges','Badges',0],['clubs','Clubs']];
+var EMPTY={people:['No connections yet','People you chat with and follow will show up here.'],awards:['No awards yet','Awards earned in communities will show up here.'],badges:['No badges yet','Badges you collect will show up here.'],clubs:['No communities joined','Communities you join will show up here.']};
+function empty(t){return '<div class="empty"><svg viewBox="0 0 52 58" aria-hidden="true"><polygon points="'+PTS+'" fill="none" stroke="#2c3832" stroke-width="2" stroke-dasharray="4 4" stroke-linejoin="round"/></svg><b>'+EMPTY[t][0]+'</b>'+EMPTY[t][1]+'</div>';}
+function draw(){
+  var me=mode==='me',body;
+  if(tab==='overview')body='<div class="card"><h4>About me</h4><div class="mut" style="color:#7f8c85">'+(me?'You haven’t written anything yet. Tell people what you’re working on.':'This person hasn’t written an about section yet.')+'</div></div>'+empty('clubs');
+  else body=empty(tab);
+  document.getElementById('scr').innerHTML=banner()+
+  '<div class="pr">'+avatar()+'<div class="act">'+(me?'<button class="btn">'+ICON.edit+'Edit profile</button>':'<button class="btn">'+ICON.msg+'Message</button>')+'<button class="btn s" aria-label="Share profile">'+ICON.share+'</button></div></div>'+
+  '<div class="nm"><i>#</i>max</div>'+
+  '<div class="meta"><span>'+ICON.school+'FUT Minna</span><span>'+ICON.cal+'Joined Nov 2026</span></div>'+
+  '<div class="bio">No bio yet.'+(me?' <a role="button" tabindex="0">Add a bio</a>':'')+'</div>'+
+  '<div class="stats"><div><b>0</b><small>Communities</small></div><div><b>0</b><small>Badges</small></div><div><b>0</b><small>Projects</small></div><div><b>Nov ’26</b><small>Joined</small></div></div>'+
+  '<div class="tabs" role="tablist">'+TABS.map(function(t){return '<button role="tab" data-t="'+t[0]+'" aria-selected="'+(t[0]===tab)+'">'+t[1]+(t[2]!==undefined?'<em>'+t[2]+'</em>':'')+'</button>';}).join('')+'</div>'+body;
+  document.querySelectorAll('.tabs button').forEach(function(b){b.onclick=function(){tab=b.dataset.t;draw();};});
+}
+document.getElementById('rail').innerHTML=rail();
+['me','other'].forEach(function(m){document.getElementById('v-'+m).onclick=function(){mode=m;document.getElementById('v-me').setAttribute('aria-pressed',m==='me');document.getElementById('v-other').setAttribute('aria-pressed',m==='other');draw();};});
+draw();
+</script>
+</body>
+</html>

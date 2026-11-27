@@ -1,7 +1,12 @@
 import type { ApiClient, Profile, UploadSignRequest, UploadSignResponse } from "./types";
 import { ClientApiError } from "./errors";
 import { withTimeout } from "./timeout";
-import { ADD_ASSET_ROLES, ASSET_CATALOG, ASSET_CATEGORY_ORDER, DEFAULT_ASSETS, getAssetCatalogEntry } from "@square/shared";
+import { ADD_ASSET_ROLES, ASSET_CATALOG, ASSET_CATEGORY_ORDER, DEFAULT_ASSETS, getAssetCatalogEntry, RANKS } from "@square/shared";
+
+const MOCK_MIN_XP: Record<string, number> = {
+  nobis: 0, node: 100, byte: 300, pixel: 650, pioneer: 1400, sentinel: 2200, validator: 3200,
+  protocol: 4500, nexus: 6000, overclock: 8000, quantum: 11000, sovereign: 20000, infinity: 50000,
+};
 import {
   authRequestCodeRequestSchema,
   authRequestCodeResponseSchema,
@@ -910,6 +915,72 @@ export const mockApi: ApiClient = withTimeout({
   async sharedCommunities(username) {
     await delay(80);
     return communitiesState.filter(c => roleFor(c.id, username) && roleIn(c.id)).map(withCommunityState);
+  },
+
+  async getPublicRank(username) {
+    await delay(60);
+    const u = users.find(x => x.username === username);
+    if (!u) throw new ClientApiError({ code: "NOT_FOUND", message: "User not found" });
+    let h = 0;
+    for (let i = 0; i < username.length; i++) h = (h * 31 + username.charCodeAt(i)) | 0;
+    const idx = Math.abs(h) % RANKS.length;
+    return { rank: RANKS[idx].key };
+  },
+  async getMyRank() {
+    await delay(80);
+    const me = RANKS[4];
+    const next = RANKS[5];
+    const meMin = MOCK_MIN_XP[me.key] ?? 0;
+    const nextMin = MOCK_MIN_XP[next.key] ?? meMin + 100;
+    const into = 340;
+    const span = nextMin - meMin;
+    return {
+      rank: me.key,
+      position: me.position,
+      xpTotal: meMin + into,
+      currentRankMinXp: meMin,
+      nextRank: next.key,
+      nextRankMinXp: nextMin,
+      xpToNext: Math.max(0, nextMin - (meMin + into)),
+      progressPercent: span <= 0 ? 100 : Math.max(0, Math.min(100, Math.round((into / span) * 100))),
+      isMaxRank: false,
+      achievedAt: null,
+      frozen: false,
+    };
+  },
+  async getMyRankHistory() {
+    await delay(60);
+    return {
+      history: [
+        { rank: "node", achievedAt: "2026-01-10T12:00:00.000Z", xpAtTime: 100 },
+        { rank: "nobis", achievedAt: "2025-12-01T12:00:00.000Z", xpAtTime: 0 },
+      ],
+    };
+  },
+  async getMyRankActivity() {
+    await delay(60);
+    return {
+      activity: [
+        { id: "e1", source: "message", label: "Message", xp: 1, createdAt: "2026-02-01T10:00:00.000Z", revoked: false },
+        { id: "e2", source: "reaction", label: "Reaction", xp: 1, createdAt: "2026-02-01T09:00:00.000Z", revoked: false },
+      ],
+    };
+  },
+  async getMyRankRequirements() {
+    await delay(60);
+    return {
+      nextRank: "byte",
+      xpRemaining: 180,
+      ways: [
+        { source: "message", label: "Message", perEventXp: 1, dailyCap: 20, usedToday: 4 },
+        { source: "reply", label: "Reply", perEventXp: 2, dailyCap: 20, usedToday: 0 },
+        { source: "reaction", label: "Reaction", perEventXp: 1, dailyCap: 30, usedToday: 2 },
+      ],
+    };
+  },
+  async markRankSeen() {
+    await delay(40);
+    return { rank: "pioneer" };
   },
 
   // PROPOSED: not in backend doc

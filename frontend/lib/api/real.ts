@@ -28,6 +28,8 @@ import {
   usernameAvailableQuerySchema,
   usernameAvailableResponseSchema,
   unreadSummarySchema,
+  rankHistoryItemSchema,
+  rankActivityItemSchema,
 } from "@square/shared";
 
 let refreshInFlight: Promise<boolean> | undefined;
@@ -244,6 +246,19 @@ export const realApi: ApiClient = {
   getProfileBadges: (username) => req(`/u/${encodeURIComponent(username)}/badges`),
   // PROPOSED: not in backend doc
   sharedCommunities: (username) => req(`/u/${encodeURIComponent(username)}/shared-communities`),
+
+  getPublicRank: (username) => req(`/users/${encodeURIComponent(username)}/rank`),
+  getMyRank: () => req(`/me/rank`),
+  getMyRankHistory: async () => {
+    const body = await req<{ history: unknown }>(`/me/rank/history`);
+    return { history: (body.history as unknown[]).map((h) => rankHistoryItemSchema.parse(h)) };
+  },
+  getMyRankActivity: async () => {
+    const body = await req<{ activity: unknown }>(`/me/rank/activity`);
+    return { activity: (body.activity as unknown[]).map((a) => rankActivityItemSchema.parse(a)) };
+  },
+  getMyRankRequirements: () => req(`/me/rank/requirements`),
+  markRankSeen: () => req(`/me/rank/seen`, { method: "POST" }),
 
   // PROPOSED: not in backend doc
   listConversations: () => req(`/me/conversations`),

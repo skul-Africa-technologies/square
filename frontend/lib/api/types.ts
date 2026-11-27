@@ -2,7 +2,8 @@ import type {
   Asset, AssetCatalogEntry, AssetCategoryGroup, AssetItem, AssetPermissions, Activity, AuthRequestCodeResponse, AuthSignupRequest, AuthSignupResponse, AuthVerifyCodeResponse,
   AuthSession, Badge, BlockedUser, Campaign, Community, CommunityDetail, CommunityMembers, Conversation, DirectMessage, DiscoverResponse, ExploreCommunity, MentionRecord, MentionScope, MentionableMember,
   Paginated, Post, PresenceStatus, Project, ReactionScope, ReactionStreamEvent, ReactionSummary, ReactionUser, ReplyPreview, School,
-  SearchResults, SearchSuggested, User
+  SearchResults, SearchSuggested, User,
+  PublicRank, MeRank, RankHistoryItem, RankActivityItem, RankRequirements, RankSeen
 } from "@square/shared";
 
 export interface UploadSignRequest { kind: "avatar" | "banner" | "post-media" }
@@ -112,6 +113,13 @@ export interface ApiClient {
   getProfileBadges(username: string): Promise<Badge[]>;
   // PROPOSED: not in backend doc
   sharedCommunities(username: string): Promise<Community[]>;
+
+  getPublicRank(username: string): Promise<PublicRank>;
+  getMyRank(): Promise<MeRank>;
+  getMyRankHistory(): Promise<{ history: RankHistoryItem[] }>;
+  getMyRankActivity(): Promise<{ activity: RankActivityItem[] }>;
+  getMyRankRequirements(): Promise<RankRequirements>;
+  markRankSeen(): Promise<RankSeen>;
 
   // PROPOSED: not in backend doc
   listConversations(): Promise<Conversation[]>;
